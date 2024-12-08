@@ -1,0 +1,56 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+
+[project]
+authors = [{ name = "liu xue yan", email = "liu_xue_yan@foxmail.com" }]
+description = "A library represents emoji sequences and characters in Unicode® Technical Standard #51 Data Files"
+name = "emoji-data"
+readme = "README.md"
+
+requires-python = ">=3.8"
+
+dependencies = ["importlib-resources; python_version<'3.9'"]
+
+keywords = ["redis", "cache"]
+
+license = { text = "AGPLv3+" }
+
+classifiers = [
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+  "Development Status :: 1 - Planning",
+  # "Development Status :: 2 - Pre-Alpha",
+  # "Development Status :: 3 - Alpha",
+  # "Development Status :: 4 - Beta",
+  # "Development Status :: 5 - Production/Stable",
+  # "Development Status :: 6 - Mature",
+  # "Development Status :: 7 - Inactive",
+  "Intended Audience :: Developers",
+  "Topic :: Text Processing",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+dynamic = ["version"]
+
+# [project.urls]
+# homepage = "https://github.com/tanbro/emoji-data"
+# repository = "https://github.com/tanbro/emoji-data.git"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"redcache.data" = ["redcache/templates/lua/*.lua", "redcache/py.typed"]
+
+[tool.setuptools_scm]
+write_to = "src/emoji_data/_version.py"
