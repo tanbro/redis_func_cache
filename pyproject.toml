@@ -4,13 +4,18 @@ requires = ["setuptools>=64", "setuptools-scm>=8"]
 
 [project]
 authors = [{ name = "liu xue yan", email = "liu_xue_yan@foxmail.com" }]
-description = "A library represents emoji sequences and characters in Unicode® Technical Standard #51 Data Files"
-name = "emoji-data"
+description = ""
+name = "redcache"
 readme = "README.md"
 
 requires-python = ">=3.8"
 
-dependencies = ["importlib-resources; python_version<'3.9'"]
+dependencies = [
+  "redis",
+  "importlib-resources; python_version<'3.9'",
+  "typing-extensions; python_version<'3.12'",
+]
+
 
 keywords = ["redis", "cache"]
 
@@ -26,7 +31,7 @@ classifiers = [
   # "Development Status :: 6 - Mature",
   # "Development Status :: 7 - Inactive",
   "Intended Audience :: Developers",
-  "Topic :: Text Processing",
+  # "Topic :: Text Processing",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
@@ -46,11 +51,15 @@ dynamic = ["version"]
 # homepage = "https://github.com/tanbro/emoji-data"
 # repository = "https://github.com/tanbro/emoji-data.git"
 
+[project.optional-dependencies]
+hiredis = ["hiredis"]
+
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"redcache.data" = ["redcache/templates/lua/*.lua", "redcache/py.typed"]
+"redcache.data" = ["redcache/lua/*.lua", "redcache/py.typed"]
 
 [tool.setuptools_scm]
-write_to = "src/emoji_data/_version.py"
+write_to = "src/redcache/_version.py"
