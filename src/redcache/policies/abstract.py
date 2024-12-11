@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 
 from ..types import AbstractPolicy
 
-__all__ = ["SinglePolicy"]
+__all__ = ["AbstractSinglePolicy"]
 
 
-class SinglePolicy(AbstractPolicy):
+class AbstractSinglePolicy(AbstractPolicy):
     """An abstract policy class for single sorted-set/hash-map key pair."""
 
     __name__: str

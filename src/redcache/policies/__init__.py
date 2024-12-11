@@ -1,3 +1,5 @@
+from .fifo import FifoPolicy
+from .lfu import LfuPolicy
 from .lru import LruPolicy
 from .mru import MruPolicy
-from .rand import RandPolicy
+from .rr import RrPolicy

@@ -12,16 +12,16 @@ else:  # pragma: no cover
     from typing import override
 
 from ..mixins import Md5HashMixin
-from .single import SinglePolicy
+from .abstract import AbstractSinglePolicy
 
 __all__ = ["MruPolicy"]
 
 
-class MruPolicy(Md5HashMixin, SinglePolicy):
+class MruPolicy(Md5HashMixin, AbstractSinglePolicy):
     """All functions are cached in a sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
 
     __name__ = "mru"
-    __scripts__ = "ru_get.lua", "ru_put.lua"
+    __scripts__ = "lm_ru_get.lua", "lm_ru_put.lua"
 
     @override
     def calculate_ext_args(
