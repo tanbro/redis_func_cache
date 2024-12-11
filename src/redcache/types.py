@@ -35,33 +35,32 @@ class RedCache:
         retval_serializer: Optional[Callable[[Any], Union[bytes, str]]] = None,
         retval_deserializer: Optional[Callable[[Union[bytes, str]], Any]] = None,
     ):
+        """
+        Args:
+            name: The name of the cache manager.
+            policy: The class for the caching policy, which must inherit from AbstractPolicy.
+            prefix: The prefix for cache keys. If not provided, the default value will be used.
+            redis_client: An instance of the Redis client, default is None.
+            redis_factory: A factory function to generate an instance of the Redis client, default is None.
+            maxsize: The maximum size of the cache. If not provided, the default value will be used. Zero or negative values means no limit.
+            ttl: The time-to-live (in seconds) for cache items. If not provided, the default value will be used. Zero or negative values means no set ttl.
+            retval_serializer: A function to serialize cache items, default/`None` is meth:`json.dumps`.
+            retval_deserializer: A function to deserialize cache items, default/`None` is meth:`json.loads`.
+        """
         self._name = name
         self._policy_type = policy
         self._policy_instance: Optional[AbstractPolicy] = None
         self._prefix = prefix or DEFAULT_PREFIX
         if redis is None and redis_factory is None:
-            raise ValueError("Either `redis_client` or `redis_factory` must be provided.")
+            raise ValueError("Either `redis` or `redis_factory` is required.")
         if redis is not None and redis_factory is not None:
-            raise ValueError("Only one of `redis_client` and `redis_factory` could be be provided.")
+            raise ValueError("Only one of `redis` and `redis_factory` could be provided.")
         self._redis = redis
         self._redis_factory = redis_factory
         self._maxsize = maxsize
         self._ttl = ttl
         self._user_retval_serializer = retval_serializer
         self._user_retval_deserializer = retval_deserializer
-
-    """
-    Args:
-        name: The name of the cache manager.
-        policy: The class for the caching policy, which must inherit from AbstractPolicy.
-        prefix: The prefix for cache keys. If not provided, the default prefix will be used.
-        redis_client: An instance of the Redis client, default is None.
-        redis_factory: A factory function to generate an instance of the Redis client, default is None.
-        maxsize: The maximum size of the cache. If not provided, the default prefix will be used. Zero or negative values means no limit.
-        ttl: The time-to-live (in seconds) for cache items. If not provided, the default prefix will be used. Zero or negative values means no set ttl.
-        retval_serializer: A function to serialize cache items, default is None.
-        retval_deserializer: A function to deserialize cache items, default is None.
-    """
 
     @property
     def name(self) -> str:
