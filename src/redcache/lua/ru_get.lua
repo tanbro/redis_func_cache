@@ -17,7 +17,9 @@ elseif rnk ~= nil and retval == nil then
     redis.call('ZREM', zset_key, hash)
 end
 
-redis.call('EXPIRE', zset_key, ttl)
-redis.call('EXPIRE', hmap_key, ttl)
+if tonumber(ttl) > 0 then
+    redis.call('EXPIRE', zset_key, ttl)
+    redis.call('EXPIRE', hmap_key, ttl)
+end
 
 return retval

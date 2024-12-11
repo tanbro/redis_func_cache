@@ -11,6 +11,7 @@ from redis import Redis
 from redis.commands.core import Script
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX
+from .utils import read_lua_file
 
 if TYPE_CHECKING:
     from redis.typing import EncodableT, KeyT
@@ -49,6 +50,19 @@ class RedCache:
         self._user_retval_serializer = retval_serializer
         self._user_retval_deserializer = retval_deserializer
 
+    """
+    Args:
+        name: The name of the cache manager.
+        policy: The class for the caching policy, which must inherit from AbstractPolicy.
+        prefix: The prefix for cache keys. If not provided, the default prefix will be used.
+        redis_client: An instance of the Redis client, default is None.
+        redis_factory: A factory function to generate an instance of the Redis client, default is None.
+        maxsize: The maximum size of the cache. If not provided, the default prefix will be used. Zero or negative values means no limit.
+        ttl: The time-to-live (in seconds) for cache items. If not provided, the default prefix will be used. Zero or negative values means no set ttl.
+        retval_serializer: A function to serialize cache items, default is None.
+        retval_deserializer: A function to deserialize cache items, default is None.
+    """
+
     @property
     def name(self) -> str:
         return self._name
@@ -59,7 +73,7 @@ class RedCache:
 
     @property
     def policy(self) -> AbstractPolicy:
-        """**Instance NOT type/class** of the policy"""
+        """**It returns an instance, NOT type/class**"""
         if self._policy_instance is None:
             self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
@@ -95,7 +109,7 @@ class RedCache:
             get_script, put_script = self.policy.lua_scripts
             keys = self.policy.calculate_keys(f, f_args, f_kwargs)
             hash = self.policy.calculate_hash(f, f_args, f_kwargs)
-            ext_args = self.policy.calculate_ext_args(f, f_args, f_kwargs) or tuple()
+            ext_args = self.policy.calculate_ext_args(f, f_args, f_kwargs) or ()
             # 读取缓存
             cached_retval = get_script(keys=keys, args=chain((self.ttl, hash), ext_args))
             if isawaitable(cached_retval):
@@ -121,6 +135,8 @@ class RedCache:
 
 
 class AbstractPolicy:
+    __scripts__: Tuple[str, str]
+
     def __init__(self, cache: weakref.CallableProxyType[RedCache]):
         self._cache = cache
         self._lua_scripts: Optional[Tuple[Script, Script]] = None
@@ -132,27 +148,31 @@ class AbstractPolicy:
         """
         return self._cache  # type: ignore
 
-    @property
-    def lua_scripts(self) -> Tuple[Script, Script]:
-        if self._lua_scripts is None:
-            rc = self.cache.get_redis_client()
-            self._lua_scripts = tuple(rc.register_script(s) for s in self.read_lua_scripts())  # type: ignore
-        if self._lua_scripts is None:
-            raise RuntimeError("Lua scripts are not initialized.")
-        return self._lua_scripts
-
-    def read_lua_scripts(self) -> Tuple[str, str]:
+    def purge(self) -> Optional[int]:
         raise NotImplementedError()
 
     def calculate_keys(
-        self, f: Callable, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Sequence[KeyT]:
         raise NotImplementedError()
 
-    def calculate_hash(self, f: Callable, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None) -> str:
+    def calculate_hash(
+        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+    ) -> str:
         raise NotImplementedError()
 
     def calculate_ext_args(
-        self, f: Callable, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Optional[Iterable[EncodableT]]:
         return None
+
+    def read_lua_scripts(self) -> Tuple[str, str]:
+        return read_lua_file(self.__scripts__[0]), read_lua_file(self.__scripts__[1])
+
+    @property
+    def lua_scripts(self) -> Tuple[Script, Script]:
+        if self._lua_scripts is None:
+            script_texts = self.read_lua_scripts()
+            rc = self.cache.get_redis_client()
+            self._lua_scripts = rc.register_script(script_texts[0]), rc.register_script(script_texts[1])
+        return self._lua_scripts

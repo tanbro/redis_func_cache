@@ -1,7 +1,13 @@
+import sys
 from inspect import getsource, isfunction, ismethod
-from typing import Any, Callable, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar, Union
 
-__all__ = ["get_fullname", "get_source"]
+if sys.version_info < (3, 9):  # pragma: no cover
+    import importlib_resources
+else:  # pragma: no cover
+    import importlib.resources as importlib_resources
+
+__all__ = ["get_fullname", "get_source", "read_lua_file"]
 
 
 def get_fullname(f: Callable) -> str:
@@ -15,8 +21,12 @@ def get_fullname(f: Callable) -> str:
 T = TypeVar("T")
 
 
-def get_source(o: Any, default: T = None) -> Union[str, T]:
+def get_source(o: Any, default: Optional[T] = None) -> Union[str, T, None]:
     try:
         return getsource(o)
     except (IOError, OSError, TypeError):
         return default
+
+
+def read_lua_file(file: str) -> str:
+    return importlib_resources.files(__package__).joinpath("lua", file).read_text()
