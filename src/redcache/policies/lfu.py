@@ -1,11 +1,11 @@
-from ..mixins import Md5HashMixin
-from .abstract import AbstractSinglePolicy
+from ..mixins.md5hash import Md5HashMixin
+from .base import BaseSinglePolicy
 
 __all__ = ["LfuPolicy"]
 
 
-class LfuPolicy(Md5HashMixin, AbstractSinglePolicy):
-    """All functions are cached in a sorted-set/hash-map pair of redis, with least frequently used eviction policy."""
+class LfuPolicy(Md5HashMixin, BaseSinglePolicy):
+    """All functions are cached in a single sorted-set/hash-map pair of redis, with least frequently used eviction policy."""
 
     __name__ = "lfu"
     __scripts__ = "lfu_get.lua", "lfu_put.lua"

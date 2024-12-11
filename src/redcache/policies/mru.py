@@ -11,14 +11,14 @@ if sys.version_info < (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing import override
 
-from ..mixins import Md5HashMixin
-from .abstract import AbstractSinglePolicy
+from ..mixins.md5hash import Md5HashMixin
+from .base import BaseSinglePolicy
 
 __all__ = ["MruPolicy"]
 
 
-class MruPolicy(Md5HashMixin, AbstractSinglePolicy):
-    """All functions are cached in a sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
+class MruPolicy(Md5HashMixin, BaseSinglePolicy):
+    """All functions are cached in a single sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
 
     __name__ = "mru"
     __scripts__ = "lru_get.lua", "lru_put.lua"

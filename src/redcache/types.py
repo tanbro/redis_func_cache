@@ -28,7 +28,7 @@ class RedCache:
         policy: Optional[Type[AbstractPolicy]] = None,
         *,
         prefix: Optional[str] = None,
-        redis_client: Optional[Redis] = None,
+        redis: Optional[Redis] = None,
         redis_factory: Optional[Callable[[], Redis]] = None,
         maxsize: Optional[int] = None,
         ttl: Optional[int] = None,
@@ -39,11 +39,11 @@ class RedCache:
         self._policy_type = policy
         self._policy_instance: Optional[AbstractPolicy] = None
         self._prefix = prefix or DEFAULT_PREFIX
-        if redis_client is None and redis_factory is None:
+        if redis is None and redis_factory is None:
             raise ValueError("Either `redis_client` or `redis_factory` must be provided.")
-        if redis_client is not None and redis_factory is not None:
+        if redis is not None and redis_factory is not None:
             raise ValueError("Only one of `redis_client` and `redis_factory` could be be provided.")
-        self._redis_client = redis_client
+        self._redis = redis
         self._redis_factory = redis_factory
         self._maxsize = maxsize
         self._ttl = ttl
@@ -86,11 +86,15 @@ class RedCache:
         return self._policy_instance
 
     def get_redis_client(self) -> Redis:
-        if self._redis_client:
-            return self._redis_client
+        if self._redis:
+            return self._redis
         if self._redis_factory:
             return self._redis_factory()
         raise RuntimeError("No redis client or factory provided.")
+
+    @property
+    def redis_client(self) -> Redis:
+        return self.get_redis_client()
 
     @property
     def maxsize(self) -> int:

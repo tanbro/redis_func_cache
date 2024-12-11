@@ -1,11 +1,15 @@
 """Base class for single-pair cache."""
 
-from __future__ import annotations
+import json
 
-from .abstracthash import AbstractHashMixin
+from .abstract import AbstractHashMixin
 
-__all__ = ("Md5HashMixin",)
+__all__ = ("Md5HashMixin", "Md5JsonHashMixin")
 
 
 class Md5HashMixin(AbstractHashMixin):
     __algorithm__ = "md5"
+
+
+class Md5JsonHashMixin(Md5HashMixin):
+    __serializer__ = lambda x: json.dumps(x).encode()  # noqa: E731

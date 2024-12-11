@@ -1,3 +1,3 @@
 DEFAULT_MAXSIZE = 1024
 DEFAULT_TTL = 3600
-DEFAULT_PREFIX = "redcache:"
+DEFAULT_PREFIX = f"{__package__}:"
