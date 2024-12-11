@@ -25,7 +25,7 @@ class RedCache:
     def __init__(
         self,
         name: str,
-        policy: Type[AbstractPolicy],
+        policy: Optional[Type[AbstractPolicy]] = None,
         *,
         prefix: Optional[str] = None,
         redis_client: Optional[Redis] = None,
@@ -71,10 +71,17 @@ class RedCache:
     def prefix(self) -> str:
         return self._prefix
 
+    def set_policy_type(self, policy_type: Type[AbstractPolicy]):
+        if self._policy_instance is not None:
+            raise ValueError("Policy instance already initialized.")
+        self._policy_type = policy_type
+
     @property
     def policy(self) -> AbstractPolicy:
         """**It returns an instance, NOT type/class**"""
         if self._policy_instance is None:
+            if self._policy_type is None:
+                raise ValueError("Policy type must be provided.")
             self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
 

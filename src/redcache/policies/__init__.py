@@ -1,2 +1,3 @@
-from .lru import *
-from .mru import *
+from .lru import LruPolicy
+from .mru import MruPolicy
+from .rand import RandPolicy

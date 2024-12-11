@@ -7,14 +7,15 @@ local hash = ARGV[2]
 local rnk = redis.call('ZRANK', zset_key, hash)
 local retval = redis.call('HGET', hmap_key, hash)
 
-if rnk ~= nil and retval ~= nil then
+if rnk and retval then
     local time = redis.call('TIME')
     redis.call('ZADD', zset_key, time[1] + time[2] / 100000, hash)
-elseif rnk == nil and retval ~= nil then
+elseif rnk then
+    redis.call('ZREM', zset_key, hash)
+    retval = nil
+elseif retval then
     redis.call('HDEL', hmap_key, hash)
     retval = nil
-elseif rnk ~= nil and retval == nil then
-    redis.call('ZREM', zset_key, hash)
 end
 
 if tonumber(ttl) > 0 then

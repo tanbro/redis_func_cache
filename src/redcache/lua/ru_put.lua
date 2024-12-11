@@ -9,13 +9,12 @@ local mode = ARGV[5]
 
 if maxsize > 0 then
     local n = redis.call('ZCARD', zset_key) - maxsize
-    local popped
     while n >= 0 do
-        popped = nil
+        local popped
         if mode == 'lru' then
-            popped = redis.call('ZPOPMIN', zset_key, 1)
+            popped = redis.call('ZPOPMIN', zset_key)
         elseif mode == 'mru' then
-            popped = redis.call('ZPOPMAX', zset_key, 1)
+            popped = redis.call('ZPOPMAX', zset_key)
         else
             error(string.format('unknown mode \"%s\"', mode))
         end
