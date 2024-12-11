@@ -16,7 +16,7 @@ from .utils import read_lua_file
 if TYPE_CHECKING:
     from redis.typing import EncodableT, KeyT
 
-FT = TypeVar("FT", bound=Callable[..., Any])
+FT = TypeVar("FT", bound=Callable)
 
 __all__ = ["RedCache", "AbstractPolicy"]
 
