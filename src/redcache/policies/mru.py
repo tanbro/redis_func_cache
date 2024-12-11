@@ -21,7 +21,7 @@ class MruPolicy(Md5HashMixin, AbstractSinglePolicy):
     """All functions are cached in a sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
 
     __name__ = "mru"
-    __scripts__ = "lm_ru_get.lua", "lm_ru_put.lua"
+    __scripts__ = "lru_get.lua", "lru_put.lua"
 
     @override
     def calculate_ext_args(

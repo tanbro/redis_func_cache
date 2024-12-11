@@ -5,18 +5,20 @@ local maxsize = tonumber(ARGV[1])
 local ttl = ARGV[2]
 local hash = ARGV[3]
 local retval = ARGV[4]
-local mode = ARGV[5]
+
+local is_mru = false
+if #ARGV > 4 then
+    is_mru = (ARGV[5] == 'mru')
+end
 
 if maxsize > 0 then
     local n = redis.call('ZCARD', zset_key) - maxsize
     while n >= 0 do
         local popped
-        if mode == 'lru' then
-            popped = redis.call('ZPOPMIN', zset_key)
-        elseif mode == 'mru' then
+        if is_mru then
             popped = redis.call('ZPOPMAX', zset_key)
         else
-            error(string.format('unknown mode \"%s\"', mode))
+            popped = redis.call('ZPOPMIN', zset_key)
         end
         redis.call('HDEL', hmap_key, popped[1])
         n = n - 1

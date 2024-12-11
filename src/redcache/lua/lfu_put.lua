@@ -14,6 +14,7 @@ if maxsize > 0 then
         n = n - 1
     end
 end
+
 redis.call('ZINCRBY', zset_key, 1, hash)
 redis.call('HSET', hmap_key, hash, retval)
 
