@@ -4,22 +4,29 @@ from unittest import TestCase
 
 from redis import Redis
 
-from redcache import FifoMultiplePolicy, LfuMultiplePolicy, LruMultiplePolicy, MruMultiplePolicy, RedCache, RrMultiplePolicy
+from redcache import (
+    FifoClusterMultiplePolicy,
+    LfuClusterMultiplePolicy,
+    LruClusterMultiplePolicy,
+    MruClusterMultiplePolicy,
+    RedCache,
+    RrClusterMultiplePolicy,
+)
 
 REDIS_URL = "redis://"
 SERIALIZER = pickle.dumps, pickle.loads
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
-    "lru": RedCache(__name__, LruMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "mru": RedCache(__name__, MruMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "rr": RedCache(__name__, RrMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "fifo": RedCache(__name__, FifoMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "lfu": RedCache(__name__, LfuMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "lru": RedCache(__name__, LruClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "mru": RedCache(__name__, MruClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "rr": RedCache(__name__, RrClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "fifo": RedCache(__name__, FifoClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "lfu": RedCache(__name__, LfuClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
 }
 
 
-class MultipleTest(TestCase):
+class ClusterMultipleTest(TestCase):
     def setUp(self):
         for cache in CACHES.values():
             cache.policy.purge()

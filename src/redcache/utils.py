@@ -15,7 +15,7 @@ def get_fullname(f: Callable) -> str:
         return f"{f.__module__}:{f.__qualname__}"
     elif ismethod(f):
         return f"{f.__module__}:{f.__class__}.{f.__qualname__}"
-    raise TypeError(f"Can not calculate keys for {f=}")
+    raise TypeError(f"Can not calculate keys for {f=}")  # pragma: no cover
 
 
 T = TypeVar("T")
@@ -24,8 +24,8 @@ T = TypeVar("T")
 def get_source(o: Any, default: Optional[T] = None) -> Union[str, T, None]:
     try:
         return getsource(o)
-    except (IOError, OSError, TypeError):
-        return default
+    except (IOError, OSError, TypeError):  # pragma: no cover
+        return default  # pragma: no cover
 
 
 def read_lua_file(file: str) -> str:

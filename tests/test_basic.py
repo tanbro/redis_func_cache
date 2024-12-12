@@ -68,6 +68,16 @@ class BasicTest(TestCase):
                     mock_put.assert_not_called()
             self.assertEqual(cache.maxsize, cache.policy.size)
 
+    def test_parenthesis(self):
+        for cache in CACHES.values():
+
+            @cache()
+            def echo(x):
+                return _echo(x)
+
+            for i in range(cache.maxsize):
+                self.assertEqual(_echo(i), echo(i))
+
     def test_oversize(self):
         for cache in CACHES.values():
 

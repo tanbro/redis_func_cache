@@ -118,7 +118,7 @@ class RedCache:
             ext_args = self.policy.calc_ext_args(f, f_args, f_kwargs) or ()
             cached_retval = self.exec_get_script(keys=keys, args=chain((self.ttl, hash), ext_args))
             if isawaitable(cached_retval):
-                raise RuntimeError("cached return value could not be an asynchronous function.")
+                raise RuntimeError("cached return value could not be an asynchronous function.")  # pragma: no cover
             if cached_retval is not None:
                 return self.deserialize_return_value(cached_retval)
             retval = f(*f_args, **f_kwargs)
@@ -133,7 +133,7 @@ class RedCache:
             return self.decorator  # type: ignore
         elif callable(user_function):
             return self.decorator(user_function, **kwargs)  # type: ignore
-        raise TypeError(f"Argument {user_function=} is not callable")
+        raise TypeError(f"Argument {user_function=} is not callable")  # pragma: no cover
 
     __call__ = decorate
 
@@ -165,10 +165,10 @@ class AbstractPolicy:
         return self._lua_scripts
 
     def purge(self) -> Optional[int]:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def get_size(self) -> int:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def size(self) -> int:
@@ -177,12 +177,12 @@ class AbstractPolicy:
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def calc_hash(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> str:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def calc_ext_args(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None

@@ -32,7 +32,7 @@ class AbstractHashMixin:
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> str:
         if not callable(f):
-            raise TypeError(f"Can not calculate hash for {f=}")
+            raise TypeError(f"Can not calculate hash for {f=}")  # pragma: no cover
         h = hashlib.new(self.__algorithm__)
         h.update(get_fullname(f).encode())
         source = get_source(f)
