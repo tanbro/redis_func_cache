@@ -57,8 +57,8 @@ class RedCache:
         self._redis_factory = redis_factory
         self._maxsize = maxsize
         self._ttl = ttl
-        self._user_retval_serializer = serializer[0] if serializer else None
-        self._user_retval_deserializer = serializer[1] if serializer else None
+        self._user_return_value_serializer = serializer[0] if serializer else None
+        self._user_return_value_deserializer = serializer[1] if serializer else None
 
     @property
     def name(self) -> str:
@@ -101,31 +101,36 @@ class RedCache:
     def ttl(self) -> int:
         return DEFAULT_MAXSIZE if self._ttl is None else self._ttl
 
-    def serialize_retval(self, retval: Any) -> Union[bytes, str]:
-        if self._user_retval_serializer:
-            return self._user_retval_serializer(retval)
+    def serialize_return_value(self, retval: Any) -> Union[bytes, str]:
+        if self._user_return_value_serializer:
+            return self._user_return_value_serializer(retval)
         return json.dumps(retval)
 
-    def deserialize_retval(self, data: Union[bytes, str]) -> Any:
-        if self._user_retval_deserializer:
-            return self._user_retval_deserializer(data)
+    def deserialize_return_value(self, data: Union[bytes, str]) -> Any:
+        if self._user_return_value_deserializer:
+            return self._user_return_value_deserializer(data)
         return json.loads(data)
+
+    def exec_get_script(self, keys: Sequence[KeyT], args: Iterable[EncodableT]):
+        return self.policy.lua_scripts[0](keys, args)
+
+    def exec_put_script(self, keys: Sequence[KeyT], args: Iterable[EncodableT]):
+        return self.policy.lua_scripts[1](keys, args)
 
     def decorator(self, f: Callable, /, **kwargs):
         @wraps(f)
         def wrapper(*f_args, **f_kwargs):
-            get, put = self.policy.lua_scripts
             keys = self.policy.calc_keys(f, f_args, f_kwargs)
             hash = self.policy.calc_hash(f, f_args, f_kwargs)
             ext_args = self.policy.calc_ext_args(f, f_args, f_kwargs) or ()
-            cached_retval = get(keys=keys, args=chain((self.ttl, hash), ext_args))
+            cached_retval = self.exec_get_script(keys=keys, args=chain((self.ttl, hash), ext_args))
             if isawaitable(cached_retval):
                 raise RuntimeError("cached return value could not be an asynchronous function.")
             if cached_retval is not None:
-                return self.deserialize_retval(cached_retval)
+                return self.deserialize_return_value(cached_retval)
             retval = f(*f_args, **f_kwargs)
-            retval_ser = self.serialize_retval(retval)
-            put(keys=keys, args=chain((self.maxsize, self.ttl, hash, retval_ser), ext_args))
+            retval_ser = self.serialize_return_value(retval)
+            self.exec_put_script(keys=keys, args=chain((self.maxsize, self.ttl, hash, retval_ser), ext_args))
             return retval
 
         return wrapper
