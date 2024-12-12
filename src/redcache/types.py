@@ -174,6 +174,13 @@ class AbstractPolicy:
     def purge(self) -> Optional[int]:
         raise NotImplementedError()
 
+    def get_size(self) -> int:
+        raise NotImplementedError()
+
+    @property
+    def size(self) -> int:
+        return self.get_size()
+
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:

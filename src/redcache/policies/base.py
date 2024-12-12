@@ -5,6 +5,9 @@ from __future__ import annotations
 import hashlib
 import sys
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence, Tuple
+from weakref import CallableProxyType
+
+from redcache.types import RedCache
 
 if sys.version_info < (3, 12):  # pragma: no cover
     from typing_extensions import override
@@ -28,16 +31,28 @@ class BaseSinglePolicy(AbstractPolicy):
     """
 
     @override
+    def __init__(self, cache: CallableProxyType[RedCache]):
+        super().__init__(cache)
+        self._keys: Optional[tuple[str, str]] = None
+
+    @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
-        k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}"
-        return f"{k}:0", f"{k}:1"
+        if self._keys is None:
+            k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}"
+            self._keys = f"{k}:0", f"{k}:1"
+        return self._keys
 
     @override
     def purge(self) -> int:
         rc = self.cache.get_redis_client()
         return rc.delete(*self.calc_keys())
+
+    @override
+    def get_size(self) -> int:
+        rc = self.cache.get_redis_client()
+        return rc.hlen(self.calc_keys()[1])
 
 
 class BaseClusterSinglePolicy(BaseSinglePolicy):
@@ -51,8 +66,10 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
-        k = f"{self.cache.prefix}{{{self.cache.name}:{self.__key__}}}"
-        return f"{k}:0", f"{k}:1"
+        if self._keys is None:
+            k = f"{self.cache.prefix}{{{self.cache.name}:{self.__key__}}}"
+            self._keys = f"{k}:0", f"{k}:1"
+        return self._keys
 
 
 class BaseMultiplePolicy(AbstractPolicy):

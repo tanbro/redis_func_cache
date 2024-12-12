@@ -1,23 +1,13 @@
-from itertools import chain
-from random import randint
-from time import sleep
+from random import randint, random
 from unittest import TestCase
 from unittest.mock import patch
+from uuid import uuid4
 
 from redis import Redis
 
 from redcache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedCache, RrPolicy
 
-MAXSIZE = 5
-TTL = 5
 REDIS_URL = "redis://"
-
-
-lru_cache = RedCache(__name__, LruPolicy, maxsize=MAXSIZE, redis_factory=lambda: Redis.from_url(REDIS_URL))
-mru_cache = RedCache(__name__, MruPolicy, maxsize=MAXSIZE, redis_factory=lambda: Redis.from_url(REDIS_URL))
-rr_cache = RedCache(__name__, RrPolicy, maxsize=MAXSIZE, redis_factory=lambda: Redis.from_url(REDIS_URL))
-fifo_cache = RedCache(__name__, FifoPolicy, maxsize=MAXSIZE, redis_factory=lambda: Redis.from_url(REDIS_URL))
-lfu_cache = RedCache(__name__, LfuPolicy, maxsize=MAXSIZE, redis_factory=lambda: Redis.from_url(REDIS_URL))
 
 
 def _echo(x):
@@ -25,175 +15,203 @@ def _echo(x):
 
 
 class SimpleTest(TestCase):
+    maxsize = 8
+    redis_factory = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
+    caches = {
+        "lru": RedCache(__name__, LruPolicy, redis_factory=redis_factory, maxsize=maxsize),
+        "mru": RedCache(__name__, MruPolicy, redis_factory=redis_factory, maxsize=maxsize),
+        "rr": RedCache(__name__, RrPolicy, redis_factory=redis_factory, maxsize=maxsize),
+        "fifo": RedCache(__name__, FifoPolicy, redis_factory=redis_factory, maxsize=maxsize),
+        "lfu": RedCache(__name__, LfuPolicy, redis_factory=redis_factory, maxsize=maxsize),
+    }
+
+    def setup(self):
+        for cache in self.caches.values():
+            cache.policy.purge()
+
+    def tearDown(self):
+        for cache in self.caches.values():
+            cache.policy.purge()
+
+    def test_basic(self):
+        for cache in self.caches.values():
+
+            @cache
+            def echo(x):
+                return _echo(x)
+
+            # mock hit
+            for i in range(cache.maxsize):
+                with (
+                    patch.object(cache, "exec_get_script", return_value=cache.serialize_return_value(i)) as mock_get,
+                    patch.object(cache, "exec_put_script") as mock_put,
+                ):
+                    echo(i)
+                    mock_get.assert_called_once()
+                    mock_put.assert_not_called()
+
+            # mock not hit
+            for i in range(cache.maxsize):
+                with (
+                    patch.object(cache, "exec_get_script", return_value=None) as mock_get,
+                    patch.object(cache, "exec_put_script") as mock_put,
+                ):
+                    echo(i)
+                    mock_get.assert_called_once()
+                    mock_put.assert_called_once()
+
+            # first run, fill the cache to max size. then second run, to hit the cache
+            for i in range(cache.maxsize):
+                self.assertEqual(_echo(i), echo(i))
+                self.assertEqual(i + 1, cache.policy.size)
+                with patch.object(cache, "exec_put_script") as mock_put:
+                    self.assertEqual(i, echo(i))
+                    mock_put.assert_not_called()
+            self.assertEqual(cache.maxsize, cache.policy.size)
+
+    def test_oversize(self):
+        for cache in self.caches.values():
+
+            @cache
+            def echo(x):
+                return _echo(x)
+
+            for i in range(cache.maxsize):
+                self.assertEqual(_echo(i), echo(i))
+            self.assertEqual(cache.maxsize, cache.policy.size)
+            # assert not hit
+            with patch.object(cache, "exec_put_script") as mock_put:
+                v = random()
+                self.assertEqual(echo(v), v)
+                mock_put.assert_called_once()
+            # an actual put, then assert max size
+            self.assertEqual(echo(v), v)
+            self.assertEqual(cache.maxsize, cache.policy.size)
+
+    def test_str(self):
+        for cache in self.caches.values():
+
+            @cache
+            def echo(x):
+                return _echo(x)
+
+            size = randint(1, cache.maxsize)
+            values = [uuid4().hex for _ in range(size)]
+            for v in values:
+                self.assertEqual(_echo(v), echo(v))
+            self.assertEqual(size, cache.policy.size)
+            for v in values:
+                self.assertEqual(v, echo(v))
+            self.assertEqual(size, cache.policy.size)
+
     def test_lru(self):
-        cache = lru_cache
+        cache = self.caches["lru"]
 
         @cache
         def echo(x):
             return _echo(x)
 
-        cache.policy.purge()
-
-        for x in range(MAXSIZE + 1):
+        for x in range(self.maxsize):
             self.assertEqual(_echo(x), echo(x))
-            echo(x)
-            self.assertEqual(echo(x), echo(x))
-            with (
-                patch.object(cache, "exec_get_script", return_value=cache.serialize_return_value(x)) as mock_get,
-                patch.object(cache, "exec_put_script") as mock_put,
-            ):
-                self.assertEqual(echo(x), x)
-                mock_get.assert_called_once()
-                mock_put.assert_not_called()
-            with (
-                patch.object(cache, "exec_get_script", return_value=None) as mock_get,
-                patch.object(cache, "exec_put_script") as mock_put,
-            ):
-                echo(x)
-                mock_get.assert_called_once()
-                mock_put.assert_called_once()
-            sleep(0.001)
+
+        echo(self.maxsize)
 
         k0, k1 = cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
         card = rc.zcard(k0)
-        hlen = rc.hlen(k1)
-
-        self.assertEqual(card, hlen)
-        self.assertEqual(card, MAXSIZE)
-
         members = rc.zrange(k0, 0, card - 1)
-        for m in members:
-            self.assertTrue(rc.hexists(k1, m))
-
-        values = [cache.deserialize_return_value(rc.hget(k1, m)) for m in members]  # type: ignore
-        self.assertListEqual(sorted(values), list(range(1, 6)))
+        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        self.assertListEqual(sorted(values), list(range(1, self.maxsize + 1)))
 
     def test_mru(self):
-        cache = mru_cache
-        cache.policy.purge()
+        cache = self.caches["mru"]
 
-        @mru_cache
+        @cache
         def echo(x):
             return _echo(x)
 
-        for x in range(MAXSIZE + 1):
-            for _ in range(2):
-                self.assertEqual(_echo(x), echo(x))
-                self.assertEqual(echo(x), echo(x))
-            sleep(0.001)
+        for x in range(self.maxsize):
+            self.assertEqual(_echo(x), echo(x))
+
+        echo(self.maxsize)
 
         k0, k1 = cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
         card = rc.zcard(k0)
-        hlen = rc.hlen(k1)
-
-        self.assertEqual(card, MAXSIZE)
-        self.assertEqual(card, hlen)
-
         members = rc.zrange(k0, 0, card - 1)
-        for m in members:
-            self.assertTrue(rc.hexists(k1, m))
-
-        values = [cache.deserialize_return_value(rc.hget(k1, m)) for m in members]  # type: ignore
-        self.assertListEqual(
-            sorted(values),
-            list(chain(range(MAXSIZE - 1), (MAXSIZE,))),
-        )
-
-    def test_rr(self):
-        cache = rr_cache
-        cache.policy.purge()
-
-        @rr_cache
-        def echo(x):
-            return _echo(x)
-
-        for x in range(MAXSIZE + 1):
-            for _ in range(2):
-                self.assertEqual(_echo(x), echo(x))
-                self.assertEqual(echo(x), echo(x))
-            sleep(0.001)
-
-        rc = cache.get_redis_client()
-        k0, k1 = cache.policy.calc_keys()
-
-        card = rc.scard(k0)
-        hlen = rc.hlen(k1)
-
-        self.assertEqual(card, hlen)
-
-        for m in rc.smembers(k0):
-            self.assertTrue(rc.hexists(k1, m))
-
-        self.assertEqual(card, MAXSIZE)
+        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        self.assertListEqual(sorted(values), list(range(self.maxsize - 1)) + [self.maxsize])
 
     def test_fifo(self):
-        cache = fifo_cache
-        cache.policy.purge()
+        cache = self.caches["fifo"]
 
-        @fifo_cache
+        @cache
         def echo(x):
             return _echo(x)
 
-        for x in range(MAXSIZE + 1):
-            for _ in range(2):
-                self.assertEqual(_echo(x), echo(x))
-                self.assertEqual(echo(x), echo(x))
-            sleep(0.001)
+        for x in range(self.maxsize):
+            self.assertEqual(_echo(x), echo(x))
+
+        for _ in range(self.maxsize):
+            v = randint(0, self.maxsize - 1)
+            echo(v)
+
+        echo(self.maxsize)
 
         k0, k1 = cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
         card = rc.zcard(k0)
-        hlen = rc.hlen(k1)
-
-        self.assertEqual(card, MAXSIZE)
-        self.assertEqual(card, hlen)
-
         members = rc.zrange(k0, 0, card - 1)
-        for m in members:
-            self.assertTrue(rc.hexists(k1, m))
-
-        values = [cache.deserialize_return_value(rc.hget(k1, m)) for m in members]  # type: ignore
-        self.assertListEqual(
-            sorted(values),
-            list(range(1, MAXSIZE + 1)),
-        )
+        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        self.assertListEqual(sorted(values), list(range(1, self.maxsize)) + [self.maxsize])
 
     def test_lfu(self):
-        cache = lfu_cache
-        cache.policy.purge()
+        cache = self.caches["lfu"]
 
-        @lfu_cache
+        @cache
         def echo(x):
             return _echo(x)
 
-        n_ignore = randint(0, MAXSIZE - 1)
-
-        for x in range(MAXSIZE + 1):
+        for x in range(self.maxsize):
             self.assertEqual(_echo(x), echo(x))
-            if x != n_ignore:
-                self.assertEqual(_echo(x), echo(x))
-            sleep(0.001)
+
+        v = randint(0, self.maxsize - 1)
+        for i in range(self.maxsize):
+            if i != v:
+                echo(i)
+
+        echo(self.maxsize)
 
         k0, k1 = cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
         card = rc.zcard(k0)
-        hlen = rc.hlen(k1)
-
-        self.assertEqual(card, MAXSIZE)
-        self.assertEqual(card, hlen)
-
         members = rc.zrange(k0, 0, card - 1)
-        for m in members:
-            self.assertTrue(rc.hexists(k1, m))
+        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        self.assertListEqual(sorted(values), list(range(0, v)) + list(range(v + 1, self.maxsize + 1)))
 
-        values = [cache.deserialize_return_value(rc.hget(k1, m)) for m in members]  # type: ignore
-        self.assertListEqual(
-            sorted(values),
-            list(chain(range(0, n_ignore), range(n_ignore + 1, MAXSIZE + 1))),
-        )
+    def test_rr(self):
+        cache = self.caches["rr"]
+
+        @cache
+        def echo(x):
+            return _echo(x)
+
+        for x in range(self.maxsize):
+            self.assertEqual(_echo(x), echo(x))
+
+        for _ in range(self.maxsize):
+            v = randint(0, self.maxsize - 1)
+            echo(v)
+
+        echo(self.maxsize)
+
+        k0, k1 = cache.policy.calc_keys()
+        rc = cache.get_redis_client()
+
+        members = rc.smembers(k0)
+        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        self.assertIn(self.maxsize, values)
