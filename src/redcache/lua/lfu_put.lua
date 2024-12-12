@@ -4,7 +4,7 @@ local hmap_key = KEYS[2]
 local maxsize = tonumber(ARGV[1])
 local ttl = ARGV[2]
 local hash = ARGV[3]
-local retval = ARGV[4]
+local return_value = ARGV[4]
 
 if tonumber(ttl) > 0 then
     redis.call('EXPIRE', zset_key, ttl)
@@ -23,6 +23,6 @@ if maxsize > 0 and not redis.call('ZRANK', zset_key, hash) then
 end
 
 redis.call('ZINCRBY', zset_key, 1, hash)
-redis.call('HSET', hmap_key, hash, retval)
+redis.call('HSET', hmap_key, hash, return_value)
 
 return c
