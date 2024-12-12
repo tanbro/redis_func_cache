@@ -6,6 +6,11 @@ local ttl = ARGV[2]
 local hash = ARGV[3]
 local retval = ARGV[4]
 
+if tonumber(ttl) > 0 then
+    redis.call('EXPIRE', zset_key, ttl)
+    redis.call('EXPIRE', hmap_key, ttl)
+end
+
 local is_mru = false
 if #ARGV > 4 then
     is_mru = (ARGV[5] == 'mru')
@@ -28,8 +33,3 @@ end
 local time = redis.call('TIME')
 redis.call('ZADD', zset_key, time[1] + time[2] / 100000, hash)
 redis.call('HSET', hmap_key, hash, retval)
-
-if tonumber(ttl) > 0 then
-    redis.call('EXPIRE', zset_key, ttl)
-    redis.call('EXPIRE', hmap_key, ttl)
-end
