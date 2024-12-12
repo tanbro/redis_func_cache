@@ -10,11 +10,11 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Se
 from redis import Redis
 from redis.commands.core import Script
 
+if TYPE_CHECKING:
+    from redis.typing import EncodableT, EncodedT, KeyT
+
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX
 from .utils import read_lua_file
-
-if TYPE_CHECKING:
-    from redis.typing import EncodableT, KeyT
 
 FT = TypeVar("FT", bound=Callable)
 
@@ -25,14 +25,14 @@ class RedCache:
     def __init__(
         self,
         name: str,
-        policy: Optional[Type[AbstractPolicy]] = None,
+        policy: Type[AbstractPolicy],
         *,
         prefix: Optional[str] = None,
         redis: Optional[Redis] = None,
         redis_factory: Optional[Callable[[], Redis]] = None,
         maxsize: Optional[int] = None,
         ttl: Optional[int] = None,
-        serializer: Union[Tuple[Callable[[Any], Union[bytes, str]], Callable[[Union[bytes, str]], Any]], None] = None,
+        serializer: Union[Tuple[Callable[[Any], EncodedT], Callable[[EncodedT], Any]], None] = None,
     ):
         """
         Args:
@@ -68,17 +68,10 @@ class RedCache:
     def prefix(self) -> str:
         return self._prefix
 
-    def set_policy_type(self, policy_type: Type[AbstractPolicy]):
-        if self._policy_instance is not None:
-            raise ValueError("Policy instance already initialized.")
-        self._policy_type = policy_type
-
     @property
     def policy(self) -> AbstractPolicy:
         """**It returns an instance, NOT type/class**"""
         if self._policy_instance is None:
-            if self._policy_type is None:
-                raise ValueError("Policy type must be provided.")
             self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
 
@@ -101,12 +94,12 @@ class RedCache:
     def ttl(self) -> int:
         return DEFAULT_MAXSIZE if self._ttl is None else self._ttl
 
-    def serialize_return_value(self, retval: Any) -> Union[bytes, str]:
+    def serialize_return_value(self, retval: Any) -> EncodedT:
         if self._user_return_value_serializer:
             return self._user_return_value_serializer(retval)
-        return json.dumps(retval)
+        return json.dumps(retval).encode()
 
-    def deserialize_return_value(self, data: Union[bytes, str]) -> Any:
+    def deserialize_return_value(self, data: EncodedT) -> Any:
         if self._user_return_value_deserializer:
             return self._user_return_value_deserializer(data)
         return json.loads(data)

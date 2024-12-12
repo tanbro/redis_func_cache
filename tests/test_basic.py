@@ -14,7 +14,7 @@ def _echo(x):
     return x
 
 
-class SimpleTest(TestCase):
+class BasicTest(TestCase):
     maxsize = 8
     redis_factory = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
     caches = {
