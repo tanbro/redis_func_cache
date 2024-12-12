@@ -17,7 +17,7 @@ if #ARGV > 4 then
 end
 
 local c = 1
-if maxsize > 0 then
+if maxsize > 0 and not redis.call('ZRANK', zset_key, hash) then
     local n = redis.call('ZCARD', zset_key) - maxsize
     while n >= 0 do
         local popped

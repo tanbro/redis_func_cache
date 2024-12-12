@@ -12,7 +12,7 @@ if tonumber(ttl) > 0 then
 end
 
 local c = 0
-if maxsize > 0 then
+if maxsize > 0 and not redis.call('SISMEMBER', set_key, hash) then
     local n = redis.call('SCARD', set_key) - maxsize
     while n >= 0 do
         local popped = redis.call('SPOP', set_key)
