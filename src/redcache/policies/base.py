@@ -94,6 +94,15 @@ class BaseMultiplePolicy(AbstractPolicy):
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
 
+    @override
+    def purge(self) -> int:
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
+        rc = self.cache.get_redis_client()
+        keys = rc.keys(pat)
+        if keys:
+            return rc.delete(*keys)
+        return 0
+
 
 class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     """Base policy class for multiple sorted-set/hash-map key pairs, with cluster support.

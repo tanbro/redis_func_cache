@@ -97,7 +97,7 @@ class RedCache:
     def serialize_return_value(self, retval: Any) -> EncodedT:
         if self._user_return_value_serializer:
             return self._user_return_value_serializer(retval)
-        return json.dumps(retval).encode()
+        return json.dumps(retval, ensure_ascii=False).encode()
 
     def deserialize_return_value(self, data: EncodedT) -> Any:
         if self._user_return_value_deserializer:
