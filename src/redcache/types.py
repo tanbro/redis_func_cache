@@ -32,20 +32,18 @@ class RedCache:
         redis_factory: Optional[Callable[[], Redis]] = None,
         maxsize: Optional[int] = None,
         ttl: Optional[int] = None,
-        retval_serializer: Optional[Callable[[Any], Union[bytes, str]]] = None,
-        retval_deserializer: Optional[Callable[[Union[bytes, str]], Any]] = None,
+        serializer: Union[Tuple[Callable[[Any], Union[bytes, str]], Callable[[Union[bytes, str]], Any]], None] = None,
     ):
         """
         Args:
             name: The name of the cache manager.
             policy: The class for the caching policy, which must inherit from AbstractPolicy.
             prefix: The prefix for cache keys. If not provided, the default value will be used.
-            redis_client: An instance of the Redis client, default is None.
+            redis: An instance of the Redis client, default is None.
             redis_factory: A factory function to generate an instance of the Redis client, default is None.
             maxsize: The maximum size of the cache. If not provided, the default value will be used. Zero or negative values means no limit.
             ttl: The time-to-live (in seconds) for cache items. If not provided, the default value will be used. Zero or negative values means no set ttl.
-            retval_serializer: A function to serialize cache items, default/`None` is meth:`json.dumps`.
-            retval_deserializer: A function to deserialize cache items, default/`None` is meth:`json.loads`.
+            serializer: Optional serialize/deserialize function pair for return value of what decorated. Default/`None` means to use meth:`json.dumps` and meth:`json.loads`.
         """
         self._name = name
         self._policy_type = policy
@@ -59,8 +57,8 @@ class RedCache:
         self._redis_factory = redis_factory
         self._maxsize = maxsize
         self._ttl = ttl
-        self._user_retval_serializer = retval_serializer
-        self._user_retval_deserializer = retval_deserializer
+        self._user_retval_serializer = serializer[0] if serializer else None
+        self._user_retval_deserializer = serializer[1] if serializer else None
 
     @property
     def name(self) -> str:
@@ -116,20 +114,18 @@ class RedCache:
     def decorator(self, f: Callable, /, **kwargs):
         @wraps(f)
         def wrapper(*f_args, **f_kwargs):
-            get_script, put_script = self.policy.lua_scripts
-            keys = self.policy.calculate_keys(f, f_args, f_kwargs)
-            hash = self.policy.calculate_hash(f, f_args, f_kwargs)
-            ext_args = self.policy.calculate_ext_args(f, f_args, f_kwargs) or ()
-            # 读取缓存
-            cached_retval = get_script(keys=keys, args=chain((self.ttl, hash), ext_args))
+            get, put = self.policy.lua_scripts
+            keys = self.policy.calc_keys(f, f_args, f_kwargs)
+            hash = self.policy.calc_hash(f, f_args, f_kwargs)
+            ext_args = self.policy.calc_ext_args(f, f_args, f_kwargs) or ()
+            cached_retval = get(keys=keys, args=chain((self.ttl, hash), ext_args))
             if isawaitable(cached_retval):
                 raise RuntimeError("cached return value could not be an asynchronous function.")
             if cached_retval is not None:
                 return self.deserialize_retval(cached_retval)
-            # 缓存没有取到值，需执行函数了！
             retval = f(*f_args, **f_kwargs)
-            serialized_retval = self.serialize_retval(retval)
-            put_script(keys=keys, args=chain((self.maxsize, self.ttl, hash, serialized_retval), ext_args))
+            retval_ser = self.serialize_retval(retval)
+            put(keys=keys, args=chain((self.maxsize, self.ttl, hash, retval_ser), ext_args))
             return retval
 
         return wrapper
@@ -158,24 +154,6 @@ class AbstractPolicy:
         """
         return self._cache  # type: ignore
 
-    def purge(self) -> Optional[int]:
-        raise NotImplementedError()
-
-    def calculate_keys(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Sequence[KeyT]:
-        raise NotImplementedError()
-
-    def calculate_hash(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> str:
-        raise NotImplementedError()
-
-    def calculate_ext_args(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Optional[Iterable[EncodableT]]:
-        return None
-
     def read_lua_scripts(self) -> Tuple[str, str]:
         return read_lua_file(self.__scripts__[0]), read_lua_file(self.__scripts__[1])
 
@@ -186,3 +164,21 @@ class AbstractPolicy:
             rc = self.cache.get_redis_client()
             self._lua_scripts = rc.register_script(script_texts[0]), rc.register_script(script_texts[1])
         return self._lua_scripts
+
+    def purge(self) -> Optional[int]:
+        raise NotImplementedError()
+
+    def calc_keys(
+        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+    ) -> Tuple[KeyT, KeyT]:
+        raise NotImplementedError()
+
+    def calc_hash(
+        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+    ) -> str:
+        raise NotImplementedError()
+
+    def calc_ext_args(
+        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+    ) -> Optional[Iterable[EncodableT]]:
+        return None

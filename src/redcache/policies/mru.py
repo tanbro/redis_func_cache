@@ -1,30 +1,29 @@
-from __future__ import annotations
+from ..mixins.md5hash import Md5PickleMixin
+from ..mixins.policies import LfuScriptsMixin, MruExtArgsMixin
+from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
-import sys
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence
-
-if TYPE_CHECKING:
-    from redis.typing import EncodableT
-
-if sys.version_info < (3, 12):  # pragma: no cover
-    from typing_extensions import override
-else:  # pragma: no cover
-    from typing import override
-
-from ..mixins.md5hash import Md5HashMixin
-from .base import BaseSinglePolicy
-
-__all__ = ["MruPolicy"]
+__all__ = ("MruPolicy", "MruMultiplePolicy", "MruClusterPolicy", "MruClusterMultiplePolicy")
 
 
-class MruPolicy(Md5HashMixin, BaseSinglePolicy):
+class MruPolicy(LfuScriptsMixin, MruExtArgsMixin, Md5PickleMixin, BaseSinglePolicy):
     """All functions are cached in a single sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
 
     __name__ = "mru"
-    __scripts__ = "lru_get.lua", "lru_put.lua"
 
-    @override
-    def calculate_ext_args(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Optional[Iterable[EncodableT]]:
-        return ("mru",)
+
+class MruMultiplePolicy(LfuScriptsMixin, MruExtArgsMixin, Md5PickleMixin, BaseMultiplePolicy):
+    """Each function is cached in its own sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
+
+    __name__ = "mru-m"
+
+
+class MruClusterPolicy(LfuScriptsMixin, MruExtArgsMixin, Md5PickleMixin, BaseClusterSinglePolicy):
+    """All functions are cached in a single sorted-set/hash-map pair of redis with cluster support, with Most Recently Used eviction policy."""
+
+    __name__ = "mru-c"
+
+
+class MruClusterMultiplePolicy(LfuScriptsMixin, MruExtArgsMixin, Md5PickleMixin, BaseClusterMultiplePolicy):
+    """Each function is cached in its own sorted-set/hash-map pair of redis with cluster support, with Most Recently Used eviction policy."""
+
+    __name__ = "mru-cm"

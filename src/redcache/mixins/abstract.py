@@ -1,5 +1,4 @@
 import hashlib
-import pickle
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 from ..utils import get_fullname, get_source
@@ -13,23 +12,23 @@ class AbstractHashMixin:
     **Do NOT use the mixin class directory.**
     Overwrite the following class variables to define algorithm and serializer.
 
-    *. `__algorithm__` is the algorithm name. It's required
-    *. `__serializer__` is the serialize function. It's optional, default is :func"`pickle.dumps`.
+    *. `__algorithm__` is the name for hashing algorithm
+    *. `__serializer__` is the serialize function
 
     The class call `__serializer__` to serialize function name, source code, and arguments into bytes,
     then use `__algorithm__` to calculate hash.
 
     Example::
 
-        class JsonMd5FullHashMixin(AbstractHashMixin):
+        class Md5JsonHashMixin(AbstractHashMixin):
             __serializer__ = lambda x: json.dumps(x).encode()
             __algorithm__ = "md5"
     """
 
-    __serializer__: Callable[[Any], bytes] = pickle.dumps
+    __serializer__: Callable[[Any], bytes]
     __algorithm__: str
 
-    def calculate_hash(
+    def calc_hash(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> str:
         if not callable(f):

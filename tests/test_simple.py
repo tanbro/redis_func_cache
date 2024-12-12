@@ -36,7 +36,7 @@ class SimpleTest(TestCase):
                 self.assertEqual(_echo(x), echo(x))
                 self.assertEqual(echo(x), echo(x))
 
-        k0, k1 = lru_cache.policy.calculate_keys()
+        k0, k1 = lru_cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
         card = rc.zcard(k0)
@@ -64,7 +64,7 @@ class SimpleTest(TestCase):
             for _ in range(2):
                 self.assertEqual(_echo(x), echo(x))
                 self.assertEqual(echo(x), echo(x))
-        k0, k1 = cache.policy.calculate_keys()
+        k0, k1 = cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
         card = rc.zcard(k0)
@@ -97,7 +97,7 @@ class SimpleTest(TestCase):
                 self.assertEqual(echo(x), echo(x))
 
         rc = cache.get_redis_client()
-        k0, k1 = cache.policy.calculate_keys()
+        k0, k1 = cache.policy.calc_keys()
 
         card = rc.scard(k0)
         hlen = rc.hlen(k1)
@@ -122,7 +122,7 @@ class SimpleTest(TestCase):
                 self.assertEqual(_echo(x), echo(x))
                 self.assertEqual(echo(x), echo(x))
 
-        k0, k1 = cache.policy.calculate_keys()
+        k0, k1 = cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
         card = rc.zcard(k0)
@@ -154,7 +154,7 @@ class SimpleTest(TestCase):
             if x != 3:
                 self.assertEqual(_echo(x), echo(x))
 
-        k0, k1 = cache.policy.calculate_keys()
+        k0, k1 = cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
         card = rc.zcard(k0)

@@ -1,32 +1,29 @@
-from ..mixins.md5hash import Md5HashMixin
+from ..mixins.md5hash import Md5PickleMixin
+from ..mixins.policies import LruScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
 __all__ = ("LruPolicy", "LruMultiplePolicy", "LruClusterPolicy", "LruClusterMultiplePolicy")
 
 
-class LruPolicy(Md5HashMixin, BaseSinglePolicy):
+class LruPolicy(LruScriptsMixin, Md5PickleMixin, BaseSinglePolicy):
     """All decorated functions share the same key pair, use Least Recently Used eviction policy."""
 
     __name__ = "lru"
-    __scripts__ = "lru_get.lua", "lru_put.lua"
 
 
-class LruMultiplePolicy(Md5HashMixin, BaseMultiplePolicy):
+class LruMultiplePolicy(LruScriptsMixin, Md5PickleMixin, BaseMultiplePolicy):
     """Each decorated function of the policy has its own key pair, use Least Recently Used eviction policy."""
 
     __name__ = "lru-m"
-    __scripts__ = "lru_get.lua", "lru_put.lua"
 
 
-class LruClusterPolicy(Md5HashMixin, BaseClusterSinglePolicy):
+class LruClusterPolicy(LruScriptsMixin, Md5PickleMixin, BaseClusterSinglePolicy):
     """All decorated functions share the same key pair, with cluster support, use Least Recently Used eviction policy."""
 
     __name__ = "lru-c"
-    __scripts__ = "lru_get.lua", "lru_put.lua"
 
 
-class LruClusterMultiplePolicy(Md5HashMixin, BaseClusterMultiplePolicy):
+class LruClusterMultiplePolicy(LruScriptsMixin, Md5PickleMixin, BaseClusterMultiplePolicy):
     """Each decorated function of the policy has its own key pair, with cluster support, use Least Recently Used eviction policy."""
 
     __name__ = "lru-cm"
-    __scripts__ = "lru_get.lua", "lru_put.lua"

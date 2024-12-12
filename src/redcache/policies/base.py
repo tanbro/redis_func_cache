@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence, Tuple
 
 if sys.version_info < (3, 12):  # pragma: no cover
     from typing_extensions import override
@@ -32,16 +32,16 @@ class BaseSinglePolicy(_InternalNamedPolicy):
     """
 
     @override
-    def calculate_keys(
+    def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Sequence[KeyT]:
+    ) -> Tuple[KeyT, KeyT]:
         k = f"{self.cache.prefix}{self.cache.name}:{self.__name__}"
         return f"{k}:0", f"{k}:1"
 
     @override
     def purge(self) -> int:
         rc = self.cache.get_redis_client()
-        return rc.delete(*self.calculate_keys())
+        return rc.delete(*self.calc_keys())
 
 
 class BaseClusterSinglePolicy(_InternalNamedPolicy):
@@ -52,16 +52,16 @@ class BaseClusterSinglePolicy(_InternalNamedPolicy):
     """
 
     @override
-    def calculate_keys(
+    def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Sequence[KeyT]:
+    ) -> Tuple[KeyT, KeyT]:
         k = f"{self.cache.prefix}{{{self.cache.name}:{self.__name__}}}"
         return f"{k}:0", f"{k}:1"
 
     @override
     def purge(self) -> int:
         rc = self.cache.get_redis_client()
-        return rc.delete(*self.calculate_keys())
+        return rc.delete(*self.calc_keys())
 
 
 class BaseMultiplePolicy(_InternalNamedPolicy):
@@ -72,9 +72,9 @@ class BaseMultiplePolicy(_InternalNamedPolicy):
     """
 
     @override
-    def calculate_keys(
+    def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Sequence[KeyT]:
+    ) -> Tuple[KeyT, KeyT]:
         if not callable(f):
             raise TypeError(f"Can not calculate hash for {f=}")
         fullname = get_fullname(f)
@@ -89,7 +89,7 @@ class BaseMultiplePolicy(_InternalNamedPolicy):
     @override
     def purge(self) -> int:
         rc = self.cache.get_redis_client()
-        return rc.delete(*self.calculate_keys())
+        return rc.delete(*self.calc_keys())
 
 
 class BaseClusterMultiplePolicy(_InternalNamedPolicy):
@@ -100,9 +100,9 @@ class BaseClusterMultiplePolicy(_InternalNamedPolicy):
     """
 
     @override
-    def calculate_keys(
+    def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Sequence[KeyT]:
+    ) -> Tuple[KeyT, KeyT]:
         if not callable(f):
             raise TypeError(f"Can not calculate hash for {f=}")
         fullname = get_fullname(f)
