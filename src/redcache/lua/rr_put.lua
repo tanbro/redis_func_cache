@@ -11,14 +11,18 @@ if tonumber(ttl) > 0 then
     redis.call('EXPIRE', hmap_key, ttl)
 end
 
+local c = 0
 if maxsize > 0 then
     local n = redis.call('SCARD', set_key) - maxsize
     while n >= 0 do
         local popped = redis.call('SPOP', set_key)
         redis.call('HDEL', hmap_key, popped)
         n = n - 1
+        c = c + 1
     end
 end
 
 redis.call('SADD', set_key, hash)
 redis.call('HSET', hmap_key, hash, retval)
+
+return c

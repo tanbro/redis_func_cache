@@ -16,6 +16,7 @@ if #ARGV > 4 then
     is_mru = (ARGV[5] == 'mru')
 end
 
+local c = 1
 if maxsize > 0 then
     local n = redis.call('ZCARD', zset_key) - maxsize
     while n >= 0 do
@@ -27,9 +28,12 @@ if maxsize > 0 then
         end
         redis.call('HDEL', hmap_key, popped[1])
         n = n - 1
+        c = c + 1
     end
 end
 
 local time = redis.call('TIME')
 redis.call('ZADD', zset_key, time[1] + time[2] / 100000, hash)
 redis.call('HSET', hmap_key, hash, retval)
+
+return c

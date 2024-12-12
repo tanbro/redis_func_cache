@@ -11,15 +11,19 @@ if tonumber(ttl) > 0 then
     redis.call('EXPIRE', hmap_key, ttl)
 end
 
+local c = 0
 if maxsize > 0 then
     local n = redis.call('ZCARD', zset_key) - maxsize
     while n >= 0 do
         local popped = redis.call('ZPOPMIN', zset_key)
         redis.call('HDEL', hmap_key, popped[1])
         n = n - 1
+        c = c + 1
     end
 end
 
 local time = redis.call('TIME')
 redis.call('ZADD', zset_key, time[1] + time[2] / 100000, hash)
 redis.call('HSET', hmap_key, hash, retval)
+
+return c
