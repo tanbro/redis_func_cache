@@ -146,6 +146,7 @@ class RedCache:
 
 
 class AbstractPolicy:
+    __key__: str
     __scripts__: Tuple[str, str]
 
     def __init__(self, cache: weakref.CallableProxyType[RedCache]):

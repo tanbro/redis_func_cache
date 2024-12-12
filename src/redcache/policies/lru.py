@@ -8,22 +8,22 @@ __all__ = ("LruPolicy", "LruMultiplePolicy", "LruClusterPolicy", "LruClusterMult
 class LruPolicy(LruScriptsMixin, Md5PickleMixin, BaseSinglePolicy):
     """All decorated functions share the same key pair, use Least Recently Used eviction policy."""
 
-    __name__ = "lru"
+    __key__ = "lru"
 
 
 class LruMultiplePolicy(LruScriptsMixin, Md5PickleMixin, BaseMultiplePolicy):
     """Each decorated function of the policy has its own key pair, use Least Recently Used eviction policy."""
 
-    __name__ = "lru-m"
+    __key__ = "lru-m"
 
 
 class LruClusterPolicy(LruScriptsMixin, Md5PickleMixin, BaseClusterSinglePolicy):
     """All decorated functions share the same key pair, with cluster support, use Least Recently Used eviction policy."""
 
-    __name__ = "lru-c"
+    __key__ = "lru-c"
 
 
 class LruClusterMultiplePolicy(LruScriptsMixin, Md5PickleMixin, BaseClusterMultiplePolicy):
     """Each decorated function of the policy has its own key pair, with cluster support, use Least Recently Used eviction policy."""
 
-    __name__ = "lru-cm"
+    __key__ = "lru-cm"

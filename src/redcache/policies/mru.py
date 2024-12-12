@@ -8,22 +8,22 @@ __all__ = ("MruPolicy", "MruMultiplePolicy", "MruClusterPolicy", "MruClusterMult
 class MruPolicy(LruScriptsMixin, MruExtArgsMixin, Md5PickleMixin, BaseSinglePolicy):
     """All functions are cached in a single sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
 
-    __name__ = "mru"
+    __key__ = "mru"
 
 
 class MruMultiplePolicy(LruScriptsMixin, MruExtArgsMixin, Md5PickleMixin, BaseMultiplePolicy):
     """Each function is cached in its own sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
 
-    __name__ = "mru-m"
+    __key__ = "mru-m"
 
 
 class MruClusterPolicy(LruScriptsMixin, MruExtArgsMixin, Md5PickleMixin, BaseClusterSinglePolicy):
     """All functions are cached in a single sorted-set/hash-map pair of redis with cluster support, with Most Recently Used eviction policy."""
 
-    __name__ = "mru-c"
+    __key__ = "mru-c"
 
 
 class MruClusterMultiplePolicy(LruScriptsMixin, MruExtArgsMixin, Md5PickleMixin, BaseClusterMultiplePolicy):
     """Each function is cached in its own sorted-set/hash-map pair of redis with cluster support, with Most Recently Used eviction policy."""
 
-    __name__ = "mru-cm"
+    __key__ = "mru-cm"

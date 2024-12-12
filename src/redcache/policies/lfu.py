@@ -8,5 +8,5 @@ __all__ = ["LfuPolicy"]
 class LfuPolicy(LfuScriptsMixin, Md5PickleMixin, BaseSinglePolicy):
     """All functions are cached in a single sorted-set/hash-map pair of redis, with least frequently used eviction policy."""
 
-    __name__ = "lfu"
+    __key__ = "lfu"
     __scripts__ = "lfu_get.lua", "lfu_put.lua"

@@ -20,11 +20,7 @@ from ..utils import get_fullname, get_source
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
 
 
-class _InternalNamedPolicy(AbstractPolicy):
-    __name__: str
-
-
-class BaseSinglePolicy(_InternalNamedPolicy):
+class BaseSinglePolicy(AbstractPolicy):
     """Base policy class for single sorted-set/hash-map key pair.
     All decorated functions of the policy share the same key pair.
 
@@ -35,7 +31,7 @@ class BaseSinglePolicy(_InternalNamedPolicy):
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
-        k = f"{self.cache.prefix}{self.cache.name}:{self.__name__}"
+        k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}"
         return f"{k}:0", f"{k}:1"
 
     @override
@@ -55,11 +51,11 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
-        k = f"{self.cache.prefix}{{{self.cache.name}:{self.__name__}}}"
+        k = f"{self.cache.prefix}{{{self.cache.name}:{self.__key__}}}"
         return f"{k}:0", f"{k}:1"
 
 
-class BaseMultiplePolicy(_InternalNamedPolicy):
+class BaseMultiplePolicy(AbstractPolicy):
     """Base policy class for multiple sorted-set/hash-map key pairs.
     Each decorated function of the policy has its own key pair.
 
@@ -78,7 +74,7 @@ class BaseMultiplePolicy(_InternalNamedPolicy):
         if source is not None:
             h.update(source.encode())
         checksum = h.hexdigest()
-        k = f"{self.cache.prefix}{self.cache.name}:{self.__name__}:{fullname}#{checksum}"
+        k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
 
 
@@ -101,5 +97,5 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         if source is not None:
             h.update(source.encode())
         checksum = h.hexdigest()
-        k = f"{self.cache.prefix}{self.cache.name}:{self.__name__}:{fullname}#{{{checksum}}}"
+        k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"
