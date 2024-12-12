@@ -44,7 +44,7 @@ class BaseSinglePolicy(_InternalNamedPolicy):
         return rc.delete(*self.calc_keys())
 
 
-class BaseClusterSinglePolicy(_InternalNamedPolicy):
+class BaseClusterSinglePolicy(BaseSinglePolicy):
     """Base policy class for single sorted-set/hash-map key pair, with cluster support.
     All decorated functions of the policy share the same key pair.
 
@@ -57,11 +57,6 @@ class BaseClusterSinglePolicy(_InternalNamedPolicy):
     ) -> Tuple[KeyT, KeyT]:
         k = f"{self.cache.prefix}{{{self.cache.name}:{self.__name__}}}"
         return f"{k}:0", f"{k}:1"
-
-    @override
-    def purge(self) -> int:
-        rc = self.cache.get_redis_client()
-        return rc.delete(*self.calc_keys())
 
 
 class BaseMultiplePolicy(_InternalNamedPolicy):
@@ -86,13 +81,8 @@ class BaseMultiplePolicy(_InternalNamedPolicy):
         k = f"{self.cache.prefix}{self.cache.name}:{self.__name__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
 
-    @override
-    def purge(self) -> int:
-        rc = self.cache.get_redis_client()
-        return rc.delete(*self.calc_keys())
 
-
-class BaseClusterMultiplePolicy(_InternalNamedPolicy):
+class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     """Base policy class for multiple sorted-set/hash-map key pairs, with cluster support.
     Each decorated function of the policy has its own key pair.
 
