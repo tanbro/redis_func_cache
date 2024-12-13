@@ -5,12 +5,13 @@ from uuid import uuid4
 
 from redis import Redis
 
-from redcache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedCache, RrPolicy
+from redcache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedCache, RrPolicy, TLruPolicy
 
 REDIS_URL = "redis://"
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
+    "tlru": RedCache(__name__, TLruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "lru": RedCache(__name__, LruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "mru": RedCache(__name__, MruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "rr": RedCache(__name__, RrPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
@@ -28,9 +29,9 @@ class BasicTest(TestCase):
         for cache in CACHES.values():
             cache.policy.purge()
 
-    def tearDown(self):
-        for cache in CACHES.values():
-            cache.policy.purge()
+    # def tearDown(self):
+    #     for cache in CACHES.values():
+    #         cache.policy.purge()
 
     def test_basic(self):
         for cache in CACHES.values():
@@ -114,24 +115,27 @@ class BasicTest(TestCase):
             self.assertEqual(size, cache.policy.size)
 
     def test_lru(self):
-        cache = CACHES["lru"]
+        for name_, cache in CACHES.items():
+            if name_ not in ("lru", "tru"):
+                continue
 
-        @cache
-        def echo(x):
-            return _echo(x)
+            @cache
+            def echo(x):
+                return _echo(x)
 
-        for x in range(MAXSIZE):
-            self.assertEqual(_echo(x), echo(x))
+            for x in range(MAXSIZE):
+                self.assertEqual(_echo(x), echo(x))
 
-        echo(MAXSIZE)
+            echo(MAXSIZE)
 
-        k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis_client()
+            k0, k1 = cache.policy.calc_keys()
+            rc = cache.get_redis_client()
 
-        card = rc.zcard(k0)
-        members = rc.zrange(k0, 0, card - 1)
-        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
-        self.assertListEqual(sorted(values), list(range(1, MAXSIZE + 1)))
+            card = rc.zcard(k0)
+            self.assertEqual(card, MAXSIZE)
+            members = rc.zrange(k0, "-inf", "+inf", byscore=True)  # type: ignore
+            values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+            self.assertListEqual(values, list(range(1, MAXSIZE + 1)))
 
     def test_mru(self):
         cache = CACHES["mru"]
@@ -148,8 +152,7 @@ class BasicTest(TestCase):
         k0, k1 = cache.policy.calc_keys()
         rc = cache.get_redis_client()
 
-        card = rc.zcard(k0)
-        members = rc.zrange(k0, 0, card - 1)
+        members = members = rc.zrange(k0, "+inf", "-inf", byscore=True, desc=True)  # type: ignore
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
         self.assertListEqual(sorted(values), list(range(MAXSIZE - 1)) + [MAXSIZE])
 

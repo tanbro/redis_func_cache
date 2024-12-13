@@ -5,4 +5,5 @@ from .policies.lfu import LfuClusterMultiplePolicy, LfuClusterPolicy, LfuMultipl
 from .policies.lru import LruClusterMultiplePolicy, LruClusterPolicy, LruMultiplePolicy, LruPolicy
 from .policies.mru import MruClusterMultiplePolicy, MruClusterPolicy, MruMultiplePolicy, MruPolicy
 from .policies.rr import RrClusterMultiplePolicy, RrClusterPolicy, RrMultiplePolicy, RrPolicy
+from .policies.tlru import TLruClusterMultiplePolicy, TLruClusterPolicy, TLruMultiplePolicy, TLruPolicy
 from .types import AbstractPolicy, RedCache

@@ -17,8 +17,7 @@ if #ARGV > 4 then
 end
 
 local c = 0
-local rnk_with_score = redis.call('ZRANK', zset_key, hash, 'WITHSCORE')
-if maxsize > 0 and not rnk_with_score then
+if maxsize > 0 and not redis.call('ZRANK', zset_key, hash) then
     local n = redis.call('ZCARD', zset_key) - maxsize
     while n >= 0 do
         local popped
@@ -33,19 +32,8 @@ if maxsize > 0 and not rnk_with_score then
     end
 end
 
-local highest_with_score = redis.call('ZRANGE', zset_key, '+inf', '-inf', 'BYSCORE', 'REV', 'LIMIT', 0, 1, 'WITHSCORES')
-if not rawequal(next(highest_with_score), nil) then
-    if rnk_with_score then
-        if hash ~= highest_with_score[1] then
-            redis.call('ZADD', zset_key, 1 + highest_with_score[2], hash)
-        end
-    else
-        redis.call('ZADD', zset_key, 1 + highest_with_score[2], hash)
-    end
-else
-    redis.call('ZADD', zset_key, 1, hash)
-end
-
+local time = redis.call('TIME')
+redis.call('ZADD', zset_key, time[1] + time[2] / 100000, hash)
 redis.call('HSET', hmap_key, hash, return_value)
 
 return c
