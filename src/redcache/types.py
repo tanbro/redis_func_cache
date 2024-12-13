@@ -13,7 +13,7 @@ from redis.commands.core import Script
 if TYPE_CHECKING:
     from redis.typing import EncodableT, EncodedT, KeyT
 
-from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX
+from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .utils import read_lua_file
 
 FT = TypeVar("FT", bound=Callable)
@@ -92,7 +92,7 @@ class RedCache:
 
     @property
     def ttl(self) -> int:
-        return DEFAULT_MAXSIZE if self._ttl is None else self._ttl
+        return DEFAULT_TTL if self._ttl is None else self._ttl
 
     def serialize_return_value(self, retval: Any) -> EncodedT:
         if self._user_return_value_serializer:

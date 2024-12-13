@@ -123,5 +123,5 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         if source is not None:
             h.update(source.encode())
         checksum = base64_hash_digest(h)
-        k = f"{self.cache.prefix}{{{self.cache.name}:{self.__key__}:{fullname}#{checksum}}}"
+        k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"
