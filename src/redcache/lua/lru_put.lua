@@ -12,8 +12,8 @@ if tonumber(ttl) > 0 then
 end
 
 local is_mru = false
-if #ARGV > 4 then
-    is_mru = (ARGV[5] == 'mru')
+if #ARGV > 5 then
+    is_mru = (ARGV[6] == 'mru')
 end
 
 local c = 0

@@ -110,29 +110,33 @@ class RedCache:
     def exec_put_script(self, keys: Sequence[KeyT], args: Iterable[EncodableT]):
         return self.policy.lua_scripts[1](keys, args)
 
-    def decorator(self, f: Callable, /, **kwargs):
-        @wraps(f)
-        def wrapper(*f_args, **f_kwargs):
-            keys = self.policy.calc_keys(f, f_args, f_kwargs)
-            hash = self.policy.calc_hash(f, f_args, f_kwargs)
-            ext_args = self.policy.calc_ext_args(f, f_args, f_kwargs) or ()
-            cached_retval = self.exec_get_script(keys=keys, args=chain((self.ttl, hash), ext_args))
-            if isawaitable(cached_retval):
-                raise RuntimeError("cached return value could not be an asynchronous function.")  # pragma: no cover
-            if cached_retval is not None:
-                return self.deserialize_return_value(cached_retval)
-            retval = f(*f_args, **f_kwargs)
-            retval_ser = self.serialize_return_value(retval)
-            self.exec_put_script(keys=keys, args=chain((self.maxsize, self.ttl, hash, retval_ser), ext_args))
-            return retval
-
-        return wrapper
+    def exec_user_function(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **kwargs):
+        kwargs_json = json.dumps(kwargs, ensure_ascii=False)
+        keys = self.policy.calc_keys(user_function, user_args, user_kwds)
+        hash = self.policy.calc_hash(user_function, user_args, user_kwds)
+        ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
+        cached_retval = self.exec_get_script(keys=keys, args=chain((self.ttl, hash), (kwargs_json,), ext_args))
+        if isawaitable(cached_retval):
+            raise RuntimeError("cached return value could not be an asynchronous function.")  # pragma: no cover
+        if cached_retval is not None:
+            return self.deserialize_return_value(cached_retval)
+        retval = user_function(*user_args, **user_kwds)
+        retval_ser = self.serialize_return_value(retval)
+        self.exec_put_script(keys=keys, args=chain((self.maxsize, self.ttl, hash, retval_ser), (kwargs_json,), ext_args))
+        return retval
 
     def decorate(self, user_function: Optional[FT] = None, /, **kwargs) -> FT:
+        def decorator(f: FT):
+            @wraps(f)
+            def wrapper(*f_args, **f_kwargs):
+                return self.exec_user_function(f, f_args, f_kwargs, **kwargs)
+
+            return wrapper
+
         if user_function is None:
-            return self.decorator  # type: ignore
+            return decorator  # type: ignore
         elif callable(user_function):
-            return self.decorator(user_function, **kwargs)  # type: ignore
+            return decorator(user_function)  # type: ignore
         raise TypeError(f"Argument {user_function=} is not callable")  # pragma: no cover
 
     __call__ = decorate

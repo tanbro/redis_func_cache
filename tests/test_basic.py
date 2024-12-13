@@ -65,6 +65,35 @@ class BasicTest(TestCase):
                     mock_put.assert_not_called()
             self.assertEqual(cache.maxsize, cache.policy.size)
 
+    def test_many_functions(self):
+        for cache in CACHES.values():
+
+            @cache()
+            def echo1(x):
+                return x
+
+            @cache()
+            def echo2(x):
+                return x
+
+            for a, b in zip(range(cache.maxsize), range(cache.maxsize - 1, -1, -1)):
+                echo1(a)
+                echo2(b)
+                with (
+                    patch.object(cache, "exec_get_script", return_value=None) as mock_get,
+                    patch.object(cache, "exec_put_script") as mock_put,
+                ):
+                    echo1(b)
+                    mock_get.assert_called_once()
+                    mock_put.assert_called_once()
+                with (
+                    patch.object(cache, "exec_get_script", return_value=None) as mock_get,
+                    patch.object(cache, "exec_put_script") as mock_put,
+                ):
+                    echo2(a)
+                    mock_get.assert_called_once()
+                    mock_put.assert_called_once()
+
     def test_parenthesis(self):
         for cache in CACHES.values():
 
