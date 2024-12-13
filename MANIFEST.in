@@ -4,5 +4,4 @@ prune .*
 prune build
 prune dist
 prune docs
-prune notebooks
 prune tests

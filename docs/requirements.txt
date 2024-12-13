@@ -1,0 +1,12 @@
+importlib_metadata;python_version<"3.8"
+
+Sphinx>=7
+myst-parser
+
+furo
+
+linkify-it-py
+sphinx-copybutton
+sphinx-inline-tabs
+sphinx_tippy
+sphinx-version-warning
