@@ -33,10 +33,6 @@ class PklRetvalTest(TestCase):
         for cache in CACHES.values():
             cache.policy.purge()
 
-    def tearDown(self):
-        for cache in CACHES.values():
-            cache.policy.purge()
-
     def test_object(self):
         for cache in CACHES.values():
 

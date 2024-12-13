@@ -23,11 +23,11 @@ class LruScriptsMixin:
     __scripts__ = "lru_get.lua", "lru_put.lua"
 
 
-class TLruScriptsMixin:
-    __scripts__ = "lru_get.lua", "lru_put.lua"
-
-
 MruScriptsMixin = LruScriptsMixin
+
+
+class TLruScriptsMixin:
+    __scripts__ = "tlru_get.lua", "tlru_put.lua"
 
 
 class RrScriptsMixin:

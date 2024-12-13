@@ -24,10 +24,6 @@ class ClusterTest(TestCase):
         for cache in CACHES.values():
             cache.policy.purge()
 
-    def tearDown(self):
-        for cache in CACHES.values():
-            cache.policy.purge()
-
     def test_int(self):
         for cache in CACHES.values():
 

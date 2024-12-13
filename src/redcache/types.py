@@ -181,7 +181,7 @@ class AbstractPolicy:
 
     def calc_hash(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> str:
+    ) -> KeyT:
         raise NotImplementedError()  # pragma: no cover
 
     def calc_ext_args(

@@ -14,11 +14,11 @@ if sys.version_info < (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing import override
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
 
 from ..types import AbstractPolicy
-from ..utils import get_fullname, get_source
+from ..utils import base64_hash_digest, get_fullname, get_source
 
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
 
@@ -90,7 +90,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         source = get_source(f)
         if source is not None:
             h.update(source.encode())
-        checksum = h.hexdigest()
+        checksum = base64_hash_digest(h)
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
 
@@ -122,6 +122,6 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         source = get_source(f)
         if source is not None:
             h.update(source.encode())
-        checksum = h.hexdigest()
-        k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
+        checksum = base64_hash_digest(h)
+        k = f"{self.cache.prefix}{{{self.cache.name}:{self.__key__}:{fullname}#{checksum}}}"
         return f"{k}:0", f"{k}:1"
