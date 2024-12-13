@@ -22,9 +22,9 @@ keywords = ["redis", "cache"]
 license = { text = "AGPLv3+" }
 
 classifiers = [
-  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
-  "Development Status :: 1 - Planning",
-  # "Development Status :: 2 - Pre-Alpha",
+  "License :: OSI Approved :: BSD License",
+  # "Development Status :: 1 - Planning",
+  "Development Status :: 2 - Pre-Alpha",
   # "Development Status :: 3 - Alpha",
   # "Development Status :: 4 - Beta",
   # "Development Status :: 5 - Production/Stable",
@@ -45,9 +45,9 @@ classifiers = [
 
 dynamic = ["version"]
 
-# [project.urls]
-# homepage = "https://github.com/tanbro/emoji-data"
-# repository = "https://github.com/tanbro/emoji-data.git"
+[project.urls]
+homepage = "https://github.com/tanbro/redcache"
+repository = "https://github.com/tanbro/redcache"
 
 [project.optional-dependencies]
 hiredis = ["hiredis"]

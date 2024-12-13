@@ -11,6 +11,7 @@ from redcache import (
     MruClusterMultiplePolicy,
     RedCache,
     RrClusterMultiplePolicy,
+    TLruClusterMultiplePolicy,
 )
 
 REDIS_URL = "redis://"
@@ -18,6 +19,7 @@ SERIALIZER = pickle.dumps, pickle.loads
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
+    "tlru": RedCache(__name__, TLruClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "lru": RedCache(__name__, LruClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "mru": RedCache(__name__, MruClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "rr": RedCache(__name__, RrClusterMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),

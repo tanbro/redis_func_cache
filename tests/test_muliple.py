@@ -4,13 +4,22 @@ from unittest import TestCase
 
 from redis import Redis
 
-from redcache import FifoMultiplePolicy, LfuMultiplePolicy, LruMultiplePolicy, MruMultiplePolicy, RedCache, RrMultiplePolicy
+from redcache import (
+    FifoMultiplePolicy,
+    LfuMultiplePolicy,
+    LruMultiplePolicy,
+    MruMultiplePolicy,
+    RedCache,
+    RrMultiplePolicy,
+    TLruMultiplePolicy,
+)
 
 REDIS_URL = "redis://"
 SERIALIZER = pickle.dumps, pickle.loads
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
+    "tlru": RedCache(__name__, TLruMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "lru": RedCache(__name__, LruMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "mru": RedCache(__name__, MruMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "rr": RedCache(__name__, RrMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),

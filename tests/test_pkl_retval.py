@@ -5,13 +5,14 @@ from uuid import uuid4
 
 from redis import Redis
 
-from redcache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedCache, RrPolicy
+from redcache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedCache, RrPolicy, TLruPolicy
 
 REDIS_URL = "redis://"
 SERIALIZER = pickle.dumps, pickle.loads
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
+    "tlru": RedCache(__name__, TLruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "lru": RedCache(__name__, LruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "mru": RedCache(__name__, MruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
     "rr": RedCache(__name__, RrPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),

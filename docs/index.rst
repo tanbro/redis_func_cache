@@ -17,12 +17,14 @@ Contents
    README
    CHANGELOG
    AUTHORS
+   LICENSE
 
 .. toctree::
    :caption: API Reference
    :titlesonly:
 
    apidocs/redcache
+
 
 Indices and tables
 ------------------
