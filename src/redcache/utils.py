@@ -39,4 +39,4 @@ def read_lua_file(file: str) -> str:
 
 
 def base64_hash_digest(x: _Hash):
-    return b64encode(x.digest()).rstrip(b"=").decode()
+    return b64encode(x.digest()).rstrip(b"=")
