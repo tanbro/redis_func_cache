@@ -4,7 +4,6 @@ __all__ = (
     "FifoScriptsMixin",
     "LfuScriptsMixin",
     "LruScriptsMixin",
-    "MruExtArgsMixin",
     "MruScriptsMixin",
     "RrScriptsMixin",
     "TLruScriptsMixin",
@@ -32,8 +31,3 @@ class TLruScriptsMixin:
 
 class RrScriptsMixin:
     __scripts__ = "rr_get.lua", "rr_put.lua"
-
-
-class MruExtArgsMixin:
-    def calc_ext_args(self, *args, **kwargs):
-        return ("mru",)

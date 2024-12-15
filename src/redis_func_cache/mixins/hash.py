@@ -50,22 +50,23 @@ class AbstractHashMixin:
     """An abstract mixin class for hash function name, source code, and arguments.
 
     **Do NOT use the mixin class directory.**
-    Overwrite the class variable :func:`hash_config` to define algorithm and serializer.
+    Overwrite the class variable :func:`__hash_config__` to define algorithm and serializer.
 
     Example::
 
         class Md5JsonHashMixin(AbstractHashMixin):
-            hash_config = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
+            __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
     """
 
-    hash_config: HashConfig
+    __hash_config__: HashConfig
+    """Configure of how to calculate hash for a function."""
 
     def calc_hash(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> KeyT:
-        conf = self.hash_config
         if not callable(f):
-            raise TypeError(f"Can not calculate hash for {f=}")  # pragma: no cover
+            raise TypeError(f"Can not calculate hash for {f=}")
+        conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
         h.update(get_fullname(f).encode())
         source = get_source(f)
@@ -80,57 +81,57 @@ class AbstractHashMixin:
         return conf.decoder(h)
 
 
-def _hexdigest(x: _Hash):
+def hexdigest(x: _Hash):
     return x.hexdigest()
 
 
-def _json_dump_bytes(x):
+def json_dump_to_bytes(x):
     return json.dumps(x).encode()
 
 
 class JsonMd5HashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="md5", serializer=_json_dump_bytes)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes)
 
 
 class JsonMd5HexHashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="md5", serializer=_json_dump_bytes, decoder=_hexdigest)
-
-
-class JsonSha1HashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="sha1", serializer=_json_dump_bytes)
-
-
-class JsonSha1HexHashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="sha1", serializer=_json_dump_bytes, decoder=_hexdigest)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes, decoder=hexdigest)
 
 
 class JsonMd5Base64HashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="md5", serializer=_json_dump_bytes, decoder=base64_hash_digest)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes, decoder=base64_hash_digest)
+
+
+class JsonSha1HashMixin(AbstractHashMixin):
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes)
+
+
+class JsonSha1HexHashMixin(AbstractHashMixin):
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes, decoder=hexdigest)
 
 
 class JsonSha1Base64HashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="sha1", serializer=_json_dump_bytes, decoder=base64_hash_digest)
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes, decoder=base64_hash_digest)
 
 
 class PickleMd5HashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="md5", serializer=pickle.dumps)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps)
 
 
 class PickleMd5HexHashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=_hexdigest)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=hexdigest)
 
 
 class PickleMd5Base64HashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=base64_hash_digest)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=base64_hash_digest)
 
 
 class PickleSha1HashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="sha1", serializer=pickle.dumps)
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps)
 
 
 class PickleSha1HexHashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=_hexdigest)
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=hexdigest)
 
 
 class PickleSha1Base64HashMixin(AbstractHashMixin):
-    hash_config = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=base64_hash_digest)
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=base64_hash_digest)

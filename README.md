@@ -214,6 +214,78 @@ Policies that support both cluster and store cache in multiple [Redis][] key pai
 
 ## Advanced Usage
 
+### Custom key format
+
+An instance of [`RedisFuncCache`][] calculate key pair names string by calling method `calc_keys` of it's policy.
+There are four basic policies that implement respective kinds of key formats in the library:
+
+- [`BaseSinglePolicy`][]: All functions share the same key pair, [Redis][] cluster is NOT supported.
+
+    The format is: `<prefix><name>:<__key__>:<0|1>`
+
+- [`BaseMultiplePolicy`][]: Each function has its own key pair, [Redis][] cluster is NOT supported.
+
+    The format is: `<prefix><name>:<__key__>:<function_name>#<function_hash>:<0|1>`
+
+- [`BaseClusterSinglePolicy`][]: All functions share the same key pair, [Redis][] cluster is supported.
+
+    The format is: `<prefix>{<name>:<__key__>}:<0|1>`
+
+- [`BaseClusterMultiplePolicy`][]: Each function has its own key pair, and [Redis][] cluster is supported.
+
+    The format is: `<prefix><name>:<__key__>:<function_name>#{<function_hash>}:<0|1>`
+
+Variables in the format string are defined as follows:
+
+|                 |                                                                   |
+| --------------- | ----------------------------------------------------------------- |
+| `prefix`        | `prefix` argument of [`RedisFuncCache`][]                         |
+| `name`          | `prefix` argument of [`RedisFuncCache`][]                         |
+| `__key__`       | `__key__` attribute the policy class used in [`RedisFuncCache`][] |
+| `function_name` | full name of the decorated function                               |
+| `function_hash` | hash value of the decorated function                              |
+
+`0` and `1` at the end of the keys are used to distinguish between the two data structures:
+
+- `0`: a sorted or unsorted set, used to store the hash value and sorting score of function invocations
+- `1`: a hash table, used to store the return value of the function invocations
+
+If want to use a different format, you can subclass [`AbstractPolicy`][] or any of above policy classes, and implement `calc_keys` method, then pass the custom policy class to [`RedisFuncCache`][].
+
+For example:
+
+```python
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, Tuple, override
+from redis_func_cache import AbstractPolicy, RedisFuncCache
+if TYPE_CHECKING:
+    from redis.typing import KeyT
+
+def redis_factory():
+    ...
+
+MY_PREFIX = "my_prefix"
+
+class MyPolicy(AbstractPolicy):
+    __key__ = "my_key"
+
+    @override
+    def calc_keys(
+        self, f: Callable|None = None, args: Sequence|None = None, kwds: Mapping[str, Any] | None= None
+    ) -> Tuple[KeyT, KeyT]:
+        k = f"{self.cache.prefix}-{self.cache.name}-{f.__qualname__}-{self.__key__}"
+        return f"{k}-set", f"{k}-map"
+
+my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy, redis=redis_factory, prefix=MY_PREFIX)
+
+@my_cache
+def my_func(...):
+    ...
+```
+
+In the example, we'll get a cache generates [redis][] keys separated by `-`, instead of `:`, with `prefix` `"my-prefix"`, and suffix `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names will be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
+
+### Expirations
+
 ## Known Issues
 
 - [`RedisFuncCache`][]'s name
@@ -235,8 +307,12 @@ Policies that support both cluster and store cache in multiple [Redis][] key pai
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 
 [`RedisFuncCache`]: redis_func_cache.types.RedisFuncCache
+[`AbstractPolicy`]: redis_func_cache.types.AbstractPolicy
 
+[`BaseSinglePolicy`]: redis_func_cache.policies.base.BaseSinglePolicy
 [`BaseMultiplePolicy`]: redis_func_cache.policies.base.BaseMultiplePolicy
+[`BaseClusterSinglePolicy`]: redis_func_cache.policies.base.BaseClusterSinglePolicy
+[`BaseClusterMultiplePolicy`]: redis_func_cache.policies.base.BaseClusterMultiplePolicy
 
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
