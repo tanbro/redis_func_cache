@@ -1,17 +1,11 @@
 # The file defines requirements for the project's local development.
 # It's NOT package install dependencies.
 
--e .
+-e .[types]
 
 -r docs/requirements.txt
-# -r tests/requirements.txt
-
-coverage
-
-mypy
-ruff
-
-build
-twine
+-r tests/requirements.txt
 
 pre-commit
+build
+twine

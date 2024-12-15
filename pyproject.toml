@@ -49,6 +49,7 @@ homepage = "https://github.com/tanbro/redis_func_cache"
 repository = "https://github.com/tanbro/redis_func_cache"
 
 [project.optional-dependencies]
+types = ["types-redis"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -54,7 +54,7 @@ jobs:
           cache: pip
 
       - name: Install project and dependencies
-        run: pip install -e . -r tests/requirements.txt mypy ruff coverage types-redis
+        run: pip install -e .[types] -r tests/requirements.txt mypy ruff coverage
 
       - name: lint by ruff
         run: ruff check

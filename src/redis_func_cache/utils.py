@@ -35,7 +35,7 @@ def get_source(o: Any, default: Optional[T] = None) -> Union[str, T, None]:
 
 
 def read_lua_file(file: str) -> str:
-    return importlib_resources.files(__package__).joinpath("lua", file).read_text()
+    return importlib_resources.files(__package__).joinpath("lua").joinpath(file).read_text()
 
 
 def base64_hash_digest(x: _Hash):
