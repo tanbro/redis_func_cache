@@ -37,7 +37,7 @@ from redis_func_cache import RedisFuncCache, LruPolicy
 
 redis_client = Redis(...)
 
-lru_cache = RedisFuncCache("my-first-lru-cache", redis_client, LruPolicy)
+lru_cache = RedisFuncCache("my-first-lru-cache", LruPolicy, redis_client)
 
 @lru_cache
 def fib(n):
@@ -74,7 +74,7 @@ For example, we can use `FifoPolicy` to implement a FIFO cache:
 ```python
 from redis_func_cache import FifoPolicy
 
-fifo_cache = RedisFuncCache("my-cache-2", redis_client, FifoPolicy)
+fifo_cache = RedisFuncCache("my-cache-2", FifoPolicy, redis_client)
 
 @fifo_cache
 def func1(x):
@@ -86,7 +86,7 @@ Use `RrPolicy` to implement a random-remove cache:
 ```python
 from redis_func_cache import RrPolicy
 
-rr_cache = RedisFuncCache("my-cache-3", redis_client, rr_cache)
+rr_cache = RedisFuncCache("my-cache-3", RrPolicy, redis_client)
 
 @rr_cache
 def func2(x):
@@ -125,7 +125,7 @@ For example, we can use `TLruMultiPolicy` for a LRU cache that has multiple diff
 ```python
 from redis_func_cache import TLruMultiplePolicy
 
-cache = RedisFuncCache("my-cache-4", redis_client, TLruMultiplePolicy)
+cache = RedisFuncCache("my-cache-4", TLruMultiplePolicy, redis_client)
 
 @cache
 def func1(x):
@@ -174,7 +174,7 @@ For example, we can use `TLruClusterPolicy` to implement a cluster-aware LRU cac
 ```python
 from redis_func_cache import TLruClusterPolicy
 
-cache = RedisFuncCache("my-cluster-cache", redis_client, TLruClusterPolicy)
+cache = RedisFuncCache("my-cluster-cache", TLruClusterPolicy, redis_client)
 
 @cache
 def my_func(x):
