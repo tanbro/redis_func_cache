@@ -31,7 +31,6 @@ classifiers = [
   # "Development Status :: 7 - Inactive",
   "Intended Audience :: Developers",
   "Topic :: Software Development :: Libraries :: Python Modules",
-  "Topic :: Utilities",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
@@ -46,12 +45,10 @@ classifiers = [
 dynamic = ["version"]
 
 [project.urls]
-homepage = "https://github.com/tanbro/redcache"
-repository = "https://github.com/tanbro/redcache"
+homepage = "https://github.com/tanbro/redis_func_cache"
+repository = "https://github.com/tanbro/redis_func_cache"
 
 [project.optional-dependencies]
-hiredis = ["hiredis"]
-
 
 [tool.setuptools.packages.find]
 where = ["src"]

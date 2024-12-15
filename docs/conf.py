@@ -51,7 +51,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = "furo"
 html_static_path = ["_static"]
 html_theme_options = {
-    "source_repository": "https://github.com/tanbro/redcache",
+    "source_repository": "https://github.com/tanbro/redis_func_cache",
     "source_branch": "main",
     "source_directory": "docs/",
     "top_of_page_button": "edit",
