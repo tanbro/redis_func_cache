@@ -38,6 +38,7 @@ jobs:
     services:
       redis:
         image: redis:alpine
+        ports: [6379]
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -64,6 +65,8 @@ jobs:
 
       - name: Test with coverage
         shell: bash
+        env:
+          REDIS_URL: "redis://redis"
         run: |
           coverage run -m unittest -cfv
           coverage report -m
