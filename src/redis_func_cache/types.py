@@ -12,14 +12,14 @@ if TYPE_CHECKING:
     from redis.commands.core import Script
     from redis.typing import EncodableT, EncodedT, KeyT
 
+    UserFunctionT = TypeVar("UserFunctionT", bound=Callable)
+    SerializerT = Callable[[Any], EncodedT]
+    DeserializerT = Callable[[EncodedT], Any]
+
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .utils import read_lua_file
 
 __all__ = ["RedisFuncCache", "AbstractPolicy"]
-
-UserFunctionT = TypeVar("UserFunctionT", bound=Callable)
-SerializerT = Callable[[Any], EncodedT]
-DeserializerT = Callable[[EncodedT], Any]
 
 
 class RedisFuncCache:
@@ -37,11 +37,10 @@ class RedisFuncCache:
         Args:
             name: The name of the cache manager.
             policy: The class for the caching policy, which must inherit from AbstractPolicy.
-            prefix: The prefix for cache keys. If not provided, the default value will be used.
-            redis: An instance of the Redis client, default is None.
-            redis_factory: A factory function to generate an instance of the Redis client, default is None.
-            maxsize: The maximum size of the cache. If not provided, the default value will be used. Zero or negative values means no limit.
-            ttl: The time-to-live (in seconds) for cache items. If not provided, the default value will be used. Zero or negative values means no set ttl.
+            prefix: The prefix for cache keys. If not provided, the default value is :const:`DEFAULT_PREFIX`.
+            redis: Redis client to use.
+            maxsize: The maximum size of the cache. If not provided, the default :const:`DEFAULT_MAXSIZE` will be used. Zero or negative values means no limit.
+            ttl: The time-to-live (in seconds) for cache items. If not provided, the default value :const:`DEFAULT_TTL` will be used. Zero or negative values means no set ttl.
             serializer: Optional serialize/deserialize function pair for return value of what decorated. Default/`None` means to use meth:`json.dumps` and meth:`json.loads`.
         """
         self._name = name
@@ -58,8 +57,8 @@ class RedisFuncCache:
             self._redis_factory = redis
         else:
             raise TypeError("redis must be a string, a Redis instance, or a function returns Redis instance.")
-        self._maxsize = maxsize
-        self._ttl = ttl
+        self._maxsize = DEFAULT_MAXSIZE if maxsize is None else int(maxsize)
+        self._ttl = DEFAULT_TTL if ttl is None else int(ttl)
         self._user_return_value_serializer: Optional[SerializerT] = serializer[0] if serializer else None
         self._user_return_value_deserializer: Optional[DeserializerT] = serializer[1] if serializer else None
 
@@ -91,16 +90,16 @@ class RedisFuncCache:
 
     @property
     def maxsize(self) -> int:
-        return DEFAULT_MAXSIZE if self._maxsize is None else self._maxsize
+        return self._maxsize
 
     @property
     def ttl(self) -> int:
-        return DEFAULT_TTL if self._ttl is None else self._ttl
+        return self._ttl
 
-    def serialize_return_value(self, retval: Any) -> EncodedT:
+    def serialize_return_value(self, value: Any) -> EncodedT:
         if self._user_return_value_serializer:
-            return self._user_return_value_serializer(retval)
-        return json.dumps(retval, ensure_ascii=False).encode()
+            return self._user_return_value_serializer(value)
+        return json.dumps(value, ensure_ascii=False).encode()
 
     def deserialize_return_value(self, data: EncodedT) -> Any:
         if self._user_return_value_deserializer:

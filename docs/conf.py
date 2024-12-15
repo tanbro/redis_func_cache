@@ -7,6 +7,7 @@ if sys.version_info < (3, 8):
     import importlib_metadata
 else:
     import importlib.metadata as importlib_metadata
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -62,7 +63,7 @@ html_theme_options = {
 
 # Automatically extract typehints when specified and place them in
 # descriptions of the relevant function/method.
-autodoc_typehints = "both"
+autodoc_typehints = "description"
 
 # Don't show class signature with the class' name.
 # autodoc_class_signature = "separated"
