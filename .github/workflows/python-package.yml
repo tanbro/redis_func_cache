@@ -53,8 +53,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install project and dependent tools
-        run: pip install -e . -r tests/requirements.txt mypy ruff coverage
+      - name: Install project and dependencies
+        run: pip install -e . -r tests/requirements.txt mypy ruff coverage types-redis
 
       - name: lint by ruff
         run: ruff check
