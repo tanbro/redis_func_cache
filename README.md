@@ -4,11 +4,11 @@
 [![codecov](https://codecov.io/gh/tanbro/redis_func_cache/graph/badge.svg?token=BgeXJZdPbJ)](https://codecov.io/gh/tanbro/redis_func_cache)
 [![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://readthedocs.org/projects/redis-func-cache/badge/)
 
-`redis_func_cache` is a _Python_ library for caching function results in [Redis][], similar to the caching functionality provided by the standard library's `functools` module, which comes with some cache decorators, and is quite handy when we want to code something with memorization.
+`redis_func_cache` is a _Python_ library for caching function results in [Redis][], similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module, which comes with some cache decorators, and is quite handy when we want to code something with memorization.
 When we need to to cache functions return values distributed over multiple processes or machines, we can use [Redis][] as a backend.
 
 The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache decorators.
-It implements `LRU`, `RR`, `FIFO`, `RR` and `LFU` policies([^1]).
+It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replacement policies(<https://wikipedia.org/wiki/Cache_replacement_policies>).
 
 > ❗ **Note**:\
 > The project is still under development, and **DO NOT USE IT IN PRODUCTION**
@@ -33,7 +33,7 @@ It implements `LRU`, `RR`, `FIFO`, `RR` and `LFU` policies([^1]).
 
 ### First example
 
-Using `LRU` cache to decorate a recursive Fibonacci function:
+Using _LRU_ cache to decorate a recursive Fibonacci function:
 
 ```python
 from redis import Redis
@@ -52,14 +52,15 @@ def fib(n):
     return fib(n - 1) + fib(n - 2)
 ```
 
-In this example, we first create a [Redis][] client, then create a `RedisFuncCache` instance with the [Redis][] client and `LruPolicy` as arguments.
+In this example, we first create a [Redis][] client, then create a [`RedisFuncCache`][] instance with the [Redis][] client and [`LruPolicy`][] as it's arguments.
 Next, we use the `@lru_cache` decorator to decorate the `fib` function.
 This way, each computed result is cached, and subsequent calls with the same parameters retrieve the result directly from the cache, thereby improving performance.
 
 It works almost the same like std-lib's `functools.lru_cache`, except that it uses [Redis][] as a backend, not local machine's memory.
 
 If we browse keys in the [Redis][] database, we can find the cache keys and values.
-For the `LruPolicy`, the keys are in a pair form. The pair of keys' names look like:
+For the [`LruPolicy`][], the keys are in a pair form.
+The pair of keys' names look like:
 
 - `redis_func_cache:my-first-lru-cache:lru:__main__:fib:0`
 
@@ -71,9 +72,9 @@ For the `LruPolicy`, the keys are in a pair form. The pair of keys' names look l
 
 ### Eviction policies
 
-If you want to use other eviction policies, you can specify the policy class as the second argument of `RedisFuncCache`.
+If want to use other eviction policies, you can specify another policy class as the second argument of [`RedisFuncCache`][].
 
-For example, we can use `FifoPolicy` to implement a FIFO cache:
+For example, we use [`FifoPolicy`][] to implement a _FIFO_ cache:
 
 ```python
 from redis_func_cache import FifoPolicy
@@ -85,7 +86,7 @@ def func1(x):
     ...
 ```
 
-Use `RrPolicy` to implement a random-remove cache:
+Use [`RrPolicy`][] to implement a random-remove cache:
 
 ```python
 from redis_func_cache import RrPolicy
@@ -99,18 +100,18 @@ def func2(x):
 
 So far, the following policies are available:
 
-- `FifoPolicy`: First In First Out policy
-- `LfuPolicy`: Least Frequently Used policy
-- `LruPolicy`: Least Recently Used policy
-- `MruPolicy`: Most Recently Used policy
-- `RrPolicy`: Random Remove policy
+- [`FifoPolicy`][]
+- [`LfuPolicy`][]
+- [`LruPolicy`][]
+- [`MruPolicy`][]
+- [`RrPolicy`][]
 
-- `TLruPolicy`: Time based Least Recently Used policy.
+- **[`TLruPolicy`][]**
 
-    It is a pseudo LRU policy, not very serious or legitimate.
-    The policy removes lowest member based on the timestamp of invocation and does not completely ensure eviction of the least recently used item, since the timestamp may be inaccurate.
-
-    However, the policy is still **MOST RECOMMENDED** for common use. It is faster than the LRU policy and accurate enough for most cases.
+    > 💡**Tip**:\
+    > It is a pseudo _LRU_ policy, not very serious/legitimate.
+    > The policy removes the lowest member according to the timestamp of invocation, and does not completely ensure eviction of the least recently used item, since the timestamp may be inaccurate.
+    > However, the policy is still **MOST RECOMMENDED** for common use. It is faster than the LRU policy and accurate enough for most cases.
 
 > ℹ️ **Info**:\
 > Explore source codes in `src/policies` for more details.
@@ -120,11 +121,10 @@ So far, the following policies are available:
 As described above, the cache keys are in a pair form. All decorated functions share the same two keys.
 But some times, we may want to use different cache keys for different functions.
 
-One solution is to use different `RedisFuncCache` instances to decorate different functions.
-Another way is to use a policy stores cache data in different [Redis][] key pairs for each function.
-There are several policies to do that out of the box.
+One solution is to use different [`RedisFuncCache`][] instances to decorate different functions.
 
-For example, we can use `TLruMultiPolicy` for a LRU cache that has multiple different [Redis][] key pairs to store result values for different functions:
+Another way is to use a policy stores cache data in different [Redis][] key pairs for each function. There are several policies to do that out of the box.
+For example, we can use [`TLruMultiplePolicy`][] for a _LRU_ cache that has multiple different [Redis][] key pairs to store return values of different functions, and each function has a standalone keys pair:
 
 ```python
 from redis_func_cache import TLruMultiplePolicy
@@ -140,7 +140,7 @@ def func2(x):
     ...
 ```
 
-In the example, `TLruMultiplePolicy` inherits `BaseMultiplePolicy` which implements how to store cache keys and values for each function.
+In the example, [`TLruMultiplePolicy`][] inherits [`BaseMultiplePolicy`][] which implements how to store cache keys and values for each function.
 
 When called, we can see such keys in the [Redis][] database:
 
@@ -154,26 +154,26 @@ When called, we can see such keys in the [Redis][] database:
   - `redis_func_cache:my-cache-4:tlru-m:__main__:func2#<hash2>:0`
   - `redis_func_cache:my-cache-4:tlru-m:__main__:func2#<hash2>:1`
 
-where `<hash1>` and `<hash2>` are the hash values of the function definitions.
+where `<hash1>` and `<hash2>` are the hash values of the definitions of `func1` and `func2` respectively.
 
 Policies that store cache in multiple [Redis][] key pairs are:
 
-- `FifoMultiplePolicy`
-- `LfuMultiplePolicy`
-- `LruMultiplePolicy`
-- `MruMultiplePolicy`
-- `RrMultiplePolicy`
-- `TLruMultiplePolicy`
+- [`FifoMultiplePolicy`][]
+- [`LfuMultiplePolicy`][]
+- [`LruMultiplePolicy`][]
+- [`MruMultiplePolicy`][]
+- [`RrMultiplePolicy`][]
+- [`TLruMultiplePolicy`][]
 
 ### Cluster support
 
-The library implements cache algorithms based on a pair of [Redis][] data structures, the two **MUST** be in a same [Redis][] node, or it will not work correctly.
+We already known that the library implements cache algorithms based on a pair of [Redis][] data structures, the two **MUST** be in a same [Redis][] node, or it will not work correctly.
 
-While the [Redis][] cluster will distribute keys to different nodes based on the hash value of the key's name.
+While a [Redis][] cluster will distribute keys to different nodes based on the hash value of the key's name.
 
-To ensure that two keys are placed in the same node, several cluster policies are provided. These policies use the "{...}" part in key names to achieve this.
+To ensure that two keys are placed in the same node, several cluster policies are provided. These policies use the `{...}` pattern in key names to achieve this.
 
-For example, we can use `TLruClusterPolicy` to implement a cluster-aware LRU cache:
+For example, here we use a [`TLruClusterPolicy`][] to implement a cluster-aware _LRU_ cache:
 
 ```python
 from redis_func_cache import TLruClusterPolicy
@@ -185,7 +185,7 @@ def my_func(x):
     ...
 ```
 
-the key name will be like:
+Then, the names of the key pair may be like:
 
 - `redis_func_cache:{my-cluster-cache:tlru-c}:0`
 - `redis_func_cache:{my-cluster-cache:tlru-c}:1`
@@ -194,35 +194,74 @@ Notice what is in `{...}`: the [Redis][] cluster will determine which node to st
 
 Policies that support cluster are:
 
-- `FifoClusterPolicy`
-- `LfuClusterPolicy`
-- `LruClusterPolicy`
-- `MruClusterPolicy`
-- `RrClusterPolicy`
-- `TLruClusterPolicy`
+- [`FifoClusterPolicy`][]
+- [`LfuClusterPolicy`][]
+- [`LruClusterPolicy`][]
+- [`MruClusterPolicy`][]
+- [`RrClusterPolicy`][]
+- [`TLruClusterPolicy`][]
 
 ### Cluster support with multiple redis key pairs
 
 Policies that support both cluster and store cache in multiple [Redis][] key pairs are:
 
-- `FifoClusterMultiplePolicy`
-- `LfuClusterMultiplePolicy`
-- `LruClusterMultiplePolicy`
-- `MruClusterMultiplePolicy`
-- `RrClusterMultiplePolicy`
-- `TLruClusterMultiplePolicy`
+- [`FifoClusterMultiplePolicy`][]
+- [`LfuClusterMultiplePolicy`][]
+- [`LruClusterMultiplePolicy`][]
+- [`MruClusterMultiplePolicy`][]
+- [`RrClusterMultiplePolicy`][]
+- [`TLruClusterMultiplePolicy`][]
 
 ## Advanced Usage
 
 ## Known Issues
 
-- It's default return value serialization is [JSON][], which does not work with complex objects.
+- [`RedisFuncCache`][]'s name
 
-    But, still, we can use `pickle` to serialize the return value, by specifying `serializers` argument to `pickle`.
+- The return value (de)serializer is default in [JSON][], which does not work with complex objects.
+
+    But, still, we can use `pickle` to serialize the return value, by specifying `serializers` argument to `pickle`:
+
+    ```python
+    import pickle
+
+    serializer = pickle.dumps, pickle.loads
+    my_cache = RedisFuncCache(__name__, TLruPolicy, redis_factory, serializer=SERIALIZER)
+    ```
 
 - Can not work with methods of a class which is not serializable.
 
-[^1]: <https://wikipedia.org/wiki/Cache_replacement_policies>
-
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
+
+[`RedisFuncCache`]: redis_func_cache.types.RedisFuncCache
+
+[`BaseMultiplePolicy`]: redis_func_cache.policies.base.BaseMultiplePolicy
+
+[`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
+[`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
+[`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"
+[`MruPolicy`]: redis_func_cache.policies.mru.MruPolicy "Most Recently Used policy"
+[`RrPolicy`]: redis_func_cache.policies.rr.RrPolicy "Random Remove policy"
+[`TLruPolicy`]: redis_func_cache.policies.tlru.TLruPolicy "Time based Least Recently Used policy."
+
+[`FifoMultiplePolicy`]: redis_func_cache.policies.fifo.FifoMultiplePolicy
+[`LfuMultiplePolicy`]: redis_func_cache.policies.lfu.LfuMultiplePolicy
+[`LruMultiplePolicy`]: redis_func_cache.policies.lru.LruMultiplePolicy
+[`MruMultiplePolicy`]: redis_func_cache.policies.mru.MruMultiplePolicy
+[`RrMultiplePolicy`]: redis_func_cache.policies.rr.RrMultiplePolicy
+[`TLruMultiplePolicy`]: redis_func_cache.policies.tlru.TLruMultiplePolicy
+
+[`FifoClusterPolicy`]: redis_func_cache.policies.fifo.FifoClusterPolicy
+[`LfuClusterPolicy`]: redis_func_cache.policies.lfu.LfuClusterPolicy
+[`LruClusterPolicy`]: redis_func_cache.policies.lru.LruClusterPolicy
+[`MruClusterPolicy`]: redis_func_cache.policies.mru.MruClusterPolicy
+[`RrClusterPolicy`]: redis_func_cache.policies.rr.RrClusterPolicy
+[`TLruClusterPolicy`]: redis_func_cache.policies.tlru.TLruClusterPolicy
+
+[`FifoClusterMultiplePolicy`]: redis_func_cache.policies.fifo.FifoClusterMultiplePolicy
+[`LfuClusterMultiplePolicy`]: redis_func_cache.policies.lfu.LfuClusterMultiplePolicy
+[`LruClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruClusterMultiplePolicy
+[`MruClusterMultiplePolicy`]: redis_func_cache.policies.mru.MruClusterMultiplePolicy
+[`RrClusterMultiplePolicy`]: redis_func_cache.policies.rr.RrClusterMultiplePolicy
+[`TLruClusterMultiplePolicy`]: redis_func_cache.policies.tlru.TLruClusterMultiplePolicy

@@ -56,4 +56,4 @@ then open http://localhost:8000/ in a web browser.
 .. tip::
    If want to build PDF, use ``make rinoh`` instead.
 
-   .. seealso:: <https://www.sphinx-doc.org/en/master/usage/builders/index.html#sphinx.builders.latex.LaTeXBuilder>
+   .. seealso:: https://www.sphinx-doc.org/en/master/usage/builders/index.html#sphinx.builders.latex.LaTeXBuilder

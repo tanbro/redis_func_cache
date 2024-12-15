@@ -87,8 +87,9 @@ myst_enable_extensions = [
     "smartquotes",
     "strikethrough",
     "substitution",
-    "tasklist",
+    "tasklist"
 ]
+
 
 # -- Options for intersphinx extension ---------------------------------------
 
