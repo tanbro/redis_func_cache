@@ -1,6 +1,8 @@
 # redis_func_cache
 
+[![python-package](https://github.com/tanbro/redis_func_cache/actions/workflows/python-package.yml/badge.svg)](https://github.com/tanbro/redis_func_cache/actions/workflows/python-package.yml/badge.svg)
 [![codecov](https://codecov.io/gh/tanbro/redis_func_cache/graph/badge.svg?token=BgeXJZdPbJ)](https://codecov.io/gh/tanbro/redis_func_cache)
+[![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://readthedocs.org/projects/redis-func-cache/badge/)
 
 `redis_func_cache` is a _Python_ library for caching function results in [Redis][], similar to the caching functionality provided by the standard library's `functools` module, which comes with some cache decorators, and is quite handy when we want to code something with memorization.
 When we need to to cache functions return values distributed over multiple processes or machines, we can use [Redis][] as a backend.
