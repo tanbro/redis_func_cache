@@ -15,11 +15,11 @@ How to build docs
 
    Ignore this step if requirements already installed.
 
-#. (*Optional*) Re-generate API-Docs, if source tree changed:
+#. Generate API-Docs. You may re-generate them if source tree changed:
 
    .. code:: sh
 
-      sphinx-apidoc -o docs/apidocs -eMTf src
+      sphinx-apidoc -o docs/apidocs -e -H APIs src
 
 #. Build HTML documentation:
 

@@ -10,7 +10,7 @@ else:
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'redcache'
+project = 'redis_func_cache'
 copyright = '2024, Liu Xue Yan'
 author = 'Liu Xue Yan'
 # full version

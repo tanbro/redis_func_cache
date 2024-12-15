@@ -23,7 +23,7 @@ Contents
    :caption: API Reference
    :titlesonly:
 
-   apidocs/redcache
+   apidocs/modules
 
 
 Indices and tables

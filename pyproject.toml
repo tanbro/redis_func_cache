@@ -4,8 +4,8 @@ requires = ["setuptools>=64", "setuptools-scm>=8"]
 
 [project]
 authors = [{ name = "liu xue yan", email = "liu_xue_yan@foxmail.com" }]
-description = ""
-name = "redcache"
+description = "A python library for caching function results in redis, like that in stdlib's functools"
+name = "redis_func_cache"
 readme = "README.md"
 
 requires-python = ">=3.8"
@@ -16,8 +16,7 @@ dependencies = [
   "typing-extensions; python_version<'3.12'",
 ]
 
-
-keywords = ["redis", "cache"]
+keywords = ["redis", "cache", "functools", "decorate", "decorator"]
 
 license = { text = "AGPLv3+" }
 
@@ -58,7 +57,7 @@ hiredis = ["hiredis"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"redcache.data" = ["redcache/lua/*.lua", "redcache/py.typed"]
+"redcache.data" = ["redis_func_cache/lua/*.lua", "redis_func_cache/py.typed"]
 
 [tool.setuptools_scm]
-write_to = "src/redcache/_version.py"
+write_to = "src/redis_func_cache/_version.py"

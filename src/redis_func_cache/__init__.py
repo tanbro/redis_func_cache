@@ -6,4 +6,4 @@ from .policies.lru import LruClusterMultiplePolicy, LruClusterPolicy, LruMultipl
 from .policies.mru import MruClusterMultiplePolicy, MruClusterPolicy, MruMultiplePolicy, MruPolicy
 from .policies.rr import RrClusterMultiplePolicy, RrClusterPolicy, RrMultiplePolicy, RrPolicy
 from .policies.tlru import TLruClusterMultiplePolicy, TLruClusterPolicy, TLruMultiplePolicy, TLruPolicy
-from .types import AbstractPolicy, RedCache
+from .types import AbstractPolicy, RedisFuncCache

@@ -1,6 +1,6 @@
 src = ["src"]
 extend-exclude = ["docs"]
-line-length = 128
+line-length = 120
 
 [lint]
 extend-select = ["I"]

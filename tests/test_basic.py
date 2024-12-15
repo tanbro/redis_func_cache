@@ -5,18 +5,18 @@ from uuid import uuid4
 
 from redis import Redis
 
-from redcache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedCache, RrPolicy, TLruPolicy
+from redis_func_cache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedisFuncCache, RrPolicy, TLruPolicy
 
 REDIS_URL = "redis://"
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
-    "tlru": RedCache(__name__, TLruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedCache(__name__, LruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedCache(__name__, MruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedCache(__name__, RrPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedCache(__name__, FifoPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedCache(__name__, LfuPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, TLruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 
@@ -39,8 +39,8 @@ class BasicTest(TestCase):
             # mock hit
             for i in range(cache.maxsize):
                 with (
-                    patch.object(cache, "exec_get_script", return_value=cache.serialize_return_value(i)) as mock_get,
-                    patch.object(cache, "exec_put_script") as mock_put,
+                    patch.object(cache, "get", return_value=cache.serialize_return_value(i)) as mock_get,
+                    patch.object(cache, "put") as mock_put,
                 ):
                     echo(i)
                     mock_get.assert_called_once()
@@ -49,8 +49,8 @@ class BasicTest(TestCase):
             # mock not hit
             for i in range(cache.maxsize):
                 with (
-                    patch.object(cache, "exec_get_script", return_value=None) as mock_get,
-                    patch.object(cache, "exec_put_script") as mock_put,
+                    patch.object(cache, "get", return_value=None) as mock_get,
+                    patch.object(cache, "put") as mock_put,
                 ):
                     echo(i)
                     mock_get.assert_called_once()
@@ -60,7 +60,7 @@ class BasicTest(TestCase):
             for i in range(cache.maxsize):
                 self.assertEqual(_echo(i), echo(i))
                 self.assertEqual(i + 1, cache.policy.size)
-                with patch.object(cache, "exec_put_script") as mock_put:
+                with patch.object(cache, "put") as mock_put:
                     self.assertEqual(i, echo(i))
                     mock_put.assert_not_called()
             self.assertEqual(cache.maxsize, cache.policy.size)
@@ -80,15 +80,15 @@ class BasicTest(TestCase):
                 echo1(a)
                 echo2(b)
                 with (
-                    patch.object(cache, "exec_get_script", return_value=None) as mock_get,
-                    patch.object(cache, "exec_put_script") as mock_put,
+                    patch.object(cache, "get", return_value=None) as mock_get,
+                    patch.object(cache, "put") as mock_put,
                 ):
                     echo1(b)
                     mock_get.assert_called_once()
                     mock_put.assert_called_once()
                 with (
-                    patch.object(cache, "exec_get_script", return_value=None) as mock_get,
-                    patch.object(cache, "exec_put_script") as mock_put,
+                    patch.object(cache, "get", return_value=None) as mock_get,
+                    patch.object(cache, "put") as mock_put,
                 ):
                     echo2(a)
                     mock_get.assert_called_once()
@@ -115,7 +115,7 @@ class BasicTest(TestCase):
                 self.assertEqual(_echo(i), echo(i))
             self.assertEqual(cache.maxsize, cache.policy.size)
             # assert not hit
-            with patch.object(cache, "exec_put_script") as mock_put:
+            with patch.object(cache, "put") as mock_put:
                 v = random()
                 self.assertEqual(echo(v), v)
                 mock_put.assert_called_once()

@@ -5,19 +5,19 @@ from uuid import uuid4
 
 from redis import Redis
 
-from redcache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedCache, RrPolicy, TLruPolicy
+from redis_func_cache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedisFuncCache, RrPolicy, TLruPolicy
 
 REDIS_URL = "redis://"
 SERIALIZER = pickle.dumps, pickle.loads
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
-    "tlru": RedCache(__name__, TLruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "lru": RedCache(__name__, LruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "mru": RedCache(__name__, MruPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "rr": RedCache(__name__, RrPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "fifo": RedCache(__name__, FifoPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "lfu": RedCache(__name__, LfuPolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "tlru": RedisFuncCache(__name__, TLruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "lru": RedisFuncCache(__name__, LruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "mru": RedisFuncCache(__name__, MruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "rr": RedisFuncCache(__name__, RrPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "fifo": RedisFuncCache(__name__, FifoPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "lfu": RedisFuncCache(__name__, LfuPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
 }
 
 

@@ -7,7 +7,7 @@ import sys
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence, Tuple
 from weakref import CallableProxyType
 
-from redcache.types import RedCache
+from redis_func_cache.types import RedisFuncCache
 
 if sys.version_info < (3, 12):  # pragma: no cover
     from typing_extensions import override
@@ -30,8 +30,10 @@ class BaseSinglePolicy(AbstractPolicy):
     Do not use it directly.
     """
 
+    __key__: str
+
     @override
-    def __init__(self, cache: CallableProxyType[RedCache]):
+    def __init__(self, cache: CallableProxyType[RedisFuncCache]):
         super().__init__(cache)
         self._keys: Optional[tuple[str, str]] = None
 

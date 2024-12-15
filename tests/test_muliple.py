@@ -1,30 +1,28 @@
-import pickle
 from random import randint
 from unittest import TestCase
 
 from redis import Redis
 
-from redcache import (
+from redis_func_cache import (
     FifoMultiplePolicy,
     LfuMultiplePolicy,
     LruMultiplePolicy,
     MruMultiplePolicy,
-    RedCache,
+    RedisFuncCache,
     RrMultiplePolicy,
     TLruMultiplePolicy,
 )
 
 REDIS_URL = "redis://"
-SERIALIZER = pickle.dumps, pickle.loads
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
-    "tlru": RedCache(__name__, TLruMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "lru": RedCache(__name__, LruMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "mru": RedCache(__name__, MruMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "rr": RedCache(__name__, RrMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "fifo": RedCache(__name__, FifoMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "lfu": RedCache(__name__, LfuMultiplePolicy, redis_factory=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "tlru": RedisFuncCache(__name__, TLruMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 

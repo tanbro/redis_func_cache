@@ -3,36 +3,35 @@ from __future__ import annotations
 import json
 import weakref
 from functools import wraps
-from inspect import isawaitable
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 from redis import Redis
-from redis.commands.core import Script
 
 if TYPE_CHECKING:
+    from redis.commands.core import Script
     from redis.typing import EncodableT, EncodedT, KeyT
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .utils import read_lua_file
 
-FT = TypeVar("FT", bound=Callable)
+__all__ = ["RedisFuncCache", "AbstractPolicy"]
 
-__all__ = ["RedCache", "AbstractPolicy"]
+UserFunctionT = TypeVar("UserFunctionT", bound=Callable)
+SerializerT = Callable[[Any], EncodedT]
+DeserializerT = Callable[[EncodedT], Any]
 
 
-class RedCache:
+class RedisFuncCache:
     def __init__(
         self,
         name: str,
         policy: Type[AbstractPolicy],
-        *,
+        redis: Union[str, Redis, Callable[[], Redis]],
         prefix: Optional[str] = None,
-        redis: Optional[Redis] = None,
-        redis_factory: Optional[Callable[[], Redis]] = None,
         maxsize: Optional[int] = None,
         ttl: Optional[int] = None,
-        serializer: Union[Tuple[Callable[[Any], EncodedT], Callable[[EncodedT], Any]], None] = None,
+        serializer: Union[Tuple[SerializerT, DeserializerT], None] = None,
     ):
         """
         Args:
@@ -49,16 +48,20 @@ class RedCache:
         self._policy_type = policy
         self._policy_instance: Optional[AbstractPolicy] = None
         self._prefix = prefix or DEFAULT_PREFIX
-        if redis is None and redis_factory is None:
-            raise ValueError("Either `redis` or `redis_factory` is required.")
-        if redis is not None and redis_factory is not None:
-            raise ValueError("Only one of `redis` and `redis_factory` could be provided.")
-        self._redis = redis
-        self._redis_factory = redis_factory
+        self._redis: Optional[Redis] = None
+        self._redis_factory: Optional[Callable[[], Redis]] = None
+        if isinstance(redis, str):
+            self._redis = Redis.from_url(redis)
+        elif isinstance(redis, Redis):
+            self._redis = redis
+        elif callable(redis):
+            self._redis_factory = redis
+        else:
+            raise TypeError("redis must be a string, a Redis instance, or a function returns Redis instance.")
         self._maxsize = maxsize
         self._ttl = ttl
-        self._user_return_value_serializer = serializer[0] if serializer else None
-        self._user_return_value_deserializer = serializer[1] if serializer else None
+        self._user_return_value_serializer: Optional[SerializerT] = serializer[0] if serializer else None
+        self._user_return_value_deserializer: Optional[DeserializerT] = serializer[1] if serializer else None
 
     @property
     def name(self) -> str:
@@ -104,29 +107,57 @@ class RedCache:
             return self._user_return_value_deserializer(data)
         return json.loads(data)
 
-    def exec_get_script(self, keys: Sequence[KeyT], args: Iterable[EncodableT]):
-        return self.policy.lua_scripts[0](keys, args)
+    @classmethod
+    def get(
+        cls,
+        script: Script,
+        key_pair: Tuple[KeyT, KeyT],
+        hash: KeyT,
+        ttl: Optional[int] = None,
+        options: Optional[Mapping[str, Any]] = None,
+        ext_args: Optional[Iterable[EncodableT]] = None,
+    ) -> EncodedT:
+        ttl = DEFAULT_TTL if ttl is None else ttl
+        encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
+        ext_args = ext_args or ()
+        return script(keys=key_pair, args=chain((ttl, hash, encoded_options), ext_args))
 
-    def exec_put_script(self, keys: Sequence[KeyT], args: Iterable[EncodableT]):
-        return self.policy.lua_scripts[1](keys, args)
+    @classmethod
+    def put(
+        cls,
+        script: Script,
+        key_pair: Tuple[KeyT, KeyT],
+        hash: KeyT,
+        value: EncodableT,
+        maxsize: Optional[int] = None,
+        ttl: Optional[int] = None,
+        options: Optional[Mapping[str, Any]] = None,
+        ext_args: Optional[Iterable[EncodableT]] = None,
+    ):
+        maxsize = DEFAULT_MAXSIZE if maxsize is None else maxsize
+        ttl = DEFAULT_TTL if ttl is None else ttl
+        encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
+        ext_args = ext_args or ()
+        script(keys=key_pair, args=chain((maxsize, ttl, hash, value, encoded_options), ext_args))
 
-    def exec_user_function(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **kwargs):
-        kwargs_json = json.dumps(kwargs, ensure_ascii=False)
+    def exec_user_function(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
         keys = self.policy.calc_keys(user_function, user_args, user_kwds)
         hash = self.policy.calc_hash(user_function, user_args, user_kwds)
         ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
-        cached_retval = self.exec_get_script(keys=keys, args=chain((self.ttl, hash), (kwargs_json,), ext_args))
-        if isawaitable(cached_retval):
-            raise RuntimeError("cached return value could not be an asynchronous function.")  # pragma: no cover
-        if cached_retval is not None:
-            return self.deserialize_return_value(cached_retval)
-        retval = user_function(*user_args, **user_kwds)
-        retval_ser = self.serialize_return_value(retval)
-        self.exec_put_script(keys=keys, args=chain((self.maxsize, self.ttl, hash, retval_ser), (kwargs_json,), ext_args))
-        return retval
+        cached = self.get(self.policy.lua_scripts[0], keys, hash, self.ttl, options, ext_args)
+        if cached is not None:
+            if not isinstance(cached, (bytes, str, memoryview)):
+                raise ValueError("Cached value is not bytes/str/memoryview type.")
+            return self.deserialize_return_value(cached)
+        user_return_value = user_function(*user_args, **user_kwds)
+        user_retval_serialized = self.serialize_return_value(user_return_value)
+        self.put(
+            self.policy.lua_scripts[1], keys, hash, user_retval_serialized, self.maxsize, self.ttl, options, ext_args
+        )
+        return user_return_value
 
-    def decorate(self, user_function: Optional[FT] = None, /, **kwargs) -> FT:
-        def decorator(f: FT):
+    def decorate(self, user_function: Optional[UserFunctionT] = None, /, **kwargs) -> UserFunctionT:
+        def decorator(f: UserFunctionT):
             @wraps(f)
             def wrapper(*f_args, **f_kwargs):
                 return self.exec_user_function(f, f_args, f_kwargs, **kwargs)
@@ -146,12 +177,12 @@ class AbstractPolicy:
     __key__: str
     __scripts__: Tuple[str, str]
 
-    def __init__(self, cache: weakref.CallableProxyType[RedCache]):
+    def __init__(self, cache: weakref.CallableProxyType[RedisFuncCache]):
         self._cache = cache
         self._lua_scripts: Optional[Tuple[Script, Script]] = None
 
     @property
-    def cache(self) -> RedCache:
+    def cache(self) -> RedisFuncCache:
         """It's in fact a weakref proxy object, returned by:func:`weakref.proxy`.
         weakref is not a good idea.
         """
