@@ -47,12 +47,12 @@ class RedisFuncCache:
         self._policy_type = policy
         self._policy_instance: Optional[AbstractPolicy] = None
         self._prefix = prefix or DEFAULT_PREFIX
-        self._redis: Optional[Redis] = None
+        self._redis_instance: Optional[Redis] = None
         self._redis_factory: Optional[Callable[[], Redis]] = None
         if isinstance(redis, str):
-            self._redis = Redis.from_url(redis)
+            self._redis_instance = Redis.from_url(redis)
         elif isinstance(redis, Redis):
-            self._redis = redis
+            self._redis_instance = redis
         elif callable(redis):
             self._redis_factory = redis
         else:
@@ -77,16 +77,16 @@ class RedisFuncCache:
             self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
 
-    def get_redis_client(self) -> Redis:
-        if self._redis:
-            return self._redis
+    def get_redis(self) -> Redis:
+        if self._redis_instance:
+            return self._redis_instance
         if self._redis_factory:
             return self._redis_factory()
         raise RuntimeError("No redis client or factory provided.")
 
     @property
-    def redis_client(self) -> Redis:
-        return self.get_redis_client()
+    def redis(self) -> Redis:
+        return self.get_redis()
 
     @property
     def maxsize(self) -> int:
@@ -182,8 +182,8 @@ class AbstractPolicy:
 
     @property
     def cache(self) -> RedisFuncCache:
-        """It's in fact a weakref proxy object, returned by:func:`weakref.proxy`.
-        weakref is not a good idea.
+        """It's in fact a `weakref` proxy object, returned by :func:`weakref.proxy`.
+        `weakref` is not a good idea.
         """
         return self._cache  # type: ignore
 
@@ -194,7 +194,7 @@ class AbstractPolicy:
     def lua_scripts(self) -> Tuple[Script, Script]:
         if self._lua_scripts is None:
             script_texts = self.read_lua_scripts()
-            rc = self.cache.get_redis_client()
+            rc = self.cache.get_redis()
             self._lua_scripts = rc.register_script(script_texts[0]), rc.register_script(script_texts[1])
         return self._lua_scripts
 

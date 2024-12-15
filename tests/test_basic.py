@@ -1,3 +1,4 @@
+from os import getenv
 from random import randint, random
 from unittest import TestCase
 from unittest.mock import patch
@@ -7,7 +8,7 @@ from redis import Redis
 
 from redis_func_cache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedisFuncCache, RrPolicy, TLruPolicy
 
-REDIS_URL = "redis://"
+REDIS_URL = getenv("REDIS_URL", "redis://")
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
@@ -38,23 +39,19 @@ class BasicTest(TestCase):
 
             # mock hit
             for i in range(cache.maxsize):
-                with (
-                    patch.object(cache, "get", return_value=cache.serialize_return_value(i)) as mock_get,
-                    patch.object(cache, "put") as mock_put,
-                ):
-                    echo(i)
-                    mock_get.assert_called_once()
-                    mock_put.assert_not_called()
+                with patch.object(cache, "get", return_value=cache.serialize_return_value(i)) as mock_get:
+                    with patch.object(cache, "put") as mock_put:
+                        echo(i)
+                        mock_get.assert_called_once()
+                        mock_put.assert_not_called()
 
             # mock not hit
             for i in range(cache.maxsize):
-                with (
-                    patch.object(cache, "get", return_value=None) as mock_get,
-                    patch.object(cache, "put") as mock_put,
-                ):
-                    echo(i)
-                    mock_get.assert_called_once()
-                    mock_put.assert_called_once()
+                with patch.object(cache, "get", return_value=None) as mock_get:
+                    with patch.object(cache, "put") as mock_put:
+                        echo(i)
+                        mock_get.assert_called_once()
+                        mock_put.assert_called_once()
 
             # first run, fill the cache to max size. then second run, to hit the cache
             for i in range(cache.maxsize):
@@ -79,20 +76,16 @@ class BasicTest(TestCase):
             for a, b in zip(range(cache.maxsize), range(cache.maxsize - 1, -1, -1)):
                 echo1(a)
                 echo2(b)
-                with (
-                    patch.object(cache, "get", return_value=None) as mock_get,
-                    patch.object(cache, "put") as mock_put,
-                ):
-                    echo1(b)
-                    mock_get.assert_called_once()
-                    mock_put.assert_called_once()
-                with (
-                    patch.object(cache, "get", return_value=None) as mock_get,
-                    patch.object(cache, "put") as mock_put,
-                ):
-                    echo2(a)
-                    mock_get.assert_called_once()
-                    mock_put.assert_called_once()
+                with patch.object(cache, "get", return_value=None) as mock_get:
+                    with patch.object(cache, "put") as mock_put:
+                        echo1(b)
+                        mock_get.assert_called_once()
+                        mock_put.assert_called_once()
+                with patch.object(cache, "get", return_value=None) as mock_get:
+                    with patch.object(cache, "put") as mock_put:
+                        echo2(a)
+                        mock_get.assert_called_once()
+                        mock_put.assert_called_once()
 
     def test_parenthesis(self):
         for cache in CACHES.values():
@@ -154,7 +147,7 @@ class BasicTest(TestCase):
             echo(MAXSIZE)
 
             k0, k1 = cache.policy.calc_keys()
-            rc = cache.get_redis_client()
+            rc = cache.get_redis()
 
             card = rc.zcard(k0)
             self.assertEqual(card, MAXSIZE)
@@ -175,7 +168,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis_client()
+        rc = cache.get_redis()
 
         members = members = rc.zrange(k0, "+inf", "-inf", byscore=True, desc=True)  # type: ignore
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
@@ -198,7 +191,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis_client()
+        rc = cache.get_redis()
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
@@ -223,7 +216,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis_client()
+        rc = cache.get_redis()
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
@@ -247,7 +240,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis_client()
+        rc = cache.get_redis()
 
         members = rc.smembers(k0)
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore

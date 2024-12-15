@@ -1,4 +1,5 @@
 import pickle
+from os import getenv
 from random import randint
 from unittest import TestCase
 from uuid import uuid4
@@ -7,7 +8,7 @@ from redis import Redis
 
 from redis_func_cache import FifoPolicy, LfuPolicy, LruPolicy, MruPolicy, RedisFuncCache, RrPolicy, TLruPolicy
 
-REDIS_URL = "redis://"
+REDIS_URL = getenv("REDIS_URL", "redis://")
 SERIALIZER = pickle.dumps, pickle.loads
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8

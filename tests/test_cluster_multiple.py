@@ -1,3 +1,4 @@
+from os import getenv
 from random import randint
 from unittest import TestCase
 
@@ -13,7 +14,7 @@ from redis_func_cache import (
     TLruClusterMultiplePolicy,
 )
 
-REDIS_URL = "redis://"
+REDIS_URL = getenv("REDIS_URL", "redis://")
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
