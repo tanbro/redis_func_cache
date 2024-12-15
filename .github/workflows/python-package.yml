@@ -64,8 +64,6 @@ jobs:
 
       - name: Test with coverage
         shell: bash
-        env:
-          REDIS_URL: "redis://redis"
         run: |
           coverage run -m unittest -cfv
           coverage report -m
