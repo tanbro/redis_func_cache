@@ -35,6 +35,7 @@ extensions = [
     "sphinx_copybutton",
     "versionwarning.extension",
 ]
+
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",

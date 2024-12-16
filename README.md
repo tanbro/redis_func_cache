@@ -29,6 +29,36 @@ It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replaceme
     python setup.py install
     ```
 
+## Data structure
+
+```puml
+@startuml
+package redis {
+
+map SoredSet {
+    hash_1 => score_1
+    hash_2 => score_2
+    hash_3 => score_3
+    ... => ...
+    hash n => score n
+}
+
+map HashMap {
+    hash_1 => value_1
+    hash_2 => value_2
+    hash_3 => value_3
+    ... => ...
+    hash_n => value_n
+}
+
+SoredSet::hash_1 .. HashMap::hash_1
+SoredSet::hash_2 .. HashMap::hash_2
+SoredSet::hash_3 .. HashMap::hash_3
+SoredSet::hash_n .. HashMap::hash_n
+}
+@enduml
+```
+
 ## Basic Usage
 
 ### First example
@@ -212,9 +242,28 @@ Policies that support both cluster and store cache in multiple [Redis][] key pai
 - [`RrClusterMultiplePolicy`][]
 - [`TLruClusterMultiplePolicy`][]
 
+### Max size and expiration time
+
+The [`RedisFuncCache`][] instance has two arguments to control the maximum size and expiration time of the cache:
+
+- `maxsize`: the maximum number of items that the cache can hold.
+
+    When the cache reaches its `maxsize`, adding a new item will cause an existing cached item to be removed according to the eviction policy.
+
+    > ℹ️ **Note**:\
+    > For "multiple" policies, each decorated function has its own standalone data structure, so the value represents the maximum size of each individual data structure.
+
+- `ttl`: The expiration time (in seconds) for the cache data structure.
+
+    The cache's [redis][] data structure will expire and be released after the specified time.
+    Each time the cache is accessed, the expiration time will be reset.
+
+    > ℹ️ **Note**:\
+    > For "multiple" policies, each decorated function has its own standalone data structure, so the `ttl` value represents the expiration time of each individual data structure. The expiration time will be reset each time the cache is accessed individually.
+
 ### Complex return types
 
-The return value (de)serializer is default in [JSON][], which does not work with complex objects.
+The return value (de)serializer [JSON][] (`json` module of std-lib) by default, which does not work with complex objects.
 
 But, still, we can use [`pickle`][] to serialize the return value, by specifying `serializers` argument of [`RedisFuncCache`][]:
 
@@ -228,14 +277,19 @@ def redis_factory():
     ...
 
 
-my_pickle_cache = RedisFuncCache(__name__, TLruPolicy, redis_factory, serializer=(pickle.dumps, pickle.loads))
+my_pickle_cache = RedisFuncCache(
+    __name__,
+    TLruPolicy,
+    redis_factory,
+    serializer=(pickle.dumps, pickle.loads)
+)
 ```
 
 > ⚠️ **warning**:\
 > [`pickle`][] is considered a security risk, and should not be used with runtime/version sensitive data. Use it cautiously and only when necessary.
 > It's a good practice to only cache functions that return simple, [JSON][] serializable data types.
 
-Other serialization ways are also workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack](https://msgpack.org/), [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
+Other serialization functions also should be workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack](https://msgpack.org/), [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
 
 ## Advanced Usage
 
@@ -318,7 +372,80 @@ In the example, we'll get a cache generates [redis][] keys separated by `-`, ins
 
 `LruScriptsMixin` tells the policy which lua script to use, and `PickleMd5HashMixin` tells the policy to use [`pickle`][] to serialize and `md5` to calculate the hash value of the function.
 
-### Expirations
+### Custom Hash Algorithm
+
+When the library performs a get or put action with [redis][], the hash value of the function invocation will be used.
+
+For the sorted or unsorted set data structures, the hash value will be used as the member. For the hash map data structure, the hash value will be used as the hash key.
+
+The library indexes the hash value using the hash map and decides which item to replace when the maximum size is reached, based on the hash value's score in the sorted or unsorted set.
+
+The algorithm used to calculate the hash value is defined in `AbstractHashMixin`, it can be described as below:
+
+```python
+class AbstractHashMixin:
+
+    ...
+
+    def calc_hash(
+        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+    ) -> KeyT:
+        if not callable(f):
+            raise TypeError(f"Can not calculate hash for {f=}")
+        conf = self.__hash_config__
+        h = hashlib.new(conf.algorithm)
+        h.update(get_fullname(f).encode())
+        source = get_source(f)
+        if source is not None:
+            h.update(source.encode())
+        if args is not None:
+            h.update(conf.serializer(args))
+        if kwds is not None:
+            h.update(conf.serializer(kwds))
+        if conf.decoder is None:
+            return h.digest()
+        return conf.decoder(h)
+```
+
+As the code snippet above, the hash value is calculated by the full name of the function, the source code of the function, the arguments and keyword arguments --- they are serialized and hashed, then decoded.
+
+The serializer and decoder are defined in `__hash_config__` attribute of the policy class, and they are used to serialize and decode the arguments and keyword arguments. The default serializer and decoder are [`pickle`][] and `md5` respectively. If no `decoder` is provided, the hash value will be returned as bytes.
+
+If want to use a different algorithm, we can select a mixin hash class defined in `src/redis_func_cache/mixins/hash.py`.
+For example:
+
+```python
+from redis_func_cache import AbstractHashMixin, RedisFuncCache
+from redis_func_cache.mixins.hash import JsonSha1HexHashMixin
+from redis_func_cache.mixins.policy import LruScriptsMixin
+
+
+class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
+    __key__ = "my-lru"
+
+my_json_sha1_hex_cache = RedisFuncCache(name="json_sha1_hex", policy=MyLruPolicy, redis=redis_factory)
+```
+
+If want to use a different algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
+For example:
+
+```python
+from hashlib import sha256
+
+from redis_func_cache import AbstractHashMixin, RedisFuncCache
+from redis_func_cache.mixins.policy import LruScriptsMixin
+
+
+class MyHashMixin(AbstractHashMixin):
+    def calc_hash(self, f=None, args=None, kwds=None):
+        return sha256(f.__name__).hexdigest()
+
+
+class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
+    __key__ = "my-custom-hash-lru"
+
+my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2, redis=redis_factory)
+```
 
 ## Known Issues
 
