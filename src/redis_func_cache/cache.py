@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Se
 
 from redis import Redis
 
-if TYPE_CHECKING:
+from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
+
+if TYPE_CHECKING:  # pragma: no cover
     from redis.commands.core import Script
     from redis.typing import EncodableT, EncodedT, KeyT
 
@@ -16,9 +18,6 @@ if TYPE_CHECKING:
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
 
-from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
-
-if TYPE_CHECKING:
     from .policies.abstract import AbstractPolicy
 
 __all__ = ("RedisFuncCache",)
@@ -72,12 +71,15 @@ class RedisFuncCache:
     def prefix(self) -> str:
         return self._prefix
 
-    @property
-    def policy(self) -> AbstractPolicy:
+    def get_policy(self) -> AbstractPolicy:
         """**It returns an instance, NOT type/class**"""
         if self._policy_instance is None:
             self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
+
+    @property
+    def policy(self) -> AbstractPolicy:
+        return self.get_policy()
 
     def get_redis(self) -> Redis:
         if self._redis_instance:
@@ -114,11 +116,10 @@ class RedisFuncCache:
         script: Script,
         key_pair: Tuple[KeyT, KeyT],
         hash: KeyT,
-        ttl: Optional[int] = None,
+        ttl: int,
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
-    ) -> EncodedT:
-        ttl = DEFAULT_TTL if ttl is None else ttl
+    ) -> Optional[EncodedT]:
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         return script(keys=key_pair, args=chain((ttl, hash, encoded_options), ext_args))
@@ -130,13 +131,11 @@ class RedisFuncCache:
         key_pair: Tuple[KeyT, KeyT],
         hash: KeyT,
         value: EncodableT,
-        maxsize: Optional[int] = None,
-        ttl: Optional[int] = None,
+        maxsize: int,
+        ttl: int,
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
     ):
-        maxsize = DEFAULT_MAXSIZE if maxsize is None else maxsize
-        ttl = DEFAULT_TTL if ttl is None else ttl
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         script(keys=key_pair, args=chain((maxsize, ttl, hash, value, encoded_options), ext_args))
@@ -147,8 +146,6 @@ class RedisFuncCache:
         ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
         cached = self.get(self.policy.lua_scripts[0], keys, hash, self.ttl, options, ext_args)
         if cached is not None:
-            if not isinstance(cached, (bytes, str, memoryview)):
-                raise ValueError("Cached value is not bytes/str/memoryview type.")
             return self.deserialize_return_value(cached)
         user_return_value = user_function(*user_args, **user_kwds)
         user_retval_serialized = self.serialize_return_value(user_return_value)

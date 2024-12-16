@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Se
 
 from ..utils import read_lua_file
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from weakref import CallableProxyType
 
     from redis.commands.core import Script

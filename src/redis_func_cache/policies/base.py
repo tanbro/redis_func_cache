@@ -93,7 +93,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         source = get_source(f)
         if source is not None:
             h.update(source.encode())
-        checksum = base64_hash_digest(h)
+        checksum = base64_hash_digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
 
@@ -125,6 +125,6 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         source = get_source(f)
         if source is not None:
             h.update(source.encode())
-        checksum = base64_hash_digest(h)
+        checksum = base64_hash_digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"
