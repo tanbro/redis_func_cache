@@ -7,18 +7,19 @@ import sys
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence, Tuple
 from weakref import CallableProxyType
 
-from redis_func_cache.types import RedisFuncCache
-
 if sys.version_info < (3, 12):  # pragma: no cover
     from typing_extensions import override
 else:  # pragma: no cover
     from typing import override
 
+
+from ..cache import RedisFuncCache
+from ..utils import base64_hash_digest, get_fullname, get_source
+from .abstract import AbstractPolicy
+
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
 
-from ..types import AbstractPolicy
-from ..utils import base64_hash_digest, get_fullname, get_source
 
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
 

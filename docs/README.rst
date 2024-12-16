@@ -7,15 +7,13 @@ README
 How to build the docs
 =====================
 
-#. This documentation is made with `Sphinx <https://www.sphinx-doc.org/>`_, be sure to install it's dependencies:
+#. The documentation is build by `Sphinx <https://www.sphinx-doc.org/>`_, we need to install the requirements:
 
    .. code:: sh
 
       pip install -r docs/requirements.txt
 
-   Ignore this step if requirements already installed.
-
-#. Generate API-Docs. You may re-generate them if source tree changed:
+#. Generate API-Docs. You may clear `docs/apidocs` directory then re-generate them if source tree changed:
 
    .. code:: sh
 
