@@ -1,5 +1,5 @@
 from ..mixins.hash import PickleMd5HashMixin
-from ..mixins.policies import MruScriptsMixin
+from ..mixins.policy import MruScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
 __all__ = ("MruPolicy", "MruMultiplePolicy", "MruClusterPolicy", "MruClusterMultiplePolicy")

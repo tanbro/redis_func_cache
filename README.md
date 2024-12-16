@@ -165,7 +165,7 @@ Policies that store cache in multiple [Redis][] key pairs are:
 - [`RrMultiplePolicy`][]
 - [`TLruMultiplePolicy`][]
 
-### Cluster support
+### [Redis][] Cluster support
 
 We already known that the library implements cache algorithms based on a pair of [Redis][] data structures, the two **MUST** be in a same [Redis][] node, or it will not work correctly.
 
@@ -201,7 +201,7 @@ Policies that support cluster are:
 - [`RrClusterPolicy`][]
 - [`TLruClusterPolicy`][]
 
-### Cluster support with multiple redis key pairs
+### [Redis][] Cluster support with multiple key pairs
 
 Policies that support both cluster and store cache in multiple [Redis][] key pairs are:
 
@@ -211,6 +211,31 @@ Policies that support both cluster and store cache in multiple [Redis][] key pai
 - [`MruClusterMultiplePolicy`][]
 - [`RrClusterMultiplePolicy`][]
 - [`TLruClusterMultiplePolicy`][]
+
+### Complex return types
+
+The return value (de)serializer is default in [JSON][], which does not work with complex objects.
+
+But, still, we can use [`pickle`][] to serialize the return value, by specifying `serializers` argument of [`RedisFuncCache`][]:
+
+```python
+import pickle
+
+from redis_func_cache import RedisFuncCache, TLruPolicy
+
+
+def redis_factory():
+    ...
+
+
+my_pickle_cache = RedisFuncCache(__name__, TLruPolicy, redis_factory, serializer=(pickle.dumps, pickle.loads))
+```
+
+> ⚠️ **Warning**:\
+> [`pickle`][] is considered a security risk, and should not be used with runtime/version sensitive data. Use it cautiously and only when necessary.
+> It's a good practice to only cache functions that return simple, [JSON][] serializable data types.
+
+Other serialization ways are also workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack](https://msgpack.org/), [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
 
 ## Advanced Usage
 
@@ -240,7 +265,7 @@ Variables in the format string are defined as follows:
 |                 |                                                                   |
 | --------------- | ----------------------------------------------------------------- |
 | `prefix`        | `prefix` argument of [`RedisFuncCache`][]                         |
-| `name`          | `prefix` argument of [`RedisFuncCache`][]                         |
+| `name`          | `name` argument of [`RedisFuncCache`][]                           |
 | `__key__`       | `__key__` attribute the policy class used in [`RedisFuncCache`][] |
 | `function_name` | full name of the decorated function                               |
 | `function_hash` | hash value of the decorated function                              |
@@ -252,27 +277,34 @@ Variables in the format string are defined as follows:
 
 If want to use a different format, you can subclass [`AbstractPolicy`][] or any of above policy classes, and implement `calc_keys` method, then pass the custom policy class to [`RedisFuncCache`][].
 
-For example:
+The following example demonstrates how to custom key format for a _LRU_ policy:
 
 ```python
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, Tuple, override
+
 from redis_func_cache import AbstractPolicy, RedisFuncCache
+from redis_func_cache.mixins.hash import PickleMd5HashMixin
+from redis_func_cache.mixins.policy import LruScriptsMixin
+
 if TYPE_CHECKING:
     from redis.typing import KeyT
+
 
 def redis_factory():
     ...
 
+
 MY_PREFIX = "my_prefix"
 
-class MyPolicy(AbstractPolicy):
+
+class MyPolicy(LruScriptsMixin, PickleMd5HashMixin, AbstractPolicy):
     __key__ = "my_key"
 
     @override
     def calc_keys(
         self, f: Callable|None = None, args: Sequence|None = None, kwds: Mapping[str, Any] | None= None
     ) -> Tuple[KeyT, KeyT]:
-        k = f"{self.cache.prefix}-{self.cache.name}-{f.__qualname__}-{self.__key__}"
+        k = f"{self.cache.prefix}-{self.cache.name}-{f.__name__}-{self.__key__}"
         return f"{k}-set", f"{k}-map"
 
 my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy, redis=redis_factory, prefix=MY_PREFIX)
@@ -282,7 +314,9 @@ def my_func(...):
     ...
 ```
 
-In the example, we'll get a cache generates [redis][] keys separated by `-`, instead of `:`, with `prefix` `"my-prefix"`, and suffix `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names will be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
+In the example, we'll get a cache generates [redis][] keys separated by `-`, instead of `:`, prefixed by `"my-prefix"`, and suffixed by `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names could be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
+
+`LruScriptsMixin` tells the policy which lua script to use, and `PickleMd5HashMixin` tells the policy to use [`pickle`][] to serialize and `md5` to calculate the hash value of the function.
 
 ### Expirations
 
@@ -290,21 +324,12 @@ In the example, we'll get a cache generates [redis][] keys separated by `-`, ins
 
 - [`RedisFuncCache`][]'s name
 
-- The return value (de)serializer is default in [JSON][], which does not work with complex objects.
-
-    But, still, we can use `pickle` to serialize the return value, by specifying `serializers` argument to `pickle`:
-
-    ```python
-    import pickle
-
-    serializer = pickle.dumps, pickle.loads
-    my_cache = RedisFuncCache(__name__, TLruPolicy, redis_factory, serializer=SERIALIZER)
-    ```
-
 - Can not work with methods of a class which is not serializable.
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
+
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
+[`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
 
 [`RedisFuncCache`]: redis_func_cache.types.RedisFuncCache
 [`AbstractPolicy`]: redis_func_cache.types.AbstractPolicy
