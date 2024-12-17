@@ -31,32 +31,32 @@ It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replaceme
 
 ## Data structure
 
-```puml
-@startuml
-package redis {
+```dot
+digraph g {
 
-map SoredSet {
-    hash_1 => score_1
-    hash_2 => score_2
-    hash_3 => score_3
-    ... => ...
-    hash n => score n
-}
+graph [
+    rankdir = "TB"
+];
+node [
+    shape = "record"
+];
+edge [
+    dir="none" style="dashed"
+];
 
-map HashMap {
-    hash_1 => value_1
-    hash_2 => value_2
-    hash_3 => value_3
-    ... => ...
-    hash_n => value_n
-}
+"node0" [
+    label = "Set | { <f1> hash_1 | score_1 } | { <f2> hash_2 | score_2 } | { <f3> hash_3 | score_3 } |... | { <fN> hash_N | score_N}"
+];
 
-SoredSet::hash_1 .. HashMap::hash_1
-SoredSet::hash_2 .. HashMap::hash_2
-SoredSet::hash_3 .. HashMap::hash_3
-SoredSet::hash_n .. HashMap::hash_n
+"node1" [
+    label = "HashMap | {<f1> hash_1: | <f2> hash_2: | <f3> hash_3: | ... | <fN> hash_N:} | { value_1 | value_2 | value_3 | ... | value_N}"
+];
+
+"node0":f1 -> "node1":f1;
+"node0":f2 -> "node1":f2;
+"node0":f3 -> "node1":f3;
+"node0":fN -> "node1":fN;
 }
-@enduml
 ```
 
 ## Basic Usage
