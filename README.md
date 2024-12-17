@@ -31,32 +31,26 @@ It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replaceme
 
 ## Data structure
 
-```dot
-digraph g {
+The library combines two [Redis][] data structures to manage cache data:
 
-graph [
-    rankdir = "TB"
-];
-node [
-    shape = "record"
-];
-edge [
-    dir="none" style="dashed"
-];
+- One is a sorted set, which stores the hash values of the decorated function calls along with a score for each item.
 
-"node0" [
-    label = "Set | { <f1> hash_1 | score_1 } | { <f2> hash_2 | score_2 } | { <f3> hash_3 | score_3 } |... | { <fN> hash_N | score_N}"
-];
+    When the cache reaches its maximum size, the score is used to determine which item to evict.
 
-"node1" [
-    label = "HashMap | {<f1> hash_1: | <f2> hash_2: | <f3> hash_3: | ... | <fN> hash_N:} | { value_1 | value_2 | value_3 | ... | value_N}"
-];
+- The other is a hash map, which stores the hash values of the function calls and their corresponding return values.
 
-"node0":f1 -> "node1":f1;
-"node0":f2 -> "node1":f2;
-"node0":f3 -> "node1":f3;
-"node0":fN -> "node1":fN;
-}
+This can be visualized as follows:
+
+```{eval-rst}
+.. graphviz:: _static/data_structure.dot
+```
+
+The main idea of eviction policy is that the cache keys are stored in a sorted set, and the cache values are stored in a hash map. Eviction is performed by removing the lowest-scoring item from the set, and then deleting the corresponding value from the hash map.
+
+Here is an example showing how the _LRU_ cache's eviction policy works(maximum size is 3):
+
+```{eval-rst}
+.. graphviz:: _static/eviction_example.dot
 ```
 
 ## Basic Usage
