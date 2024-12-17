@@ -45,7 +45,7 @@ def get_source(o: Any, default: Optional[DefaultT] = None) -> Union[str, Default
 
     Returns:
         The source code of the object as a string, or the default value if the source code cannot be retrieved.
-        If no default value is provided and the source code cannot be retrieved, it returns None.
+        If no default value is provided and the source code cannot be retrieved, it returns ``None``.
     """
     try:
         return getsource(o)

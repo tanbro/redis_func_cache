@@ -7,11 +7,11 @@ from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import redis
-from redis.commands.core import Script
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 
 if TYPE_CHECKING:  # pragma: no cover
+    from redis.commands.core import Script
     from redis.typing import EncodableT, EncodedT, KeyT
 
     UserFunctionT = TypeVar("UserFunctionT", bound=Callable)
