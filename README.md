@@ -1,14 +1,16 @@
 # redis_func_cache
 
-[![python-package](https://github.com/tanbro/redis_func_cache/actions/workflows/python-package.yml/badge.svg)](https://github.com/tanbro/redis_func_cache/actions/workflows/python-package.yml/badge.svg)
+[![python-package](https://github.com/tanbro/redis_func_cache/actions/workflows/python-package.yml/badge.svg)](https://github.com/tanbro/redis_func_cache/actions/workflows/python-package.yml)
 [![codecov](https://codecov.io/gh/tanbro/redis_func_cache/graph/badge.svg?token=BgeXJZdPbJ)](https://codecov.io/gh/tanbro/redis_func_cache)
 [![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://readthedocs.org/projects/redis-func-cache/badge/)
 
-`redis_func_cache` is a _Python_ library for caching function results in [Redis][], similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module, which comes with some cache decorators, and is quite handy when we want to code something with memorization.
-When we need to to cache functions return values distributed over multiple processes or machines, we can use [Redis][] as a backend.
+`redis_func_cache` is a _Python_ library for caching function results in [Redis][], similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module, which comes with some cache decorators quite handy when we want to code something with memorization.
 
+When we need to cache function return values distributed over multiple processes or machines, we can use [Redis][] as a backend.
 The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache decorators.
 It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replacement policies(<https://wikipedia.org/wiki/Cache_replacement_policies>).
+
+`redis_func_cache` is fully based on [redis-py][], the official Python client for [Redis][].
 
 > ❗ **note**:\
 > The project is still under development, and **DO NOT USE IT IN PRODUCTION**
@@ -31,33 +33,23 @@ It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replaceme
 
 ## Data structure
 
-```dot
-digraph g {
+The library combines a pair of [Redis][] data structures to manage cache data:
 
-graph [
-    rankdir = "TB"
-];
-node [
-    shape = "record"
-];
-edge [
-    dir="none" style="dashed"
-];
+- The first one is a sorted set, which stores the hash values of the decorated function calls along with a score for each item.
 
-"node0" [
-    label = "Set | { <f1> hash_1 | score_1 } | { <f2> hash_2 | score_2 } | { <f3> hash_3 | score_3 } |... | { <fN> hash_N | score_N}"
-];
+    When the cache reaches its maximum size, the score is used to determine which item to evict.
 
-"node1" [
-    label = "HashMap | {<f1> hash_1: | <f2> hash_2: | <f3> hash_3: | ... | <fN> hash_N:} | { value_1 | value_2 | value_3 | ... | value_N}"
-];
+- The second one is a hash map, which stores the hash values of the function calls and their corresponding return values.
 
-"node0":f1 -> "node1":f1;
-"node0":f2 -> "node1":f2;
-"node0":f3 -> "node1":f3;
-"node0":fN -> "node1":fN;
-}
-```
+This can be visualized as follows:
+
+![data_structure](images/data_structure.svg)
+
+The main idea of eviction policy is that the cache keys are stored in a sorted set, and the cache values are stored in a hash map. Eviction is performed by removing the lowest-scoring item from the set, and then deleting the corresponding value from the hash map.
+
+Here is an example showing how the _LRU_ cache's eviction policy works(maximum size is 3):
+
+![eviction_example](images/eviction_example.svg)
 
 ## Basic Usage
 
@@ -82,23 +74,21 @@ def fib(n):
     return fib(n - 1) + fib(n - 2)
 ```
 
-In this example, we first create a [Redis][] client, then create a [`RedisFuncCache`][] instance with the [Redis][] client and [`TLruPolicy`][] as it's arguments.
+In this example, we first create a [Redis][] client, then create a [`RedisFuncCache`][] instance with the [Redis][] client and [`TLruPolicy`][] as its arguments.
 Next, we use the `@lru_cache` decorator to decorate the `fib` function.
 This way, each computed result is cached, and subsequent calls with the same parameters retrieve the result directly from the cache, thereby improving performance.
 
-It works almost the same like std-lib's `functools.lru_cache`, except that it uses [Redis][] as a backend, not local machine's memory.
+It works almost the same as the standard library's `functools.lru_cache`, except that it uses [Redis][] as the backend instead of the local machine's memory.
 
-If we browse keys in the [Redis][] database, we can find the cache keys and values.
-For the [`LruPolicy`][], the keys are in a pair form.
-The pair of keys' names look like:
+If we browse the [Redis][] database, we can find the pair of keys' names look like:
 
 - `func-cache:my-first-lru-cache:lru:__main__:fib:0`
 
-    The key(`0` suffix) is a sorted set stores functions invoking's hash and corresponding score/weight.
+    The key (with `0` suffix) is a sorted set that stores the hash of function invoking and their corresponding scores.
 
-- `func-cache::my-first-lru-cache:lru:__main__:fib:1`
+- `func-cache:my-first-lru-cache:lru:__main__:fib:1`
 
-    The key(`1` suffix) is a hash map. Each of it's key is the hash value of a function invoking, and value is the the return value of the function.
+    The key (with `1` suffix) is a hash map. Each key field in it is the hash value of a function invoking, and the value filed is the return value of the function.
 
 ### Eviction policies
 
@@ -199,9 +189,7 @@ Policies that store cache in multiple [Redis][] key pairs are:
 
 We already known that the library implements cache algorithms based on a pair of [Redis][] data structures, the two **MUST** be in a same [Redis][] node, or it will not work correctly.
 
-While a [Redis][] cluster will distribute keys to different nodes based on the hash value.
-
-To ensure that two keys are placed in a same node, several cluster policies are provided. These policies use the `{...}` pattern in key names to achieve this.
+While a [Redis][] cluster will distribute keys to different nodes based on the hash value, we need to guarantee that two keys are placed on the same node. Several cluster policies are provided to achieve this. These policies use the `{...}` pattern in key names.
 
 For example, here we use a [`TLruClusterPolicy`][] to implement a cluster-aware _LRU_ cache:
 
@@ -220,7 +208,7 @@ Thus, the names of the key pair may be like:
 - `func-cache:{my-cluster-cache:tlru-c}:0`
 - `func-cache:{my-cluster-cache:tlru-c}:1`
 
-Notice what is in `{...}`: the [Redis][] cluster will determine which node to use by the `{...}` part rather than the entire key string.
+Notice what is in `{...}`: the [Redis][] cluster will determine which node to use by the `{...}` pattern rather than the entire key string.
 
 Policies that support cluster are:
 
@@ -296,7 +284,7 @@ Other serialization functions also should be workable, such as [simplejson](http
 ### Custom key format
 
 An instance of [`RedisFuncCache`][] calculate key pair names string by calling method `calc_keys` of it's policy.
-There are four basic policies that implement respective kinds of key formats in the library:
+There are four basic policies that implement respective kinds of key formats:
 
 - [`BaseSinglePolicy`][]: All functions share the same key pair, [Redis][] cluster is NOT supported.
 
@@ -326,8 +314,8 @@ Variables in the format string are defined as follows:
 
 `0` and `1` at the end of the keys are used to distinguish between the two data structures:
 
-- `0`: a sorted or unsorted set, used to store the hash value and sorting score of function invocations
-- `1`: a hash table, used to store the return value of the function invocations
+- `0`: a sorted or unsorted set, used to store the hash value and sorting score of function invoking
+- `1`: a hash table, used to store the return value of the function invoking
 
 If want to use a different format, you can subclass [`AbstractPolicy`][] or any of above policy classes, and implement `calc_keys` method, then pass the custom policy class to [`RedisFuncCache`][].
 
@@ -370,15 +358,16 @@ def my_func(...):
 
 In the example, we'll get a cache generates [redis][] keys separated by `-`, instead of `:`, prefixed by `"my-prefix"`, and suffixed by `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names could be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
 
+> ❗ **important**:\
+> The calculated key name **SHOULD** be unique.
+
 `LruScriptsMixin` tells the policy which lua script to use, and `PickleMd5HashMixin` tells the policy to use [`pickle`][] to serialize and `md5` to calculate the hash value of the function.
 
 ### Custom Hash Algorithm
 
 When the library performs a get or put action with [redis][], the hash value of the function invocation will be used.
 
-For the sorted or unsorted set data structures, the hash value will be used as the member. For the hash map data structure, the hash value will be used as the hash key.
-
-The library indexes the hash value using the hash map and decides which item to replace when the maximum size is reached, based on the hash value's score in the sorted or unsorted set.
+For the sorted set data structures, the hash value will be used as the member. For the hash map data structure, the hash value will be used as the hash field.
 
 The algorithm used to calculate the hash value is defined in `AbstractHashMixin`, it can be described as below:
 
@@ -426,34 +415,47 @@ class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
 my_json_sha1_hex_cache = RedisFuncCache(name="json_sha1_hex", policy=MyLruPolicy, redis=redis_factory)
 ```
 
-If want to use a different algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
+If want to use write a new algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
 For example:
 
 ```python
-from hashlib import sha256
-
 from redis_func_cache import AbstractHashMixin, RedisFuncCache
 from redis_func_cache.mixins.policy import LruScriptsMixin
+
+def my_func_hash(...):
+    ...
 
 
 class MyHashMixin(AbstractHashMixin):
     def calc_hash(self, f=None, args=None, kwds=None):
-        return sha256(f.__name__).hexdigest()
+        return my_func_hash(f, args, kwds)
 
 
 class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
     __key__ = "my-custom-hash-lru"
 
+
 my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2, redis=redis_factory)
+
+
+@my_custom_hash_cache
+def some_func(...):
+    ...
 ```
 
 ## Known Issues
 
-- [`RedisFuncCache`][]'s name
+- Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries.
 
-- Can not work with methods of a class which is not serializable.
+  - For a common method defined inside a class, the class must be serializable; otherwise, the first `self` argument cannot be serialized.
+  - For a class method (decorated by `@classmethod`), the class type itself, i.e., the first `cls` argument, must be serializable.
+
+- Compatibility with other decorators is not guaranteed.
+
+- The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. It is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
+[redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
 
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."

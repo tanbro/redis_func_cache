@@ -6,13 +6,12 @@ import pickle
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
 
+from ..utils import base64_hash_digest, get_fullname, get_source
+
 if TYPE_CHECKING:  # pragma: no cover
     from hashlib import _Hash
 
     from redis.typing import KeyT
-
-
-from ..utils import base64_hash_digest, get_fullname, get_source
 
 __all__ = (
     "AbstractHashMixin",
@@ -33,7 +32,7 @@ __all__ = (
 
 @dataclass(frozen=True)
 class HashConfig:
-    """Configurator for :cls:`AbstractHashMixin`"""
+    """Configurator for :class:`.AbstractHashMixin`"""
 
     serializer: Callable[[Any], bytes]
     """function to serialize function name, source code, and arguments"""
@@ -49,8 +48,8 @@ class HashConfig:
 class AbstractHashMixin:
     """An abstract mixin class for hash function name, source code, and arguments.
 
-    **Do NOT use the mixin class directory.**
-    Overwrite the class variable :func:`__hash_config__` to define algorithm and serializer.
+    **Do NOT use the mixin class directly.**
+    Override the class attribute :attr:`.__hash_config__` to define the algorithm and serializer.
 
     Example::
 
@@ -64,6 +63,12 @@ class AbstractHashMixin:
     def calc_hash(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> KeyT:
+        """Mixin method to overwrite :meth:`redis_func_cache.policies.abstract.AbstractPolicy.calc_hash`
+
+        All other mixin classes in the module inherit this mixin class, and their ``hash`` value are all return by the method.
+
+        They use different hash algorithms and serializers defined in the class attribute :attr:`.__hash_config__` to generate different ``hash`` value.
+        """
         if not callable(f):
             raise TypeError(f"Can not calculate hash for {f=}")
         conf = self.__hash_config__
@@ -90,48 +95,146 @@ def json_dump_to_bytes(x):
 
 
 class JsonMd5HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the MD5 hash value,
+    and finally returns the digest as bytes.
+
+    .. inheritance-diagram:: JsonMd5HashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes)
 
 
 class JsonMd5HexHashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the MD5 hash value,
+    and finally returns the hexadecimal representation of the digest.
+
+    .. inheritance-diagram:: JsonMd5HexHashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes, decoder=hexdigest)
 
 
 class JsonMd5Base64HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the MD5 hash value,
+    and finally returns the base64 encoded digest.
+
+    .. inheritance-diagram:: JsonMd5Base64HashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes, decoder=base64_hash_digest)
 
 
 class JsonSha1HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA1 hash value,
+    and finally returns the digest as bytes.
+
+    .. inheritance-diagram:: JsonSha1HashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes)
 
 
 class JsonSha1HexHashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA1 hash value,
+    and finally returns the hexadecimal representation of the digest.
+
+    .. inheritance-diagram:: JsonSha1HexHashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes, decoder=hexdigest)
 
 
 class JsonSha1Base64HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA1 hash value,
+    and finally returns the base64 encoded digest.
+
+    .. inheritance-diagram:: JsonSha1Base64HashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes, decoder=base64_hash_digest)
 
 
 class PickleMd5HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the MD5 hash value,
+    and finally returns the digest as bytes.
+
+    It is the default hash mixin.
+
+    .. inheritance-diagram:: PickleMd5HashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps)
 
 
 class PickleMd5HexHashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the MD5 hash value,
+    and finally returns the hexadecimal representation of the digest.
+
+    .. inheritance-diagram:: PickleMd5HexHashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=hexdigest)
 
 
 class PickleMd5Base64HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the MD5 hash value,
+    and finally returns the base64 encoded digest.
+
+    .. inheritance-diagram:: PickleMd5Base64HashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=base64_hash_digest)
 
 
 class PickleSha1HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA1 hash value,
+    and finally returns the digest as bytes.
+
+    .. inheritance-diagram:: PickleSha1HashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps)
 
 
 class PickleSha1HexHashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA1 hash value,
+    and finally returns the hexadecimal representation of the digest.
+
+    .. inheritance-diagram:: PickleSha1HexHashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=hexdigest)
 
 
 class PickleSha1Base64HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA1 hash value,
+    and finally returns the base64 encoded digest.
+
+    .. inheritance-diagram:: PickleSha1Base64HashMixin
+    """
+
     __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=base64_hash_digest)

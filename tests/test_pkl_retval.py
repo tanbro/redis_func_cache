@@ -13,12 +13,12 @@ SERIALIZER = pickle.dumps, pickle.loads
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
-    "tlru": RedisFuncCache(__name__, TLruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "lru": RedisFuncCache(__name__, LruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "mru": RedisFuncCache(__name__, MruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "rr": RedisFuncCache(__name__, RrPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "fifo": RedisFuncCache(__name__, FifoPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
-    "lfu": RedisFuncCache(__name__, LfuPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "tlru": RedisFuncCache(__name__, TLruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "lru": RedisFuncCache(__name__, LruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "mru": RedisFuncCache(__name__, MruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "rr": RedisFuncCache(__name__, RrPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "fifo": RedisFuncCache(__name__, FifoPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
+    "lfu": RedisFuncCache(__name__, LfuPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE, serializer=SERIALIZER),
 }
 
 

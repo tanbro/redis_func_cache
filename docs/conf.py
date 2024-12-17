@@ -31,6 +31,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx.ext.intersphinx",
     "sphinx.ext.graphviz",
+    "sphinx.ext.inheritance_diagram",
     "sphinx_tippy",
     "sphinx_inline_tabs",
     "sphinx_copybutton",

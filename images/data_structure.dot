@@ -1,0 +1,24 @@
+digraph data_structure {
+    graph [
+        rankdir = "TB"
+    ];
+    node [
+        shape = "record"
+    ];
+    edge [
+        dir="none" style="dashed"
+    ];
+
+    "node0" [
+        label = "⬆️ Set | { <f1> 🆔 hash_1 | 🔢 score_1 } | { <f2> 🆔 hash_2 | 🔢 score_2 } | { <f3> 🆔 hash_3 | 🔢 score_3 } |... | { <fN> 🆔 hash_N | 🔢 score_N}"
+    ];
+
+    "node1" [
+        label = "#️⃣ HashMap | {<f1> 🆔 hash_1: | <f2> 🆔 hash_2: | <f3> 🆔 hash_3: | ... | <fN> 🆔 hash_N:} | { 💾 value_1 | 💾 value_2 | 💾 value_3 | ... | 💾 value_N}"
+    ];
+
+    "node0":f1 -> "node1":f1;
+    "node0":f2 -> "node1":f2;
+    "node0":f3 -> "node1":f3;
+    "node0":fN -> "node1":fN;
+}

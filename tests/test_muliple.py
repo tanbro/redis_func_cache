@@ -18,12 +18,12 @@ REDIS_URL = getenv("REDIS_URL", "redis://")
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
-    "tlru": RedisFuncCache(__name__, TLruMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, TLruMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 

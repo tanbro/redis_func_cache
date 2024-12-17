@@ -12,12 +12,12 @@ REDIS_URL = getenv("REDIS_URL", "redis://")
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
-    "tlru": RedisFuncCache(__name__, TLruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuPolicy, redis=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, TLruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 
@@ -147,7 +147,7 @@ class BasicTest(TestCase):
             echo(MAXSIZE)
 
             k0, k1 = cache.policy.calc_keys()
-            rc = cache.get_redis()
+            rc = cache.get_client()
 
             card = rc.zcard(k0)
             self.assertEqual(card, MAXSIZE)
@@ -168,7 +168,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis()
+        rc = cache.get_client()
 
         members = members = rc.zrange(k0, "+inf", "-inf", byscore=True, desc=True)  # type: ignore
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
@@ -191,7 +191,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis()
+        rc = cache.get_client()
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
@@ -216,7 +216,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis()
+        rc = cache.get_client()
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
@@ -240,7 +240,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_redis()
+        rc = cache.get_client()
 
         members = rc.smembers(k0)
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore

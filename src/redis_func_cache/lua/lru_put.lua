@@ -34,7 +34,9 @@ if maxsize > 0 and not rnk_with_score then
 end
 
 local highest_with_score = redis.call('ZRANGE', zset_key, '+inf', '-inf', 'BYSCORE', 'REV', 'LIMIT', 0, 1, 'WITHSCORES')
-if not rawequal(next(highest_with_score), nil) then
+if rawequal(next(highest_with_score), nil) then
+    redis.call('ZADD', zset_key, 1, hash)
+else
     if rnk_with_score then
         if hash ~= highest_with_score[1] then
             redis.call('ZADD', zset_key, 1 + highest_with_score[2], hash)
@@ -42,8 +44,6 @@ if not rawequal(next(highest_with_score), nil) then
     else
         redis.call('ZADD', zset_key, 1 + highest_with_score[2], hash)
     end
-else
-    redis.call('ZADD', zset_key, 1, hash)
 end
 
 redis.call('HSET', hmap_key, hash, return_value)

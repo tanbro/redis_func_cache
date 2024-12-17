@@ -25,10 +25,13 @@ __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", 
 
 
 class BaseSinglePolicy(AbstractPolicy):
-    """Base policy class for single sorted-set/hash-map key pair.
-    All decorated functions of the policy share the same key pair.
+    """
+    Base policy class for a single sorted-set or hash-map key pair.
+    All decorated functions of this policy share the same key pair.
 
-    Do not use it directly.
+    This class should not be used directly.
+
+    .. inheritance-diagram:: BaseSinglePolicy
     """
 
     __key__: str
@@ -49,20 +52,23 @@ class BaseSinglePolicy(AbstractPolicy):
 
     @override
     def purge(self) -> int:
-        rc = self.cache.get_redis()
+        rc = self.cache.get_client()
         return rc.delete(*self.calc_keys())
 
     @override
     def get_size(self) -> int:
-        rc = self.cache.get_redis()
+        rc = self.cache.get_client()
         return rc.hlen(self.calc_keys()[1])
 
 
 class BaseClusterSinglePolicy(BaseSinglePolicy):
-    """Base policy class for single sorted-set/hash-map key pair, with cluster support.
-    All decorated functions of the policy share the same key pair.
+    """
+    Base policy class for a single sorted-set or hash-map key pair, with cluster support.
+    All decorated functions of this policy share the same key pair.
 
-    Do not use it directly.
+    This class should not be used directly.
+
+    .. inheritance-diagram:: BaseClusterSinglePolicy
     """
 
     @override
@@ -76,10 +82,13 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
 
 
 class BaseMultiplePolicy(AbstractPolicy):
-    """Base policy class for multiple sorted-set/hash-map key pairs.
-    Each decorated function of the policy has its own key pair.
+    """
+    Base policy class for multiple sorted-set or hash-map key pairs.
+    Each decorated function of this policy has its own key pair.
 
-    Do not use it directly.
+    This class should not be used directly.
+
+    .. inheritance-diagram:: BaseMultiplePolicy
     """
 
     @override
@@ -100,7 +109,7 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
-        rc = self.cache.get_redis()
+        rc = self.cache.get_client()
         keys = rc.keys(pat)
         if keys:
             return rc.delete(*keys)
@@ -108,10 +117,13 @@ class BaseMultiplePolicy(AbstractPolicy):
 
 
 class BaseClusterMultiplePolicy(BaseMultiplePolicy):
-    """Base policy class for multiple sorted-set/hash-map key pairs, with cluster support.
-    Each decorated function of the policy has its own key pair.
+    """
+    Base policy class for multiple sorted-set or hash-map key pairs, with cluster support.
+    Each decorated function of this policy has its own key pair.
 
-    Do not use it directly.
+    This class should not be used directly.
+
+    .. inheritance-diagram:: BaseClusterMultiplePolicy
     """
 
     @override
