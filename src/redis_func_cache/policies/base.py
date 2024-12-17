@@ -49,12 +49,12 @@ class BaseSinglePolicy(AbstractPolicy):
 
     @override
     def purge(self) -> int:
-        rc = self.cache.get_redis()
+        rc = self.cache.get_client()
         return rc.delete(*self.calc_keys())
 
     @override
     def get_size(self) -> int:
-        rc = self.cache.get_redis()
+        rc = self.cache.get_client()
         return rc.hlen(self.calc_keys()[1])
 
 
@@ -100,7 +100,7 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
-        rc = self.cache.get_redis()
+        rc = self.cache.get_client()
         keys = rc.keys(pat)
         if keys:
             return rc.delete(*keys)

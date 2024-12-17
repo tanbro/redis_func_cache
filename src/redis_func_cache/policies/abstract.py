@@ -44,7 +44,7 @@ class AbstractPolicy:
     def lua_scripts(self) -> Tuple[Script, Script]:
         if self._lua_scripts is None:
             script_texts = self.read_lua_scripts()
-            rc = self.cache.get_redis()
+            rc = self.cache.get_client()
             self._lua_scripts = rc.register_script(script_texts[0]), rc.register_script(script_texts[1])
         return self._lua_scripts
 
