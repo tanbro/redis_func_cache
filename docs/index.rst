@@ -3,9 +3,34 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-redcache
-========
+redis_func_cache
+================
 
+.. image:: https://github.com/tanbro/redis_func_cache/actions/workflows/python-package.yml/badge.svg
+   :alt: python-package
+   :target: https://github.com/tanbro/redis_func_cache/actions/workflows/python-package.yml
+
+.. image:: https://readthedocs.org/projects/redis-func-cache/badge/
+   :alt: readthedocs
+   :target: https://redis-func-cache.readthedocs.io/en/
+
+.. image:: https://codecov.io/gh/tanbro/redis_func_cache/graph/badge.svg?token=BgeXJZdPbJ
+   :alt: codecov
+   :target: https://codecov.io/gh/tanbro/redis_func_cache
+
+.. image:: https://img.shields.io/pypi/v/redis_func_cache.svg
+   :alt: PyPI
+   :target: https://pypi.org/project/redis_func_cache/
+
+.. rubric::
+   ``redis_func_cache`` is a Python library for caching function results in `Redis <https://redis.io/>`_,
+   similar to the caching functionality provided by the standard library's `functools <https://docs.python.org/library/functools.html>`_ module.
+
+========== ========= =========
+Release    Version   Built at
+========== ========= =========
+|release|  |version| |today|
+========== ========= =========
 
 Contents
 --------
