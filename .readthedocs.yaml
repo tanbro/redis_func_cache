@@ -11,6 +11,9 @@ build:
     python: latest
   apt_packages:
     - graphviz
+  jobs:
+    pre_build:
+      - sphinx-apidoc -o docs/apidocs -e -H APIs src
 
 python:
   install:

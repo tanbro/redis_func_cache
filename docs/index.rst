@@ -12,7 +12,7 @@ redis_func_cache
 
 .. image:: https://readthedocs.org/projects/redis-func-cache/badge/
    :alt: readthedocs
-   :target: https://redis-func-cache.readthedocs.io/en/
+   :target: https://redis-func-cache.readthedocs.io/
 
 .. image:: https://codecov.io/gh/tanbro/redis_func_cache/graph/badge.svg?token=BgeXJZdPbJ
    :alt: codecov
