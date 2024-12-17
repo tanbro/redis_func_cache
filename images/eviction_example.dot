@@ -11,8 +11,8 @@ digraph data_structure {
     "1" [label="*A:1"]
     "2" [label="A:1 | *B:2"]
     "3" [label="A:1 | B:2 | *C:3"];
-    "4" [label="*D:7 | B:6 | C:3"];
-    "5" [label="D:7 | B:6 | *C:8"];
+    "4" [label="*D:4 | B:2 | C:3"];
+    "5" [label="D:4 | B:2 | *C:5"];
 
     "0" -> "1" [label="1. put A"];
     "1" -> "2" [label="2. put B"];

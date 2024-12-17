@@ -64,9 +64,9 @@
 <g id="node5" class="node">
 <title>4</title>
 <polygon fill="none" stroke="black" points="541,-0.5 541,-69.5 595,-69.5 595,-0.5 541,-0.5"/>
-<text text-anchor="middle" x="568" y="-54.3" font-family="Times,serif" font-size="14.00">*D:7</text>
+<text text-anchor="middle" x="568" y="-54.3" font-family="Times,serif" font-size="14.00">*D:4</text>
 <polyline fill="none" stroke="black" points="541,-46.5 595,-46.5 "/>
-<text text-anchor="middle" x="568" y="-31.3" font-family="Times,serif" font-size="14.00">B:6</text>
+<text text-anchor="middle" x="568" y="-31.3" font-family="Times,serif" font-size="14.00">B:2</text>
 <polyline fill="none" stroke="black" points="541,-23.5 595,-23.5 "/>
 <text text-anchor="middle" x="568" y="-8.3" font-family="Times,serif" font-size="14.00">C:3</text>
 </g>
@@ -81,11 +81,11 @@
 <g id="node6" class="node">
 <title>5</title>
 <polygon fill="none" stroke="black" points="676,-0.5 676,-69.5 730,-69.5 730,-0.5 676,-0.5"/>
-<text text-anchor="middle" x="703" y="-54.3" font-family="Times,serif" font-size="14.00">D:7</text>
+<text text-anchor="middle" x="703" y="-54.3" font-family="Times,serif" font-size="14.00">D:4</text>
 <polyline fill="none" stroke="black" points="676,-46.5 730,-46.5 "/>
-<text text-anchor="middle" x="703" y="-31.3" font-family="Times,serif" font-size="14.00">B:6</text>
+<text text-anchor="middle" x="703" y="-31.3" font-family="Times,serif" font-size="14.00">B:2</text>
 <polyline fill="none" stroke="black" points="676,-23.5 730,-23.5 "/>
-<text text-anchor="middle" x="703" y="-8.3" font-family="Times,serif" font-size="14.00">*C:8</text>
+<text text-anchor="middle" x="703" y="-8.3" font-family="Times,serif" font-size="14.00">*C:5</text>
 </g>
 <!-- 4&#45;&gt;5 -->
 <g id="edge5" class="edge">
