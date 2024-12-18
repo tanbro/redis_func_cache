@@ -12,6 +12,8 @@ if sys.version_info < (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing import override
 
+import redis
+import redis.asyncio
 
 from ..cache import RedisFuncCache
 from ..utils import base64_hash_digest, get_fullname, get_source
@@ -51,14 +53,40 @@ class BaseSinglePolicy(AbstractPolicy):
         return self._keys
 
     @override
-    def purge(self) -> int:
-        rc = self.cache.get_client()
-        return rc.delete(*self.calc_keys())
+    def purge(self) -> Optional[int]:
+        client = self.cache.client
+        if not isinstance(client, redis.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+            )
+        return client.delete(*self.calc_keys())
 
     @override
-    def get_size(self) -> int:
-        rc = self.cache.get_client()
-        return rc.hlen(self.calc_keys()[1])
+    async def apurge(self) -> Optional[int]:
+        client = self.cache.client
+        if not isinstance(client, redis.asyncio.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.asyncio.Redis}, but actual type is {type(client)}"
+            )
+        return await client.delete(*self.calc_keys())
+
+    @override
+    def size(self) -> int:
+        client = self.cache.client
+        if not isinstance(client, redis.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+            )
+        return client.hlen(self.calc_keys()[1])
+
+    @override
+    async def asize(self) -> int:
+        client = self.cache.client
+        if not isinstance(client, redis.asyncio.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+            )
+        return await client.hlen(self.calc_keys()[1])
 
 
 class BaseClusterSinglePolicy(BaseSinglePolicy):
@@ -109,10 +137,27 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
-        rc = self.cache.get_client()
-        keys = rc.keys(pat)
+        client = self.cache.get_client()
+        if not isinstance(client, redis.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+            )
+        keys = client.keys(pat)
         if keys:
-            return rc.delete(*keys)
+            return client.delete(*keys)
+        return 0
+
+    @override
+    async def apurge(self) -> int:
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
+        client = self.cache.get_client()
+        if not isinstance(client, redis.asyncio.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.asyncio.Redis}, but actual type is {type(client)}"
+            )
+        keys = await client.keys(pat)
+        if keys:
+            return await client.delete(*keys)
         return 0
 
 

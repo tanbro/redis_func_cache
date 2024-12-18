@@ -3,20 +3,21 @@ from __future__ import annotations
 import json
 import weakref
 from functools import wraps
-from inspect import iscoroutinefunction
+from inspect import iscoroutine, iscoroutinefunction
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import redis
 import redis.asyncio
+from redis.commands.core import AsyncScript, Script
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.commands.core import Script
     from redis.typing import EncodableT, EncodedT, KeyT
 
     UserFunctionT = TypeVar("UserFunctionT", bound=Callable)
+    RedisClientT = Union[redis.Redis, redis.asyncio.Redis]
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
 
@@ -30,7 +31,7 @@ class RedisFuncCache:
         self,
         name: str,
         policy: Type[AbstractPolicy],
-        client: Union[redis.Redis, Callable[[], redis.Redis]],
+        client: Union[RedisClientT, Callable[[], RedisClientT]],
         maxsize: Optional[int] = None,
         ttl: Optional[int] = None,
         prefix: Optional[str] = None,
@@ -91,9 +92,9 @@ class RedisFuncCache:
         self._policy_type = policy
         self._policy_instance: Optional[AbstractPolicy] = None
         self._prefix = prefix or DEFAULT_PREFIX
-        self._redis_instance: Optional[redis.Redis] = None
-        self._redis_factory: Optional[Callable[[], redis.Redis]] = None
-        if isinstance(client, redis.Redis):
+        self._redis_instance: Optional[RedisClientT] = None
+        self._redis_factory: Optional[Callable[[], RedisClientT]] = None
+        if isinstance(client, (redis.Redis, redis.asyncio.Redis)):
             self._redis_instance = client
         elif callable(client):
             self._redis_factory = client
@@ -128,8 +129,8 @@ class RedisFuncCache:
         """Same as call :meth:`.get_policy`"""
         return self.get_policy()
 
-    def get_client(self) -> redis.Redis:
-        """Returns the :class:`redis.Redis` instance used in the cache."""
+    def get_client(self) -> RedisClientT:
+        """Returns the :class:`redis.Redis` or :class:`redis.asyncio.Redis`s instance used in the cache."""
         if self._redis_instance:
             return self._redis_instance
         if self._redis_factory:
@@ -137,7 +138,7 @@ class RedisFuncCache:
         raise RuntimeError("No redis client or factory provided.")
 
     @property
-    def client(self) -> redis.Redis:
+    def client(self) -> RedisClientT:
         """Same as call :meth:`.get_client`"""
         return self.get_client()
 
@@ -185,6 +186,20 @@ class RedisFuncCache:
         return script(keys=key_pair, args=chain((ttl, hash, encoded_options), ext_args))
 
     @classmethod
+    async def aget(
+        cls,
+        script: AsyncScript,
+        key_pair: Tuple[KeyT, KeyT],
+        hash: KeyT,
+        ttl: int,
+        options: Optional[Mapping[str, Any]] = None,
+        ext_args: Optional[Iterable[EncodableT]] = None,
+    ) -> Optional[EncodedT]:
+        encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
+        ext_args = ext_args or ()
+        return await script(keys=key_pair, args=chain((ttl, hash, encoded_options), ext_args))
+
+    @classmethod
     def put(
         cls,
         script: Script,
@@ -205,22 +220,62 @@ class RedisFuncCache:
         ext_args = ext_args or ()
         script(keys=key_pair, args=chain((maxsize, ttl, hash, value, encoded_options), ext_args))
 
-    def exec_user_function(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
+    @classmethod
+    async def aput(
+        cls,
+        script: AsyncScript,
+        key_pair: Tuple[KeyT, KeyT],
+        hash: KeyT,
+        value: EncodableT,
+        maxsize: int,
+        ttl: int,
+        options: Optional[Mapping[str, Any]] = None,
+        ext_args: Optional[Iterable[EncodableT]] = None,
+    ):
+        encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
+        ext_args = ext_args or ()
+        await script(keys=key_pair, args=chain((maxsize, ttl, hash, value, encoded_options), ext_args))
+
+    def exec(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
         """Execute the given user function with given arguments.
 
         In this method, :meth:`.get` is called before the ``user_function``, and :meth:`.put` is called afterward.
         """
+        script_0, script_1 = self.policy.lua_scripts
+        if not isinstance(script_0, Script) or not isinstance(script_1, Script):
+            raise RuntimeError(
+                f"A tuple of two {Script} objects is required for execution, but actually got ({script_0!r}, {script_1!r})."
+            )
         keys = self.policy.calc_keys(user_function, user_args, user_kwds)
         hash = self.policy.calc_hash(user_function, user_args, user_kwds)
         ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
-        cached = self.get(self.policy.lua_scripts[0], keys, hash, self.ttl, options, ext_args)
+        cached = self.get(script_0, keys, hash, self.ttl, options, ext_args)
         if cached is not None:
             return self.deserialize_return_value(cached)
         user_return_value = user_function(*user_args, **user_kwds)
         user_retval_serialized = self.serialize_return_value(user_return_value)
-        self.put(
-            self.policy.lua_scripts[1], keys, hash, user_retval_serialized, self.maxsize, self.ttl, options, ext_args
-        )
+        self.put(script_1, keys, hash, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
+        return user_return_value
+
+    async def aexec(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
+        script_0, script_1 = self.policy.lua_scripts
+        if not isinstance(script_0, AsyncScript) or not isinstance(script_1, AsyncScript):
+            raise RuntimeError(
+                f"A tuple of twe {AsyncScript} objects is required for async execution, but actually got ({script_0!r}, {script_1!r})."
+            )
+        keys = self.policy.calc_keys(user_function, user_args, user_kwds)
+        hash = self.policy.calc_hash(user_function, user_args, user_kwds)
+        ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
+        cached = await self.aget(script_0, keys, hash, self.ttl, options, ext_args)
+        if cached is not None:
+            return self.deserialize_return_value(cached)
+        ret = user_function(*user_args, **user_kwds)
+        if iscoroutine(ret):
+            user_return_value = await ret
+        else:
+            user_return_value = ret
+        user_retval_serialized = self.serialize_return_value(user_return_value)
+        await self.aput(script_1, keys, hash, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
 
     def decorate(self, user_function: Optional[UserFunctionT] = None, /, **kwargs) -> UserFunctionT:
@@ -229,18 +284,18 @@ class RedisFuncCache:
         def decorator(f: UserFunctionT):
             @wraps(f)
             def wrapper(*f_args, **f_kwargs):
-                return self.exec_user_function(f, f_args, f_kwargs, **kwargs)
+                return self.exec(f, f_args, f_kwargs, **kwargs)
 
             @wraps(f)
-            async def async_wrapper(*f_args, **f_kwargs):
-                return await self.exec_user_function(f, f_args, f_kwargs, **kwargs)
+            async def awrapper(*f_args, **f_kwargs):
+                return await self.aexec(f, f_args, f_kwargs, **kwargs)
 
-            return async_wrapper if iscoroutinefunction(f) else wrapper
+            return awrapper if iscoroutinefunction(f) else wrapper
 
         if user_function is None:
             return decorator  # type: ignore
         elif callable(user_function):
             return decorator(user_function)  # type: ignore
-        raise TypeError(f"Argument {user_function=} is not callable")  # pragma: no cover
+        raise TypeError(f"‘{self.__class__.__qualname__}’ cannot decorate {user_function!r}")
 
     __call__ = decorate

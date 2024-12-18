@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import weakref
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, TypeVar, Union
+
+import redis
+import redis.asyncio
 
 from ..utils import read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.commands.core import Script
+    from redis.commands.core import AsyncScript, Script
     from redis.typing import EncodableT, EncodedT, KeyT
 
     from ..cache import RedisFuncCache
@@ -41,16 +44,16 @@ class AbstractPolicy:
     def __init__(self, cache: weakref.CallableProxyType[RedisFuncCache]):
         """
         Args:
-            cache: A ProxyType instance of :class:`.RedisFuncCache` object which uses the policy.s
+            cache: A ProxyType instance of :class:`.RedisFuncCache` object which uses the policy.
         """
         self._cache = cache
-        self._lua_scripts: Optional[Tuple[Script, Script]] = None
+        self._lua_scripts: Union[None, Tuple[Script, Script], Tuple[AsyncScript, AsyncScript]] = None
 
     @property
     def cache(self) -> RedisFuncCache:
         """Proxy to the cache object who uses this policy.
 
-        It's in fact a `weakref` proxy object, returned by :func:`weakref.proxy`.
+        It's in fact a :mod:`weakref` proxy object, returned by :func:`weakref.proxy`.
 
         Here we type it as a :class:`RedisFuncCache` to make a better hint.
         """
@@ -61,12 +64,19 @@ class AbstractPolicy:
         return read_lua_file(self.__scripts__[0]), read_lua_file(self.__scripts__[1])
 
     @property
-    def lua_scripts(self) -> Tuple[Script, Script]:
-        """Read the Lua scripts from the package resources and register them to the Redis server."""
+    def lua_scripts(self) -> Union[Tuple[Script, Script], Tuple[AsyncScript, AsyncScript]]:
+        """Read the Lua scripts from the package resources, then create and return a pair of :class:`redis.commands.core.Script` or :class:`redis.commands.core.AsyncScript` objects.
+
+        - When :meth:`cache` property has a synchronous Redis client, it will return a pair of :class:`redis.commands.core.Script` objects.
+        - When :meth:`cache` property has an asynchronous Redis client, it will return a pair of :class:`redis.commands.core.AsyncScript` objects.
+        """
         if self._lua_scripts is None:
             script_texts = self.read_lua_scripts()
-            rc = self.cache.get_client()
-            self._lua_scripts = rc.register_script(script_texts[0]), rc.register_script(script_texts[1])
+            client = self.cache.client
+            if isinstance(client, redis.asyncio.Redis):
+                self._lua_scripts = client.register_script(script_texts[0]), client.register_script(script_texts[1])
+            else:
+                self._lua_scripts = client.register_script(script_texts[0]), client.register_script(script_texts[1])
         return self._lua_scripts
 
     def purge(self) -> Optional[int]:
@@ -78,7 +88,10 @@ class AbstractPolicy:
         """
         raise NotImplementedError()  # pragma: no cover
 
-    def get_size(self) -> int:
+    async def apurge(self) -> Optional[int]:
+        raise NotImplementedError()  # pragma: no cover
+
+    def size(self) -> int:
         """Return the number of items in the cache.
 
         .. note::
@@ -87,10 +100,14 @@ class AbstractPolicy:
         """
         raise NotImplementedError()  # pragma: no cover
 
-    @property
-    def size(self) -> int:
-        """Same as :meth:`get_size`."""
-        return self.get_size()
+    async def asize(self) -> int:
+        """Return the number of items in the cache.
+
+        .. note::
+            - This method is not implemented in the base class.
+            - Subclasses can optionally implement this method.
+        """
+        raise NotImplementedError()  # pragma: no cover
 
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
