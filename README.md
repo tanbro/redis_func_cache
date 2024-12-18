@@ -5,7 +5,7 @@
 [![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://redis-func-cache.readthedocs.io/)
 [![pypi-version](https://img.shields.io/pypi/v/redis_func_cache.svg)](https://pypi.org/project/redis_func_cache/)
 
-`redis_func_cache` is a _Python_ library for caching function results in [Redis][], similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module, which comes with some cache decorators quite handy when we want to code something with memorization.
+`redis_func_cache` is a _Python_ library for caching function return values in [Redis][], similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module, which comes with some cache decorators quite handy when we want to code something with memorization.
 
 When we need to cache function return values distributed over multiple processes or machines, we can use [Redis][] as a backend.
 The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache decorators.
@@ -454,6 +454,8 @@ def some_func(...):
 - Compatibility with other decorators is not guaranteed.
 
 - The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. It is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
+
+- High concurrency or long-running decorated functions may result in unexpected cache misses and increased I/O operations. This can occur because the result value might not be saved quickly enough before the next call can hit the cache again.
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"

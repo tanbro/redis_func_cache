@@ -47,9 +47,9 @@ Contents
 .. toctree::
    :caption: API Reference
    :titlesonly:
+   :maxdepth: 3
 
    apidocs/modules
-
 
 Indices and tables
 ------------------

@@ -1,4 +1,4 @@
 ```{include} ../README.md
 :relative-docs: docs/
-:relative-images: assets/
+:relative-images: images/
 ```

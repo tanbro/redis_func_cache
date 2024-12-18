@@ -1,7 +1,7 @@
 README
 ######
 
-.. include:: _README.md
+.. include:: README.include.md
    :parser: myst_parser.sphinx_
 
 How to build the docs
