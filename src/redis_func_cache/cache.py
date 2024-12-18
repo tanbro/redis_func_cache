@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import weakref
 from functools import wraps
+from inspect import iscoroutinefunction
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import redis
+import redis.asyncio
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 
@@ -229,7 +231,11 @@ class RedisFuncCache:
             def wrapper(*f_args, **f_kwargs):
                 return self.exec_user_function(f, f_args, f_kwargs, **kwargs)
 
-            return wrapper
+            @wraps(f)
+            async def async_wrapper(*f_args, **f_kwargs):
+                return await self.exec_user_function(f, f_args, f_kwargs, **kwargs)
+
+            return async_wrapper if iscoroutinefunction(f) else wrapper
 
         if user_function is None:
             return decorator  # type: ignore
