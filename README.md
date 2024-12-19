@@ -11,10 +11,15 @@ When we need to cache function return values distributed over multiple processes
 The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache decorators.
 It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replacement policies(<https://wikipedia.org/wiki/Cache_replacement_policies>).
 
-`redis_func_cache` is fully based on [redis-py][], the official Python client for [Redis][].
-
-> ❗ **note**:\
+> ❗ **Note**:\
 > The project is still under development, and **DO NOT USE IT IN PRODUCTION**
+
+## Features
+
+- Supports multiple cache eviction policies: _LRU_, _FIFO_, _LFU_, _RR_ ...
+- Asynchronous and synchronous support.
+- Simple decorator syntax.
+- Based on [redis-py][], the official Python client for [Redis][].
 
 ## Install
 
@@ -51,6 +56,55 @@ The main idea of eviction policy is that the cache keys are stored in a sorted s
 Here is an example showing how the _LRU_ cache's eviction policy works(maximum size is 3):
 
 ![eviction_example](images/eviction_example.svg)
+
+The [`RedisFuncCache`][] executes a decorated function with specified arguments and cache its result. Here's a breakdown of the steps:
+
+1. **Initialize Scripts**: Retrieve two Lua script objects for cache hitting and update from `policy.lua_scripts`.
+1. **Calculate Keys and Hash**: Compute the cache keys using `policy.calc_keys`, compute the hash value using `policy.calc_hash`, and compute any additional arguments using `policy.calc_ext_args`.
+1. **Attempt Cache Retrieval**: Attempt retrieving a cached result. If a cache hit occurs, deserialize and return the cached result.
+1. **Execute User Function**: If no cache hit occurs, execute the decorated function with the provided arguments and keyword arguments.
+1. **Serialize Result and Cache**: Serialize the result of the user function and store it in redis.
+1. **Return Result**: Return the result of the decorated function.
+
+```mermaid
+flowchart TD
+    A[Start] --> B[Initialize Scripts]
+    B --> C{Scripts Valid?}
+    C -->|Invalid| D[Raise RuntimeError]
+    C -->|Valid| E[Calculate Keys and Hash]
+    E --> F[Attempt Cache Retrieval]
+    F --> G{Cache Hit?}
+    G -->|Yes| H[Deserialize and Return Cached Result]
+    G -->|No| I[Execute User Function]
+    I --> J[Serialize Result]
+    J --> K[Store in Cache]
+    K --> L[Return User Function Result]
+```
+
+### Detailed Explanation
+
+1. **Initialize Scripts**:
+   - Retrieve `script_0` and `script_1` from `self.policy.lua_scripts`.
+   - Check if both are instances of `Script`. If not, raise a `RuntimeError`.
+
+2. **Calculate Keys and Hash**:
+   - Compute cache keys using `self.policy.calc_keys`.
+   - Compute hash value using `self.policy.calc_hash`.
+   - Compute additional arguments using `self.policy.calc_ext_args`.
+
+3. **Attempt Cache Retrieval**:
+   - Use `self.get` to attempt retrieving a cached result.
+   - If a cache hit occurs (`cached` is not `None`), deserialize and return the cached result.
+
+4. **Execute User Function**:
+   - If no cache hit occurs, execute the `user_function` with the provided arguments and keyword arguments.
+
+5. **Serialize Result and Cache**:
+   - Serialize the result of the user function.
+   - Store the serialized result in the cache using `self.put`.
+
+6. **Return Result**:
+   - Return the result of the user function.
 
 ## Basic Usage
 
@@ -91,6 +145,26 @@ If we browse the [Redis][] database, we can find the pair of keys' names look li
 
     The key (with `1` suffix) is a hash map. Each key field in it is the hash value of a function invoking, and the value filed is the return value of the function.
 
+### Async functions
+
+To decorate async functions, we shall pass a `Async Redis client` to [`RedisFuncCache`][]'s `client` argument:
+
+```python
+from redis.asyncio import Redis as AsyncRedis
+from redis_func_cache import RedisFuncCache, TLruPolicy
+
+my_async_cache = RedisFuncCache(__name__, TLruPolicy, AsyncRedis)
+
+@my_async_cache
+async def my_async_func(...):
+    ...
+```
+
+> ⁉️ **Attention**\
+> When a [`RedisFuncCache`][] is created with an async [Redis][] client, the cache can only be used to decorate async functions.
+> These async functions will be decorated with an asynchronous wrapper, and the IO operations with [Redis][] will be performed asynchronously.
+> Additionally, the normal synchronous [`RedisFuncCache`][] can only decorate normal synchronous functions, which will be decorated with a synchronous wrapper, and the IO operations with [Redis][] will be performed synchronously.
+
 ### Eviction policies
 
 If want to use other eviction policies, you can specify another policy class as the second argument of [`RedisFuncCache`][].
@@ -123,7 +197,7 @@ So far, the following cache eviction policies are available:
 
 - **[`TLruPolicy`][]**
 
-    > 💡**tip**:\
+    > 💡**Tip**:\
     > It is a pseudo _LRU_ policy, not very serious/legitimate.
     > The policy removes the lowest member according to the timestamp of invocation, and does not completely ensure eviction of the least recently used item, since the timestamp may be inaccurate.
     > However, the policy is still **MOST RECOMMENDED** for common use. It is faster than the LRU policy and accurate enough for most cases.
@@ -134,7 +208,7 @@ So far, the following cache eviction policies are available:
 - [`MruPolicy`][]: most recently used
 - [`RrPolicy`][]: random remove
 
-> ℹ️ **info**:\
+> ℹ️ **Info**:\
 > Explore source codes in directory `src/redis_func_cache/policies` for more details.
 
 ### Multiple [Redis][] key pairs
@@ -274,7 +348,7 @@ my_pickle_cache = RedisFuncCache(
 )
 ```
 
-> ⚠️ **warning**:\
+> ⚠️ **Warning**:\
 > [`pickle`][] is considered a security risk, and should not be used with runtime/version sensitive data. Use it cautiously and only when necessary.
 > It's a good practice to only cache functions that return simple, [JSON][] serializable data types.
 
@@ -359,7 +433,7 @@ def my_func(...):
 
 In the example, we'll get a cache generates [redis][] keys separated by `-`, instead of `:`, prefixed by `"my-prefix"`, and suffixed by `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names could be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
 
-> ❗ **important**:\
+> ❗ **Important**:\
 > The calculated key name **SHOULD** be unique.
 
 `LruScriptsMixin` tells the policy which lua script to use, and `PickleMd5HashMixin` tells the policy to use [`pickle`][] to serialize and `md5` to calculate the hash value of the function.

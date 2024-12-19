@@ -12,6 +12,8 @@ if sys.version_info < (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing import override
 
+import redis
+import redis.asyncio
 
 from ..cache import RedisFuncCache
 from ..utils import base64_hash_digest, get_fullname, get_source
@@ -26,12 +28,12 @@ __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", 
 
 class BaseSinglePolicy(AbstractPolicy):
     """
+    .. inheritance-diagram:: BaseSinglePolicy
+
     Base policy class for a single sorted-set or hash-map key pair.
     All decorated functions of this policy share the same key pair.
 
     This class should not be used directly.
-
-    .. inheritance-diagram:: BaseSinglePolicy
     """
 
     __key__: str
@@ -51,24 +53,50 @@ class BaseSinglePolicy(AbstractPolicy):
         return self._keys
 
     @override
-    def purge(self) -> int:
-        rc = self.cache.get_client()
-        return rc.delete(*self.calc_keys())
+    def purge(self) -> Optional[int]:
+        client = self.cache.client
+        if not isinstance(client, redis.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+            )
+        return client.delete(*self.calc_keys())
 
     @override
-    def get_size(self) -> int:
-        rc = self.cache.get_client()
-        return rc.hlen(self.calc_keys()[1])
+    async def apurge(self) -> Optional[int]:
+        client = self.cache.client
+        if not isinstance(client, redis.asyncio.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.asyncio.Redis}, but actual type is {type(client)}"
+            )
+        return await client.delete(*self.calc_keys())
+
+    @override
+    def size(self) -> int:
+        client = self.cache.client
+        if not isinstance(client, redis.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+            )
+        return client.hlen(self.calc_keys()[1])
+
+    @override
+    async def asize(self) -> int:
+        client = self.cache.client
+        if not isinstance(client, redis.asyncio.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+            )
+        return await client.hlen(self.calc_keys()[1])
 
 
 class BaseClusterSinglePolicy(BaseSinglePolicy):
     """
+    .. inheritance-diagram:: BaseClusterSinglePolicy
+
     Base policy class for a single sorted-set or hash-map key pair, with cluster support.
     All decorated functions of this policy share the same key pair.
 
     This class should not be used directly.
-
-    .. inheritance-diagram:: BaseClusterSinglePolicy
     """
 
     @override
@@ -83,12 +111,12 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
 
 class BaseMultiplePolicy(AbstractPolicy):
     """
+    .. inheritance-diagram:: BaseMultiplePolicy
+
     Base policy class for multiple sorted-set or hash-map key pairs.
     Each decorated function of this policy has its own key pair.
 
     This class should not be used directly.
-
-    .. inheritance-diagram:: BaseMultiplePolicy
     """
 
     @override
@@ -109,21 +137,38 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
-        rc = self.cache.get_client()
-        keys = rc.keys(pat)
+        client = self.cache.client
+        if not isinstance(client, redis.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+            )
+        keys = client.keys(pat)
         if keys:
-            return rc.delete(*keys)
+            return client.delete(*keys)
+        return 0
+
+    @override
+    async def apurge(self) -> int:
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
+        client = self.cache.client
+        if not isinstance(client, redis.asyncio.Redis):
+            raise TypeError(
+                f"Expect type of the cache object's client is {redis.asyncio.Redis}, but actual type is {type(client)}"
+            )
+        keys = await client.keys(pat)
+        if keys:
+            return await client.delete(*keys)
         return 0
 
 
 class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     """
+    .. inheritance-diagram:: BaseClusterMultiplePolicy
+
     Base policy class for multiple sorted-set or hash-map key pairs, with cluster support.
     Each decorated function of this policy has its own key pair.
 
     This class should not be used directly.
-
-    .. inheritance-diagram:: BaseClusterMultiplePolicy
     """
 
     @override

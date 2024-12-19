@@ -56,11 +56,11 @@ class BasicTest(TestCase):
             # first run, fill the cache to max size. then second run, to hit the cache
             for i in range(cache.maxsize):
                 self.assertEqual(_echo(i), echo(i))
-                self.assertEqual(i + 1, cache.policy.size)
+                self.assertEqual(i + 1, cache.policy.size())
                 with patch.object(cache, "put") as mock_put:
                     self.assertEqual(i, echo(i))
                     mock_put.assert_not_called()
-            self.assertEqual(cache.maxsize, cache.policy.size)
+            self.assertEqual(cache.maxsize, cache.policy.size())
 
     def test_many_functions(self):
         for cache in CACHES.values():
@@ -106,7 +106,7 @@ class BasicTest(TestCase):
 
             for i in range(cache.maxsize):
                 self.assertEqual(_echo(i), echo(i))
-            self.assertEqual(cache.maxsize, cache.policy.size)
+            self.assertEqual(cache.maxsize, cache.policy.size())
             # assert not hit
             with patch.object(cache, "put") as mock_put:
                 v = random()
@@ -114,7 +114,7 @@ class BasicTest(TestCase):
                 mock_put.assert_called_once()
             # an actual put, then assert max size
             self.assertEqual(echo(v), v)
-            self.assertEqual(cache.maxsize, cache.policy.size)
+            self.assertEqual(cache.maxsize, cache.policy.size())
 
     def test_str(self):
         for cache in CACHES.values():
@@ -127,10 +127,10 @@ class BasicTest(TestCase):
             values = [uuid4().hex for _ in range(size)]
             for v in values:
                 self.assertEqual(_echo(v), echo(v))
-            self.assertEqual(size, cache.policy.size)
+            self.assertEqual(size, cache.policy.size())
             for v in values:
                 self.assertEqual(v, echo(v))
-            self.assertEqual(size, cache.policy.size)
+            self.assertEqual(size, cache.policy.size())
 
     def test_lru(self):
         for name_, cache in CACHES.items():
@@ -147,7 +147,7 @@ class BasicTest(TestCase):
             echo(MAXSIZE)
 
             k0, k1 = cache.policy.calc_keys()
-            rc = cache.get_client()
+            rc = cache.client
 
             card = rc.zcard(k0)
             self.assertEqual(card, MAXSIZE)
@@ -168,7 +168,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_client()
+        rc = cache.client
 
         members = members = rc.zrange(k0, "+inf", "-inf", byscore=True, desc=True)  # type: ignore
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
@@ -191,7 +191,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_client()
+        rc = cache.client
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
@@ -216,7 +216,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_client()
+        rc = cache.client
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
@@ -240,7 +240,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_client()
+        rc = cache.client
 
         members = rc.smembers(k0)
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore

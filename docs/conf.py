@@ -36,6 +36,7 @@ extensions = [
     "sphinx_inline_tabs",
     "sphinx_copybutton",
     "versionwarning.extension",
+    "sphinxcontrib.mermaid",
 ]
 
 source_suffix = {
@@ -92,7 +93,7 @@ myst_enable_extensions = [
     "substitution",
     "tasklist"
 ]
-
+myst_fence_as_directive = ["mermaid"]
 
 # -- Options for intersphinx extension ---------------------------------------
 
