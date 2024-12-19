@@ -31,7 +31,7 @@ It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replaceme
     ```bash
     git clone https://github.com/tanbro/redis_func_cache.git
     cd redis_func_cache
-    python setup.py install
+    pip install .
     ```
 
 ## Data structure
