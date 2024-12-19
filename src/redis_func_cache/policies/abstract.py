@@ -7,7 +7,7 @@ from ..utils import read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.commands.core import AsyncScript, Script
-    from redis.typing import EncodableT, EncodedT, KeyT
+    from redis.typing import EncodableT, EncodedT, KeyT, ScriptTextT
 
     from ..cache import RedisFuncCache
 
@@ -131,7 +131,7 @@ class AbstractPolicy:
         """
         return None
 
-    def read_lua_scripts(self) -> Tuple[str, str]:
+    def read_lua_scripts(self) -> Tuple[ScriptTextT, ScriptTextT]:
         """Read the Lua scripts from the package resources."""
         return read_lua_file(self.__scripts__[0]), read_lua_file(self.__scripts__[1])
 
@@ -150,7 +150,7 @@ class AbstractPolicy:
             )
         return self._lua_scripts
 
-    def purge(self) -> Optional[int]:
+    def purge(self) -> int:
         """Purge the cache.
 
         .. note::
@@ -159,7 +159,7 @@ class AbstractPolicy:
         """
         raise NotImplementedError()  # pragma: no cover
 
-    async def apurge(self) -> Optional[int]:
+    async def apurge(self) -> int:
         """Asynchronously purge the cache."""
         raise NotImplementedError()  # pragma: no cover
 

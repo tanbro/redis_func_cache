@@ -59,7 +59,7 @@ class BaseSinglePolicy(AbstractPolicy):
         return self._keys
 
     @override
-    def purge(self) -> Optional[int]:
+    def purge(self) -> int:
         client = self.cache.client
         if not isinstance(client, _SYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
@@ -68,7 +68,7 @@ class BaseSinglePolicy(AbstractPolicy):
         return client.delete(*self.calc_keys())
 
     @override
-    async def apurge(self) -> Optional[int]:
+    async def apurge(self) -> int:
         client = self.cache.client
         if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
