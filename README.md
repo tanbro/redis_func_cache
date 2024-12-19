@@ -81,31 +81,6 @@ flowchart TD
     K --> L[Return User Function Result]
 ```
 
-### Detailed Explanation
-
-1. **Initialize Scripts**:
-   - Retrieve `script_0` and `script_1` from `self.policy.lua_scripts`.
-   - Check if both are instances of `Script`. If not, raise a `RuntimeError`.
-
-2. **Calculate Keys and Hash**:
-   - Compute cache keys using `self.policy.calc_keys`.
-   - Compute hash value using `self.policy.calc_hash`.
-   - Compute additional arguments using `self.policy.calc_ext_args`.
-
-3. **Attempt Cache Retrieval**:
-   - Use `self.get` to attempt retrieving a cached result.
-   - If a cache hit occurs (`cached` is not `None`), deserialize and return the cached result.
-
-4. **Execute User Function**:
-   - If no cache hit occurs, execute the `user_function` with the provided arguments and keyword arguments.
-
-5. **Serialize Result and Cache**:
-   - Serialize the result of the user function.
-   - Store the serialized result in the cache using `self.put`.
-
-6. **Return Result**:
-   - Return the result of the user function.
-
 ## Basic Usage
 
 ### First example
@@ -532,6 +507,9 @@ def some_func(...):
 - High concurrency or long-running decorated functions may result in unexpected cache misses and increased I/O operations. This can occur because the result value might not be saved quickly enough before the next call can hit the cache again.
 
 - Generator functions are not supported.
+
+- If there are multiple [`RedisFuncCache`][] instances with the same name, they may share the same cache data.
+  This may lead to serious errors, so we should avoid using the same name for different instances.
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
