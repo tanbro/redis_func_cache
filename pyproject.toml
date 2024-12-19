@@ -16,16 +16,16 @@ dependencies = [
   "typing-extensions; python_version<'3.12'",
 ]
 
-keywords = ["redis", "cache", "functools", "decorate", "decorator"]
+keywords = ["redis", "cache", "decorate", "decorator"]
 
 license = { text = "AGPLv3+" }
 
 classifiers = [
   "License :: OSI Approved :: BSD License",
   # "Development Status :: 1 - Planning",
-  "Development Status :: 2 - Pre-Alpha",
+  # "Development Status :: 2 - Pre-Alpha",
   # "Development Status :: 3 - Alpha",
-  # "Development Status :: 4 - Beta",
+  "Development Status :: 4 - Beta",
   # "Development Status :: 5 - Production/Stable",
   # "Development Status :: 6 - Mature",
   # "Development Status :: 7 - Inactive",
@@ -45,8 +45,11 @@ classifiers = [
 dynamic = ["version"]
 
 [project.urls]
-homepage = "https://github.com/tanbro/redis_func_cache"
-repository = "https://github.com/tanbro/redis_func_cache"
+Homepage = "https://github.com/tanbro/redis_func_cache"
+Documentation = "https://redis-func-cache.readthedocs.io/"
+Repository = "https://github.com/tanbro/redis_func_cache"
+"Bug Tracker" = "https://github.com/tanbro/redis_func_cache/issues"
+Changelog = "https://github.com/tanbro/spam/redis_func_cache/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 types = ["types-redis"]

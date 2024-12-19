@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from base64 import b64encode
-from inspect import getsource, isfunction, ismethod
+from inspect import getsource
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
 
 if sys.version_info < (3, 9):  # pragma: no cover
@@ -21,11 +21,7 @@ def get_fullname(f: Callable) -> str:
 
     Includes the module name and the qualified name.
     """
-    if isfunction(f):
-        return f"{f.__module__}:{f.__qualname__}"
-    elif ismethod(f):
-        return f"{f.__module__}:{f.__class__}.{f.__qualname__}"
-    raise TypeError(f"Can not calculate keys for {f=}")  # pragma: no cover
+    return f"{f.__module__}:{f.__qualname__}"
 
 
 DefaultT = TypeVar("DefaultT")
@@ -49,8 +45,8 @@ def get_source(o: Any, default: Optional[DefaultT] = None) -> Union[str, Default
     """
     try:
         return getsource(o)
-    except (IOError, OSError, TypeError):  # pragma: no cover
-        return default  # pragma: no cover
+    except (IOError, OSError, TypeError):
+        return default
 
 
 def read_lua_file(file: str) -> str:
