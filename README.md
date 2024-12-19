@@ -11,9 +11,6 @@ When we need to cache function return values distributed over multiple processes
 The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache decorators.
 It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replacement policies(<https://wikipedia.org/wiki/Cache_replacement_policies>).
 
-> ❗ **Note**:\
-> The project is still under development, and **DO NOT USE IT IN PRODUCTION**
-
 ## Features
 
 - Supports multiple cache eviction policies: _LRU_, _FIFO_, _LFU_, _RR_ ...
@@ -502,7 +499,7 @@ def some_func(...):
 
 - Compatibility with other decorators is not guaranteed.
 
-- The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. It is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
+- The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. Its maximum value is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
 
 - High concurrency or long-running decorated functions may result in unexpected cache misses and increased I/O operations. This can occur because the result value might not be saved quickly enough before the next call can hit the cache again.
 

@@ -1,16 +1,19 @@
 # Changelog
 
-## v0.2
+## v0.2.1
 
 > 📅 2024-12-19
 
-- ✨ Highlights:
-  - Asynchronous support
-- 🐛 Bug fixes:
-  - Fixed some known problems
-- 🛠 Improvements:
-  - Better typing hints
-  - More detailed documentation
+- ✨ **New Features:**
+  - Added support for asynchronous operations.
+
+- 🐛 **Bug Fixes:**
+  - Resolved several known issues.
+  - Eliminated duplicate parts in the function full name used as a key.
+
+- 🛠 **Improvements:**
+  - Enhanced type hints for better code clarity.
+  - Provided more detailed documentation to improve user understanding.
 
 ## v0.1
 
