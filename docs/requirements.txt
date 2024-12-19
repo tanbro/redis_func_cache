@@ -5,6 +5,8 @@ myst-parser
 
 furo
 
+sphinxcontrib-mermaid
+
 linkify-it-py
 sphinx-copybutton
 sphinx-inline-tabs
