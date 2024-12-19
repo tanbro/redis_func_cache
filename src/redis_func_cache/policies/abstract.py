@@ -89,6 +89,7 @@ class AbstractPolicy:
         raise NotImplementedError()  # pragma: no cover
 
     async def apurge(self) -> Optional[int]:
+        """Asynchronously purge the cache."""
         raise NotImplementedError()  # pragma: no cover
 
     def size(self) -> int:
@@ -101,12 +102,7 @@ class AbstractPolicy:
         raise NotImplementedError()  # pragma: no cover
 
     async def asize(self) -> int:
-        """Return the number of items in the cache.
-
-        .. note::
-            - This method is not implemented in the base class.
-            - Subclasses can optionally implement this method.
-        """
+        """Asynchronously return the number of items in the cache."""
         raise NotImplementedError()  # pragma: no cover
 
     def calc_keys(

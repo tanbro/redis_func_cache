@@ -48,10 +48,10 @@ class RedisFuncCache:
             client: Redis client to use.
                 Either to pass a :class:`redis.Redis` instance or a function returns a :class:`redis.Redis` instance.
 
-                Access the client by property :meth:`.client` or call method :meth:`.get_client`.
+                Access the client by property :meth:`.client`.
 
                 .. note::
-                    When using a function, it will be executed **every time** call method :meth:`.get_client` or access property :meth:`.client`.
+                    When it is a function, it will be executed **every time** the :meth:`.get_client` method is called or the :meth:`.client` property is accessed.
 
             maxsize: The maximum size of the cache.
                 If not provided, the default is :data:`.DEFAULT_MAXSIZE`.
@@ -99,7 +99,7 @@ class RedisFuncCache:
         elif callable(client):
             self._redis_factory = client
         else:
-            raise TypeError("redis must be a string, a Redis instance, or a function returns Redis instance.")
+            raise TypeError("Argument `redis` must be a Redis instance, or a function returns a Redis instance.")
         self._maxsize = DEFAULT_MAXSIZE if maxsize is None else int(maxsize)
         self._ttl = DEFAULT_TTL if ttl is None else int(ttl)
         self._user_return_value_serializer: Optional[SerializerT] = serializer[0] if serializer else None
@@ -115,7 +115,8 @@ class RedisFuncCache:
         """The prefix for cache keys."""
         return self._prefix
 
-    def get_policy(self) -> AbstractPolicy:
+    @property
+    def policy(self) -> AbstractPolicy:
         """
         .. tip::
             It returns an instance, NOT type/class
@@ -124,13 +125,8 @@ class RedisFuncCache:
             self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
 
-    @property
-    def policy(self) -> AbstractPolicy:
-        """Same as call :meth:`.get_policy`"""
-        return self.get_policy()
-
     def get_client(self) -> RedisClientT:
-        """Returns the :class:`redis.Redis` or :class:`redis.asyncio.Redis`s instance used in the cache."""
+        """Returns the :class:`redis.Redis` or :class:`redis.asyncio.Redis` instance used in the cache."""
         if self._redis_instance:
             return self._redis_instance
         if self._redis_factory:
@@ -195,6 +191,7 @@ class RedisFuncCache:
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
     ) -> Optional[EncodedT]:
+        """Async version of :meth:`.get`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         return await script(keys=key_pair, args=chain((ttl, hash, encoded_options), ext_args))
@@ -232,6 +229,7 @@ class RedisFuncCache:
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
     ):
+        """Same as :meth:`.put` but async."""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         await script(keys=key_pair, args=chain((maxsize, ttl, hash, value, encoded_options), ext_args))
@@ -258,6 +256,7 @@ class RedisFuncCache:
         return user_return_value
 
     async def aexec(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
+        """Async version of :meth:`.exec`"""
         script_0, script_1 = self.policy.lua_scripts
         if not isinstance(script_0, AsyncScript) or not isinstance(script_1, AsyncScript):
             raise RuntimeError(
@@ -269,11 +268,11 @@ class RedisFuncCache:
         cached = await self.aget(script_0, keys, hash, self.ttl, options, ext_args)
         if cached is not None:
             return self.deserialize_return_value(cached)
-        ret = user_function(*user_args, **user_kwds)
-        if iscoroutine(ret):
-            user_return_value = await ret
+        rval = user_function(*user_args, **user_kwds)
+        if iscoroutine(rval):
+            user_return_value = await rval
         else:
-            user_return_value = ret
+            user_return_value = rval
         user_retval_serialized = self.serialize_return_value(user_return_value)
         await self.aput(script_1, keys, hash, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
