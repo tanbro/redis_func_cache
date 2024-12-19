@@ -12,8 +12,10 @@ if sys.version_info < (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing import override
 
-import redis
-import redis.asyncio
+import redis.asyncio.client
+import redis.asyncio.cluster
+import redis.client
+import redis.cluster
 
 from ..cache import RedisFuncCache
 from ..utils import base64_hash_digest, get_fullname, get_source
@@ -24,6 +26,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
+
+
+_SYNCHRONOUS_CLIENT_TYPES = (redis.client.Redis, redis.cluster.RedisCluster)
+_ASYNCHRONOUS_CLIENT_TYPES = (redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster)
 
 
 class BaseSinglePolicy(AbstractPolicy):
@@ -55,38 +61,38 @@ class BaseSinglePolicy(AbstractPolicy):
     @override
     def purge(self) -> Optional[int]:
         client = self.cache.client
-        if not isinstance(client, redis.Redis):
+        if not isinstance(client, _SYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
-                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is {_SYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
             )
         return client.delete(*self.calc_keys())
 
     @override
     async def apurge(self) -> Optional[int]:
         client = self.cache.client
-        if not isinstance(client, redis.asyncio.Redis):
+        if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
-                f"Expect type of the cache object's client is {redis.asyncio.Redis}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is {_ASYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
             )
-        return await client.delete(*self.calc_keys())
+        return await client.delete(*self.calc_keys())  # type: ignore[union-attr]
 
     @override
     def size(self) -> int:
         client = self.cache.client
-        if not isinstance(client, redis.Redis):
+        if not isinstance(client, _SYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
-                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is {_ASYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
             )
         return client.hlen(self.calc_keys()[1])
 
     @override
     async def asize(self) -> int:
         client = self.cache.client
-        if not isinstance(client, redis.asyncio.Redis):
+        if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
-                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is {_ASYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
             )
-        return await client.hlen(self.calc_keys()[1])
+        return await client.hlen(self.calc_keys()[1])  # type: ignore[union-attr]
 
 
 class BaseClusterSinglePolicy(BaseSinglePolicy):

@@ -20,9 +20,11 @@ from typing import (
     Union,
 )
 
-import redis
-import redis.asyncio
-from redis.commands.core import AsyncScript, Script
+import redis.asyncio.client
+import redis.asyncio.cluster
+import redis.client
+import redis.cluster
+import redis.commands.core
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .policies.abstract import AbstractPolicy
@@ -37,7 +39,12 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ("RedisFuncCache",)
 
-RedisClientT = TypeVar("RedisClientT", bound=Union[redis.Redis, redis.asyncio.Redis])
+RedisClientT = TypeVar(
+    "RedisClientT",
+    bound=Union[
+        redis.client.Redis, redis.asyncio.client.Redis, redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster
+    ],
+)
 
 
 class RedisFuncCache(Generic[RedisClientT]):
@@ -62,7 +69,14 @@ class RedisFuncCache(Generic[RedisClientT]):
 
             client: Redis client to use.
 
-                - You can pass either a :class:`redis.Redis` or a :class:`redis.asyncio.Redis` object, or a function that returns one of these objects.
+                - You can pass either object whose type is one of:
+
+                  - :class:`redis.Redis`
+                  - :class:`redis.asyncio.client.Redis`
+                  - :class:`redis.cluster.RedisCluster`
+                  - :class:`redis.asyncio.cluster.RedisCluster`
+
+                  or a function that returns one of these objects.
 
                 - Access the client via the :meth:`.client` property.
 
@@ -114,14 +128,11 @@ class RedisFuncCache(Generic[RedisClientT]):
         self._prefix = prefix or DEFAULT_PREFIX
         self._redis_instance: Optional[RedisClientT] = None
         self._redis_factory: Optional[Callable[[], RedisClientT]] = None
-        if isinstance(client, (redis.Redis, redis.asyncio.Redis)):
-            self._redis_instance = client  # type: ignore[assignment]
-        elif callable(client):
+
+        if callable(client):
             self._redis_factory = client
         else:
-            raise TypeError(
-                f"client must be a redis client instance or a function that returns a redis client instance, got {type(client)} instead."
-            )
+            self._redis_instance = client
         self._maxsize = DEFAULT_MAXSIZE if maxsize is None else int(maxsize)
         self._ttl = DEFAULT_TTL if ttl is None else int(ttl)
         self._user_return_value_serializer: Optional[SerializerT] = serializer[0] if serializer else None
@@ -184,7 +195,7 @@ class RedisFuncCache(Generic[RedisClientT]):
     @classmethod
     def get(
         cls,
-        script: Script,
+        script: redis.commands.core.Script,
         key_pair: Tuple[KeyT, KeyT],
         hash: KeyT,
         ttl: int,
@@ -205,7 +216,7 @@ class RedisFuncCache(Generic[RedisClientT]):
     @classmethod
     async def aget(
         cls,
-        script: AsyncScript,
+        script: redis.commands.core.AsyncScript,
         key_pair: Tuple[KeyT, KeyT],
         hash: KeyT,
         ttl: int,
@@ -220,7 +231,7 @@ class RedisFuncCache(Generic[RedisClientT]):
     @classmethod
     def put(
         cls,
-        script: Script,
+        script: redis.commands.core.Script,
         key_pair: Tuple[KeyT, KeyT],
         hash: KeyT,
         value: EncodableT,
@@ -241,7 +252,7 @@ class RedisFuncCache(Generic[RedisClientT]):
     @classmethod
     async def aput(
         cls,
-        script: AsyncScript,
+        script: redis.commands.core.AsyncScript,
         key_pair: Tuple[KeyT, KeyT],
         hash: KeyT,
         value: EncodableT,
@@ -261,9 +272,9 @@ class RedisFuncCache(Generic[RedisClientT]):
         In this method, :meth:`.get` is called before the ``user_function``, and :meth:`.put` is called afterward.
         """
         script_0, script_1 = self.policy.lua_scripts
-        if not isinstance(script_0, Script) or not isinstance(script_1, Script):
+        if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise RuntimeError(
-                f"A tuple of two {Script} objects is required for execution, but actually got ({script_0!r}, {script_1!r})."
+                f"A tuple of two {redis.commands.core.Script} objects is required for execution, but actually got ({script_0!r}, {script_1!r})."
             )
         keys = self.policy.calc_keys(user_function, user_args, user_kwds)
         hash = self.policy.calc_hash(user_function, user_args, user_kwds)
@@ -279,9 +290,12 @@ class RedisFuncCache(Generic[RedisClientT]):
     async def aexec(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
         """Async version of :meth:`.exec`"""
         script_0, script_1 = self.policy.lua_scripts
-        if not (isinstance(script_0, AsyncScript) and isinstance(script_1, AsyncScript)):
+        if not (
+            isinstance(script_0, redis.commands.core.AsyncScript)
+            and isinstance(script_1, redis.commands.core.AsyncScript)
+        ):
             raise RuntimeError(
-                f"A tuple of two {AsyncScript} objects is required for async execution, but actually got ({script_0!r}, {script_1!r})."
+                f"A tuple of two {redis.commands.core.AsyncScript} objects is required for async execution, but actually got ({script_0!r}, {script_1!r})."
             )
         keys = self.policy.calc_keys(user_function, user_args, user_kwds)
         hash = self.policy.calc_hash(user_function, user_args, user_kwds)
@@ -289,11 +303,11 @@ class RedisFuncCache(Generic[RedisClientT]):
         cached = await self.aget(script_0, keys, hash, self.ttl, options, ext_args)
         if cached is not None:
             return self.deserialize_return_value(cached)
-        rval = user_function(*user_args, **user_kwds)
-        if iscoroutine(rval):
-            user_return_value = await rval
+        ret_val = user_function(*user_args, **user_kwds)
+        if iscoroutine(ret_val):
+            user_return_value = await ret_val
         else:
-            user_return_value = rval
+            user_return_value = ret_val
         user_retval_serialized = self.serialize_return_value(user_return_value)
         await self.aput(script_1, keys, hash, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
@@ -314,8 +328,6 @@ class RedisFuncCache(Generic[RedisClientT]):
 
         if user_function is None:
             return decorator  # type: ignore
-        elif callable(user_function):
-            return decorator(user_function)  # type: ignore
-        raise TypeError(f"‘{self.__class__.__qualname__}’ cannot decorate {user_function!r}")
+        return decorator(user_function)  # type: ignore
 
     __call__ = decorate

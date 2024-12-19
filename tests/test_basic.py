@@ -245,3 +245,14 @@ class BasicTest(TestCase):
         members = rc.smembers(k0)
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
         self.assertIn(MAXSIZE, values)
+
+    def test_direct_redis_client(self):
+        client = REDIS_FACTORY()
+        cache = RedisFuncCache(name="test_direct_redis_client", policy=LruPolicy, client=client)
+
+        @cache
+        def echo(x):
+            return x
+
+        for x in range(MAXSIZE):
+            self.assertEqual(echo(x), x)
