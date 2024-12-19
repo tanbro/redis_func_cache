@@ -147,7 +147,7 @@ class BasicTest(TestCase):
             echo(MAXSIZE)
 
             k0, k1 = cache.policy.calc_keys()
-            rc = cache.get_client()
+            rc = cache.client
 
             card = rc.zcard(k0)
             self.assertEqual(card, MAXSIZE)
@@ -168,7 +168,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_client()
+        rc = cache.client
 
         members = members = rc.zrange(k0, "+inf", "-inf", byscore=True, desc=True)  # type: ignore
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
@@ -192,8 +192,6 @@ class BasicTest(TestCase):
 
         k0, k1 = cache.policy.calc_keys()
         rc = cache.client
-        self.assertIsInstance(rc, Redis)
-        assert isinstance(rc, Redis)
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
@@ -218,9 +216,8 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_client()
+        rc = cache.client
 
-        assert isinstance(rc, Redis)
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
@@ -243,7 +240,7 @@ class BasicTest(TestCase):
         echo(MAXSIZE)
 
         k0, k1 = cache.policy.calc_keys()
-        rc = cache.get_client()
+        rc = cache.client
 
         members = rc.smembers(k0)
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore

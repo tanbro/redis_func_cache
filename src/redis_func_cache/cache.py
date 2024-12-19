@@ -5,28 +5,42 @@ import weakref
 from functools import wraps
 from inspect import iscoroutine, iscoroutinefunction
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import redis
 import redis.asyncio
 from redis.commands.core import AsyncScript, Script
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
+from .policies.abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
 
-    UserFunctionT = TypeVar("UserFunctionT", bound=Callable)
-    RedisClientT = Union[redis.Redis, redis.asyncio.Redis]
+    FT = TypeVar("FT", bound=Callable)
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
 
-    from .policies.abstract import AbstractPolicy
 
 __all__ = ("RedisFuncCache",)
 
+RedisClientT = TypeVar("RedisClientT", bound=Union[redis.Redis, redis.asyncio.Redis])
 
-class RedisFuncCache:
+
+class RedisFuncCache(Generic[RedisClientT]):
     def __init__(
         self,
         name: str,
@@ -41,34 +55,40 @@ class RedisFuncCache:
 
         Args:
             name: The name of the cache manager.
-                Assigned to property :meth:`.name`.
 
-            policy: The class for the caching policy, which must inherit from :class:`.AbstractPolicy`.
+                It is assigned to property :meth:`.name`.
+
+            policy: The class for the caching policy
 
             client: Redis client to use.
-                Either to pass a :class:`redis.Redis` instance or a function returns a :class:`redis.Redis` instance.
 
-                Access the client by property :meth:`.client`.
+                - You can pass either a :class:`redis.Redis` or a :class:`redis.asyncio.Redis` object, or a function that returns one of these objects.
+
+                - Access the client via the :meth:`.client` property.
 
                 .. note::
-                    When it is a function, it will be executed **every time** the :meth:`.get_client` method is called or the :meth:`.client` property is accessed.
+                    If a function is provided, it will be executed **every time** the :meth:`.client` property is accessed.
 
             maxsize: The maximum size of the cache.
+
                 If not provided, the default is :data:`.DEFAULT_MAXSIZE`.
                 Zero or negative values means no limit.
                 Assigned to property :meth:`.maxsize`.
 
             ttl: The time-to-live (in seconds) for cache items.
+
                 If not provided, the default is :data:`.DEFAULT_TTL`.
                 Zero or negative values means no set ttl.
                 Assigned to property :meth:`.ttl`.
 
 
             prefix: The prefix for cache keys.
+
                 If not provided, the default is :data:`.DEFAULT_PREFIX`.
                 Assigned to property :meth:`.prefix`.
 
             serializer: Optional serialize/deserialize function pair for return value of what decorated.
+
                 If not provided, the cache will use :func:`json.dumps` and :func:`json.loads`.
 
                 ``serializer`` is a pair of callbacks, the first one is used to serialize return value, the second one is used to deserialize return value.
@@ -95,11 +115,13 @@ class RedisFuncCache:
         self._redis_instance: Optional[RedisClientT] = None
         self._redis_factory: Optional[Callable[[], RedisClientT]] = None
         if isinstance(client, (redis.Redis, redis.asyncio.Redis)):
-            self._redis_instance = client
+            self._redis_instance = client  # type: ignore[assignment]
         elif callable(client):
             self._redis_factory = client
         else:
-            raise TypeError("Argument `redis` must be a Redis instance, or a function returns a Redis instance.")
+            raise TypeError(
+                f"client must be a redis client instance or a function that returns a redis client instance, got {type(client)} instead."
+            )
         self._maxsize = DEFAULT_MAXSIZE if maxsize is None else int(maxsize)
         self._ttl = DEFAULT_TTL if ttl is None else int(ttl)
         self._user_return_value_serializer: Optional[SerializerT] = serializer[0] if serializer else None
@@ -125,18 +147,17 @@ class RedisFuncCache:
             self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
 
-    def get_client(self) -> RedisClientT:
-        """Returns the :class:`redis.Redis` or :class:`redis.asyncio.Redis` instance used in the cache."""
+    @property
+    def client(self) -> RedisClientT:
+        """
+        Returns:
+            The :class:`redis.Redis` or :class:`redis.asyncio.Redis` instance used in the cache.
+        """
         if self._redis_instance:
             return self._redis_instance
         if self._redis_factory:
             return self._redis_factory()
         raise RuntimeError("No redis client or factory provided.")
-
-    @property
-    def client(self) -> RedisClientT:
-        """Same as call :meth:`.get_client`"""
-        return self.get_client()
 
     @property
     def maxsize(self) -> int:
@@ -258,9 +279,9 @@ class RedisFuncCache:
     async def aexec(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
         """Async version of :meth:`.exec`"""
         script_0, script_1 = self.policy.lua_scripts
-        if not isinstance(script_0, AsyncScript) or not isinstance(script_1, AsyncScript):
+        if not (isinstance(script_0, AsyncScript) and isinstance(script_1, AsyncScript)):
             raise RuntimeError(
-                f"A tuple of twe {AsyncScript} objects is required for async execution, but actually got ({script_0!r}, {script_1!r})."
+                f"A tuple of two {AsyncScript} objects is required for async execution, but actually got ({script_0!r}, {script_1!r})."
             )
         keys = self.policy.calc_keys(user_function, user_args, user_kwds)
         hash = self.policy.calc_hash(user_function, user_args, user_kwds)
@@ -277,10 +298,10 @@ class RedisFuncCache:
         await self.aput(script_1, keys, hash, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
 
-    def decorate(self, user_function: Optional[UserFunctionT] = None, /, **kwargs) -> UserFunctionT:
+    def decorate(self, user_function: Optional[FT] = None, /, **kwargs) -> FT:
         """Decorate the given function with cache."""
 
-        def decorator(f: UserFunctionT):
+        def decorator(f: FT):
             @wraps(f)
             def wrapper(*f_args, **f_kwargs):
                 return self.exec(f, f_args, f_kwargs, **kwargs)

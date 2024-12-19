@@ -8,36 +8,40 @@ __all__ = ("LruPolicy", "LruMultiplePolicy", "LruClusterPolicy", "LruClusterMult
 
 
 class LruPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
-    """All decorated functions share the same key pair, use Least Recently Used eviction policy.
-
+    """
     .. inheritance-diagram:: LruPolicy
+
+    All decorated functions share the same key pair, use Least Recently Used eviction policy.
     """
 
     __key__ = "lru"
 
 
 class LruMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
-    """Each decorated function of the policy has its own key pair, use Least Recently Used eviction policy.
-
+    """
     .. inheritance-diagram:: LruMultiplePolicy
+
+    Each decorated function of the policy has its own key pair, use Least Recently Used eviction policy.
     """
 
     __key__ = "lru-m"
 
 
 class LruClusterPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
-    """All decorated functions share the same key pair, with cluster support, use Least Recently Used eviction policy.
-
+    """
     .. inheritance-diagram:: LruClusterPolicy
+
+    All decorated functions share the same key pair, with cluster support, use Least Recently Used eviction policy.
     """
 
     __key__ = "lru-c"
 
 
 class LruClusterMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
-    """Each decorated function of the policy has its own key pair, with cluster support, use Least Recently Used eviction policy.
-
+    """
     inheritance-diagram:: LruClusterMultiplePolicy
+
+    Each decorated function of the policy has its own key pair, with cluster support, use Least Recently Used eviction policy.
     """
 
     __key__ = "lru-cm"

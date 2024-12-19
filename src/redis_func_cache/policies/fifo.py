@@ -9,9 +9,9 @@ __all__ = ("FifoPolicy", "FifoClusterPolicy", "FifoClusterMultiplePolicy", "Fifo
 
 class FifoPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
-    All decorated functions share the same key pair, use First In First Out eviction policy.
-
     .. inheritance-diagram:: FifoPolicy
+
+    All decorated functions share the same key pair, use First In First Out eviction policy.
     """
 
     __key__ = "fifo"
@@ -19,9 +19,9 @@ class FifoPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
 
 class FifoMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
-    Each decorated function has its own key pair, use First In First Out eviction policy.
-
     .. inheritance-diagram:: FifoMultiplePolicy
+
+    Each decorated function has its own key pair, use First In First Out eviction policy.
     """
 
     __key__ = "fifo-m"
@@ -29,9 +29,9 @@ class FifoMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseMultiplePolic
 
 class FifoClusterPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
-    All decorated functions share the same key pair, with cluster support, use First In First Out eviction policy.
-
     .. inheritance-diagram:: FifoClusterPolicy
+
+    All decorated functions share the same key pair, with cluster support, use First In First Out eviction policy.
     """
 
     __key__ = "fifo-c"
@@ -39,9 +39,9 @@ class FifoClusterPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterSingleP
 
 class FifoClusterMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
-    Each decorated function has its own key pair, with cluster support, use First In First Out eviction policy.
-
     .. inheritance-diagram:: FifoClusterMultiplePolicy
+
+    Each decorated function has its own key pair, with cluster support, use First In First Out eviction policy.
     """
 
     __key__ = "fifo-cm"
