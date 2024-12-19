@@ -11,9 +11,6 @@ When we need to cache function return values distributed over multiple processes
 The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache decorators.
 It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replacement policies(<https://wikipedia.org/wiki/Cache_replacement_policies>).
 
-> ❗ **Note**:\
-> The project is still under development, and **DO NOT USE IT IN PRODUCTION**
-
 ## Features
 
 - Supports multiple cache eviction policies: _LRU_, _FIFO_, _LFU_, _RR_ ...
