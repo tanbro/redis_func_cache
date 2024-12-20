@@ -8,17 +8,17 @@ from redis_func_cache import (
     FifoClusterPolicy,
     LfuClusterPolicy,
     LruClusterPolicy,
+    LruTClusterPolicy,
     MruClusterPolicy,
     RedisFuncCache,
     RrClusterPolicy,
-    TLruClusterPolicy,
 )
 
 REDIS_URL = getenv("REDIS_URL", "redis://")
 REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
 MAXSIZE = 8
 CACHES = {
-    "tlru": RedisFuncCache(__name__, TLruClusterPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTClusterPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
     "lru": RedisFuncCache(__name__, LruClusterPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
     "mru": RedisFuncCache(__name__, MruClusterPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
     "rr": RedisFuncCache(__name__, RrClusterPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),

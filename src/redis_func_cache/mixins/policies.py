@@ -2,11 +2,12 @@
 
 __all__ = (
     "FifoScriptsMixin",
+    "FifoTScriptsMixin",
     "LfuScriptsMixin",
     "LruScriptsMixin",
     "MruScriptsMixin",
     "RrScriptsMixin",
-    "TLruScriptsMixin",
+    "LruTScriptsMixin",
 )
 
 
@@ -14,6 +15,12 @@ class FifoScriptsMixin:
     """Scripts mixin for fifo policy."""
 
     __scripts__ = "fifo_get.lua", "fifo_put.lua"
+
+
+class FifoTScriptsMixin:
+    """Scripts mixin for fifo policy."""
+
+    __scripts__ = "fifo_get.lua", "fifo_t_put.lua"
 
 
 class LfuScriptsMixin:
@@ -31,10 +38,10 @@ class LruScriptsMixin:
 MruScriptsMixin = LruScriptsMixin
 
 
-class TLruScriptsMixin:
-    """Scripts mixin for tlru policy."""
+class LruTScriptsMixin:
+    """Scripts mixin for lru-t policy."""
 
-    __scripts__ = "tlru_get.lua", "tlru_put.lua"
+    __scripts__ = "lru_t_get.lua", "lru_t_put.lua"
 
 
 class RrScriptsMixin:
