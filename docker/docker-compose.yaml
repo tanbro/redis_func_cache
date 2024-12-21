@@ -1,0 +1,89 @@
+name: redis_func_cache
+
+x-networks: &x-networks
+  networks:
+    - redis_func_cache-network
+
+x-redis: &x-redis
+  image: redis:alpine
+  <<: *x-networks
+
+x-redis-server: &x-redis-server
+  <<: *x-redis
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+    interval: 5s
+    timeout: 3s
+    retries: 5
+
+x-redis-cluster: &x-redis-cluster
+  <<: *x-redis-server
+  volumes:
+    - ./:/workspace
+  command: ["redis-server", "--cluster-enabled", "yes"]
+
+networks: # top level
+  redis_func_cache-network: # name of network for services side reference it
+
+services:
+  redis_standalone:
+    <<: *x-redis-server
+
+  redis_cluster_creator:
+    <<: *x-redis
+    depends_on:
+      redis_cluster_0:
+        condition: service_healthy
+      redis_cluster_1:
+        condition: service_healthy
+      redis_cluster_2:
+        condition: service_healthy
+      redis_cluster_3:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - |
+        redis-cli --cluster create \
+          redis_cluster_0:6379 redis_cluster_1:6379 redis_cluster_2:6379 redis_cluster_3:6379 \
+          --cluster-yes \
+        && sleep infinity
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --cluster call redis_cluster_0:6379 INFO"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis_cluster_0:
+    <<: *x-redis-cluster
+
+  redis_cluster_1:
+    <<: *x-redis-cluster
+
+  redis_cluster_2:
+    <<: *x-redis-cluster
+
+  redis_cluster_3:
+    <<: *x-redis-cluster
+
+  unittest:
+    image: quay.io/pypa/manylinux_2_28_x86_64
+    depends_on:
+      redis_standalone:
+        condition: service_healthy
+      redis_cluster_creator:
+        condition: service_completed_successfully
+    <<: *x-networks
+    volumes:
+      - type: bind
+        source: ..
+        target: /workspace
+    working_dir: /workspace
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL="redis://redis_standalone:6379"
+      - REDIS_CLUSTER_NODES="redis_cluster_0:6379 redis_cluster_1:6379 redis_cluster_2:6379 redis_cluster_3:6379"
+    command:
+      - /bin/sh
+      - tests/run.sh

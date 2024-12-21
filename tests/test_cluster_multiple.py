@@ -2,7 +2,7 @@ from os import getenv
 from random import randint
 from unittest import TestCase
 
-from redis import Redis
+from redis.cluster import ClusterNode, RedisCluster
 
 from redis_func_cache import (
     FifoClusterMultiplePolicy,
@@ -14,16 +14,20 @@ from redis_func_cache import (
     RrClusterMultiplePolicy,
 )
 
-REDIS_URL = getenv("REDIS_URL", "redis://")
-REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
+REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES", "127.0.0.1:7000 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003")
+CLUSTER_NODES = [
+    ClusterNode(cluster.split(":")[0], int(cluster.split(":")[1])) for cluster in REDIS_CLUSTER_NODES.split()
+]
+REDIS_CLIENT: RedisCluster = RedisCluster(startup_nodes=CLUSTER_NODES)
+
 MAXSIZE = 8
 CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
 }
 
 
