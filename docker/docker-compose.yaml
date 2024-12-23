@@ -58,9 +58,9 @@ services:
         && sleep infinity
     healthcheck:
       test: ["CMD-SHELL", "redis-cli --cluster check redis_cluster_0:6379"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   redis_cluster_0:
     <<: *x-redis-cluster
@@ -90,8 +90,8 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL="redis://redis_standalone"
-      - REDIS_CLUSTER_NODES="redis_cluster_0:6379 redis_cluster_1:6379 redis_cluster_2:6379 redis_cluster_3:6379"
+      - "REDIS_URL=redis://redis_standalone:6379"
+      - "REDIS_CLUSTER_NODES=redis_cluster_0:6379 redis_cluster_1:6379 redis_cluster_2:6379 redis_cluster_3:6379"
     command:
       - /bin/sh
       - tests/run.sh
