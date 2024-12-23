@@ -20,7 +20,12 @@ x-redis-cluster: &x-redis-cluster
   <<: *x-redis-server
   volumes:
     - ./:/workspace
-  command: ["redis-server", "--cluster-enabled", "yes"]
+  command:
+    - /bin/sh
+    - -c
+    - |
+      rm -f /tmp/redis-cluster-nodes.conf && \
+      redis-server /workspace/redis.conf --cluster-enabled yes
 
 networks: # top level
   redis_func_cache-network: # name of network for services side reference it
@@ -28,6 +33,9 @@ networks: # top level
 services:
   redis_standalone:
     <<: *x-redis-server
+    volumes:
+      - ./:/workspace
+    command: [redis-server, /workspace/redis.conf]
 
   redis_cluster_creator:
     <<: *x-redis
@@ -49,10 +57,10 @@ services:
           --cluster-yes \
         && sleep infinity
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --cluster call redis_cluster_0:6379 INFO"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      test: ["CMD-SHELL", "redis-cli --cluster check redis_cluster_0:6379"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
 
   redis_cluster_0:
     <<: *x-redis-cluster
@@ -72,7 +80,7 @@ services:
       redis_standalone:
         condition: service_healthy
       redis_cluster_creator:
-        condition: service_completed_successfully
+        condition: service_healthy
     <<: *x-networks
     volumes:
       - type: bind
@@ -82,7 +90,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL="redis://redis_standalone:6379"
+      - REDIS_URL="redis://redis_standalone"
       - REDIS_CLUSTER_NODES="redis_cluster_0:6379 redis_cluster_1:6379 redis_cluster_2:6379 redis_cluster_3:6379"
     command:
       - /bin/sh

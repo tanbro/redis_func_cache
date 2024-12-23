@@ -1,7 +1,12 @@
 exclude .*
 
 prune .*
+
+prune images
+
 prune build
 prune dist
 prune docs
 prune tests
+
+prune docker

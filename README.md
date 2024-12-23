@@ -510,13 +510,11 @@ def some_func(...):
 
 ## Testing
 
-A Docker Compose file for unit testing is provided in the `docker` directory.
-
-Just run it by:
+A Docker Compose file for unit testing is provided in the `docker` directory to simplify the process. You can run it by executing:
 
 ```bash
 cd docker
-docker compose up
+docker compose up --abort-on-container-exit
 ```
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
