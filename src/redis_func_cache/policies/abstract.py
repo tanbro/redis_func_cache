@@ -169,6 +169,9 @@ class AbstractPolicy:
         .. note::
             - This method is not implemented in the base class.
             - Subclasses can optionally implement this method.
+
+        Since the size is fetched from Redis, it involves I/O operations.
+        Therefore, this is a method rather than a property.
         """
         raise NotImplementedError()  # pragma: no cover
 

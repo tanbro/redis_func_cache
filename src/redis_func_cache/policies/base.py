@@ -144,9 +144,9 @@ class BaseMultiplePolicy(AbstractPolicy):
     def purge(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         client = self.cache.client
-        if not isinstance(client, redis.Redis):
+        if not isinstance(client, _SYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
-                f"Expect type of the cache object's client is {redis.Redis}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is one of {_SYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
             )
         keys = client.keys(pat)
         if keys:
@@ -157,13 +157,13 @@ class BaseMultiplePolicy(AbstractPolicy):
     async def apurge(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         client = self.cache.client
-        if not isinstance(client, redis.asyncio.Redis):
+        if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
-                f"Expect type of the cache object's client is {redis.asyncio.Redis}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is one of {_ASYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
             )
-        keys = await client.keys(pat)
+        keys = await client.keys(pat)  # type: ignore[union-attr]
         if keys:
-            return await client.delete(*keys)
+            return await client.delete(*keys)  # type: ignore[union-attr]
         return 0
 
 

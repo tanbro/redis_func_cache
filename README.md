@@ -508,6 +508,15 @@ def some_func(...):
 - If there are multiple [`RedisFuncCache`][] instances with the same name, they may share the same cache data.
   This may lead to serious errors, so we should avoid using the same name for different instances.
 
+## Testing
+
+A Docker Compose file for unit testing is provided in the `docker` directory to simplify the process. You can run it by executing:
+
+```bash
+cd docker
+docker compose up --abort-on-container-exit
+```
+
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
 
