@@ -53,6 +53,7 @@ Changelog = "https://github.com/tanbro/spam/redis_func_cache/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 types = ["types-redis"]
+hiredis=["redis[hiredis]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
