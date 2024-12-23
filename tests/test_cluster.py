@@ -1,6 +1,6 @@
 from os import getenv
 from random import randint
-from unittest import TestCase
+from unittest import TestCase, skipUnless
 
 from redis.cluster import ClusterNode, RedisCluster
 
@@ -14,23 +14,25 @@ from redis_func_cache import (
     RrClusterPolicy,
 )
 
-REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES", "127.0.0.1:7000 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003")
-CLUSTER_NODES = [
-    ClusterNode(cluster.split(":")[0], int(cluster.split(":")[1])) for cluster in REDIS_CLUSTER_NODES.split()
-]
-REDIS_CLIENT: RedisCluster = RedisCluster(startup_nodes=CLUSTER_NODES)
+REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES")
+if REDIS_CLUSTER_NODES:
+    CLUSTER_NODES = [
+        ClusterNode(cluster.split(":")[0], int(cluster.split(":")[1])) for cluster in REDIS_CLUSTER_NODES.split()
+    ]
+    REDIS_CLIENT: RedisCluster = RedisCluster(startup_nodes=CLUSTER_NODES)
 
-MAXSIZE = 8
-CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-}
+    MAXSIZE = 8
+    CACHES = {
+        "tlru": RedisFuncCache(__name__, LruTClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+        "lru": RedisFuncCache(__name__, LruClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+        "mru": RedisFuncCache(__name__, MruClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+        "rr": RedisFuncCache(__name__, RrClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+        "fifo": RedisFuncCache(__name__, FifoClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+        "lfu": RedisFuncCache(__name__, LfuClusterPolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+    }
 
 
+@skipUnless(REDIS_CLUSTER_NODES, "REDIS_CLUSTER_NODES environment variable is not set")
 class ClusterTest(TestCase):
     def setUp(self):
         for cache in CACHES.values():
