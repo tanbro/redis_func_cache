@@ -47,10 +47,11 @@ RedisClientTV = TypeVar(
 
 
 class RedisFuncCache(Generic[RedisClientTV]):
-    """Redis-backed function cache.
+    """A function cache class backed by Redis.
 
     Attributes:
-        __call__: same as :meth:`decorate`. This makes it possible to use an instance as a :term:`decorator` without parenthesis.
+        __call__: Equivalent to the :meth:`decorate` method.
+                  This allows an instance to be used as a :term:`decorator` without parentheses.
     """
 
     def __init__(
@@ -344,7 +345,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
         return user_return_value
 
     def decorate(self, user_function: Optional[FT] = None, /, **kwargs) -> FT:
-        """Decorate the given function with cache."""
+        """Decorate the given function with cache.
+
+        Equivalent to :attr:`__call__`
+        """
 
         def decorator(f: FT):
             @wraps(f)
