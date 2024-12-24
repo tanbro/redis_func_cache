@@ -39,27 +39,27 @@ Here is a simple example:
    lru_cache = RedisFuncCache(__name__, LruTPolicy, redis_client)
 
    @lru_cache
-   def long_term_func():
-       sleep(10) # simulate a long term running
+   def a_slow_func():
+       sleep(10) # here simulate a slow operation
        return "OK"
 
    t = time()
-   r = long_term_func()
-   print(f"duration={time()-t} , {r=}")
+   r = a_slow_func()
+   print(f"duration={time()-t}, {r=}")
 
    t = time()
-   r = long_term_func()
-   print(f"duration={time()-t} , {r=}")
+   r = a_slow_func()
+   print(f"duration={time()-t}, {r=}")
    ```
 
 The output should be like:
 
 ```
-duration=10.002939939498901 , r='OK'
-duration=0.0008025169372558594 , r='OK'
+duration=10.002939939498901, r='OK'
+duration=0.0008025169372558594, r='OK'
 ```
 
-We can see that the second call to `long_term_func()` is served from the cache, which is much faster than the first call.
+We can see that the second call to `a_slow_func()` is served from the cache, which is much faster than the first call.
 
 ## Features
 
