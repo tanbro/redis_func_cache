@@ -65,6 +65,7 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 
 - Supports multiple cache eviction policies: _LRU_, _FIFO_, _LFU_, _RR_ ...
 - Asynchronous and synchronous support.
+- [Redis][] cluster support.
 - Simple [decorator][] syntax.
 - Based on [redis-py][], the official Python client for [Redis][].
 
