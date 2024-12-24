@@ -1,8 +1,0 @@
-name: redis_func_cache-tests
-
-services:
-
-  redis:
-    image: redis:alpine
-    ports:
-      - 6379:6379
