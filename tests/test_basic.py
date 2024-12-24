@@ -170,7 +170,7 @@ class BasicTest(TestCase):
         k0, k1 = cache.policy.calc_keys()
         rc = cache.client
 
-        members = members = rc.zrange(k0, "+inf", "-inf", byscore=True, desc=True)  # type: ignore
+        members = rc.zrange(k0, "+inf", "-inf", byscore=True, desc=True)  # type: ignore
         values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
         self.assertListEqual(sorted(values), list(range(MAXSIZE - 1)) + [MAXSIZE])
 

@@ -51,14 +51,18 @@ class AbstractHashMixin:
     **Do NOT use the mixin class directly.**
     Override the class attribute :attr:`.__hash_config__` to define the algorithm and serializer.
 
-    Example::
+    Attributes:
+        __hash_config__: Configure of how to calculate hash for a function.
 
-        class Md5JsonHashMixin(AbstractHashMixin):
-            __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
+
+    Example:
+        ::
+
+            class Md5JsonHashMixin(AbstractHashMixin):
+                __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
     """
 
     __hash_config__: HashConfig
-    """Configure of how to calculate hash for a function."""
 
     def calc_hash(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None

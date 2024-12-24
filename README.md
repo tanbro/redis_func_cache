@@ -5,17 +5,67 @@
 [![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://redis-func-cache.readthedocs.io/)
 [![pypi-version](https://img.shields.io/pypi/v/redis_func_cache.svg)](https://pypi.org/project/redis_func_cache/)
 
-`redis_func_cache` is a _Python_ library for caching function return values in [Redis][], similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module, which comes with some cache decorators quite handy when we want to code something with memorization.
+`redis_func_cache` is a _Python_ library for caching function return values in [Redis][], similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module, which comes with some cache [decorator][]s quite handy when we want to code something with memorization.
 
 When we need to cache function return values distributed over multiple processes or machines, we can use [Redis][] as a backend.
-The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache decorators.
+The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache [decorator][]s.
 It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replacement policies(<https://wikipedia.org/wiki/Cache_replacement_policies>).
+
+Here is a simple example:
+
+1. Let's first startup a redis server at 127.0.0.1:6379, eg:
+
+   ```bash
+   docker run -it --rm -p 6379:6379 redis:alpine
+   ```
+
+1. Then install the library on your python environment:
+
+   ```bash
+   pip install -U redis_func_cache
+   ```
+
+1. Finally run the following Python code:
+
+   ```python
+   from time import sleep, time
+
+   from redis import Redis
+
+   from redis_func_cache import LruTPolicy, RedisFuncCache
+
+   redis_client = Redis.from_url("redis://")
+
+   lru_cache = RedisFuncCache(__name__, LruTPolicy, redis_client)
+
+   @lru_cache
+   def long_term_func():
+       sleep(10) # simulate a long term running
+       return "OK"
+
+   t = time()
+   r = long_term_func()
+   print(f"duration={time()-t} , {r=}")
+
+   t = time()
+   r = long_term_func()
+   print(f"duration={time()-t} , {r=}")
+   ```
+
+The output should be like:
+
+```
+duration=10.002939939498901 , r='OK'
+duration=0.0008025169372558594 , r='OK'
+```
+
+We can see that the second call to `long_term_func()` is served from the cache, which is much faster than the first call.
 
 ## Features
 
 - Supports multiple cache eviction policies: _LRU_, _FIFO_, _LFU_, _RR_ ...
 - Asynchronous and synchronous support.
-- Simple decorator syntax.
+- Simple [decorator][] syntax.
 - Based on [redis-py][], the official Python client for [Redis][].
 
 ## Install
@@ -48,7 +98,7 @@ This can be visualized as follows:
 
 ![data_structure](images/data_structure.svg)
 
-The main idea of eviction policy is that the cache keys are stored in a sorted set, and the cache values are stored in a hash map. Eviction is performed by removing the lowest-scoring item from the set, and then deleting the corresponding value from the hash map.
+The main idea of eviction policy is that the cache keys are stored in a set, and the cache values are stored in a hash map. Eviction is performed by removing the lowest-scoring item from the set, and then deleting the corresponding field and value from the hash map.
 
 Here is an example showing how the _LRU_ cache's eviction policy works(maximum size is 3):
 
@@ -102,7 +152,7 @@ def fib(n):
 ```
 
 In this example, we first create a [Redis][] client, then create a [`RedisFuncCache`][] instance with the [Redis][] client and [`LruTPolicy`][] as its arguments.
-Next, we use the `@lru_cache` decorator to decorate the `fib` function.
+Next, we use the `@lru_cache` [decorator][] to decorate the `fib` function.
 This way, each computed result is cached, and subsequent calls with the same parameters retrieve the result directly from the cache, thereby improving performance.
 
 It works almost the same as the standard library's `functools.lru_cache`, except that it uses [Redis][] as the backend instead of the local machine's memory.
@@ -125,10 +175,11 @@ To decorate async functions, we shall pass a `Async Redis client` to [`RedisFunc
 from redis.asyncio import Redis as AsyncRedis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
-my_async_cache = RedisFuncCache(__name__, LruTPolicy, AsyncRedis)
+redis_client = AsyncRedis.from_url("redis://")
+my_async_cache = RedisFuncCache(__name__, LruTPolicy, redis_client)
 
 @my_async_cache
-async def my_async_func(...):
+async def my_async_func(*args, **kwargs):
     ...
 ```
 
@@ -139,13 +190,14 @@ async def my_async_func(...):
 
 ### Eviction policies
 
-If want to use other eviction policies, you can specify another policy class as the second argument of [`RedisFuncCache`][].
-
+If you want to use other eviction policies, you can specify another policy class as the second argument of [`RedisFuncCache`][].
 For example, we use [`FifoPolicy`][] to implement a _FIFO_ cache:
 
 ```python
-from redis_func_cache import FifoPolicy
+from redis import Redis
+from redis_func_cache import RedisFuncCache, FifoPolicy
 
+redis_client = Redis.from_url("redis://")
 fifo_cache = RedisFuncCache("my-cache-2", FifoPolicy, redis_client)
 
 @fifo_cache
@@ -156,8 +208,10 @@ def func1(x):
 Use [`RrPolicy`][] to implement a random-remove cache:
 
 ```python
-from redis_func_cache import RrPolicy
+from redis import Redis
+from redis_func_cache import RedisFuncCache, RrPolicy
 
+redis_client = Redis.from_url("redis://")
 rr_cache = RedisFuncCache("my-cache-3", RrPolicy, redis_client)
 
 @rr_cache
@@ -185,17 +239,19 @@ So far, the following cache eviction policies are available:
 
 ### Multiple [Redis][] key pairs
 
-As described above, the cache keys are in a pair form. All decorated functions share the same two keys.
-But some times, we may want a standalone key pair for each decorated function.
+As described above, the cache keys are currently in a paired form, where all decorated functions share the same two keys.
+However, there may be instances where we want a unique key pair for each decorated function.
 
 One solution is to use different [`RedisFuncCache`][] instances to decorate different functions.
 
 Another way is to use a policy that stores cache data in different [Redis][] key pairs for each function. There are several policies to do that out of the box.
-For example, we can use [`LruTMultiplePolicy`][] for a _LRU_ cache that has multiple different [Redis][] key pairs to store return values of different functions, and each function has a standalone keys pair:
+For example, we can use [`LruTMultiplePolicy`][] for an _LRU_ cache that has multiple different [Redis][] key pairs to store return values of different functions, and each function has a standalone keys pair:
 
 ```python
-from redis_func_cache import LruTMultiplePolicy
+from redis import  Redis
+from redis_func_cache import RedisFuncCache, LruTMultiplePolicy
 
+redis_client = Redis.from_url("redis://")
 cache = RedisFuncCache("my-cache-4", LruTMultiplePolicy, redis_client)
 
 @cache
@@ -234,15 +290,17 @@ Policies that store cache in multiple [Redis][] key pairs are:
 
 ### [Redis][] Cluster support
 
-We already known that the library implements cache algorithms based on a pair of [Redis][] data structures, the two **MUST** be in a same [Redis][] node, or it will not work correctly.
+We have already known that the library implements cache algorithms based on a pair of [Redis][] data structures, the two **MUST** be in a same [Redis][] node, or it will not work correctly.
 
 While a [Redis][] cluster will distribute keys to different nodes based on the hash value, we need to guarantee that two keys are placed on the same node. Several cluster policies are provided to achieve this. These policies use the `{...}` pattern in key names.
 
 For example, here we use a [`LruTClusterPolicy`][] to implement a cluster-aware _LRU_ cache:
 
 ```python
-from redis_func_cache import LruTClusterPolicy
+from redis import Redis
+from redis_func_cache import RedisFuncCache, LruTClusterPolicy
 
+redis_client = Redis.from_url("redis://")
 cache = RedisFuncCache("my-cluster-cache", LruTClusterPolicy, redis_client)
 
 @cache
@@ -304,7 +362,7 @@ But, still, we can use [`pickle`][] to serialize the return value, by specifying
 
 ```python
 import pickle
-
+from redis import Redis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
 
@@ -315,7 +373,7 @@ def redis_factory():
 my_pickle_cache = RedisFuncCache(
     __name__,
     LruTPolicy,
-    redis_factory,
+    lambda: Redis.from_url("redis://"),
     serializer=(pickle.dumps, pickle.loads)
 )
 ```
@@ -330,7 +388,7 @@ Other serialization functions also should be workable, such as [simplejson](http
 
 ### Custom key format
 
-An instance of [`RedisFuncCache`][] calculate key pair names string by calling method `calc_keys` of it's policy.
+An instance of [`RedisFuncCache`][] calculate key pair names string by calling method `calc_keys` of its policy.
 There are four basic policies that implement respective kinds of key formats:
 
 - [`BaseSinglePolicy`][]: All functions share the same key pair, [Redis][] cluster is NOT supported.
@@ -364,23 +422,25 @@ Variables in the format string are defined as follows:
 - `0`: a sorted or unsorted set, used to store the hash value and sorting score of function invoking
 - `1`: a hash table, used to store the return value of the function invoking
 
-If want to use a different format, you can subclass [`AbstractPolicy`][] or any of above policy classes, and implement `calc_keys` method, then pass the custom policy class to [`RedisFuncCache`][].
+If you want to use a different format, you can subclass [`AbstractPolicy`][] or any of above policy classes, and implement `calc_keys` method, then pass the custom policy class to [`RedisFuncCache`][].
 
-The following example demonstrates how to custom key format for a _LRU_ policy:
+The following example demonstrates how to custom key format for an _LRU_ policy:
 
 ```python
+import redis
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, Tuple, override
 
-from redis_func_cache import AbstractPolicy, RedisFuncCache
+from redis_func_cache import RedisFuncCache
+from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import PickleMd5HashMixin
-from redis_func_cache.mixins.policy import LruScriptsMixin
+from redis_func_cache.mixins.policies import LruScriptsMixin
 
 if TYPE_CHECKING:
     from redis.typing import KeyT
 
 
 def redis_factory():
-    ...
+    return redis.from_url("redis://")
 
 
 MY_PREFIX = "my_prefix"
@@ -391,22 +451,27 @@ class MyPolicy(LruScriptsMixin, PickleMd5HashMixin, AbstractPolicy):
 
     @override
     def calc_keys(
-        self, f: Callable|None = None, args: Sequence|None = None, kwds: Mapping[str, Any] | None= None
+            self, f: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
     ) -> Tuple[KeyT, KeyT]:
         k = f"{self.cache.prefix}-{self.cache.name}-{f.__name__}-{self.__key__}"
         return f"{k}-set", f"{k}-map"
 
-my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy, redis=redis_factory, prefix=MY_PREFIX)
+
+my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy, client=redis_factory, prefix=MY_PREFIX)
+
 
 @my_cache
-def my_func(...):
+def my_func(*args, **kwargs):
     ...
 ```
 
 In the example, we'll get a cache generates [redis][] keys separated by `-`, instead of `:`, prefixed by `"my-prefix"`, and suffixed by `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names could be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
 
 > ❗ **Important**:\
-> The calculated key name **SHOULD** be unique.
+> The calculated key name **MUST** be unique.
+>
+> [`BaseSinglePolicy`], [`BaseMultiplePolicy`], [`BaseClusterSinglePolicy`], and [`BaseClusterMultiplePolicy`] calculate their key names by calling the `calc_keys` method, which uses the `__key__` attribute.
+> If you subclass any of these classes, you should override the `__key__` attribute.
 
 `LruScriptsMixin` tells the policy which lua script to use, and `PickleMd5HashMixin` tells the policy to use [`pickle`][] to serialize and `md5` to calculate the hash value of the function.
 
@@ -419,19 +484,20 @@ For the sorted set data structures, the hash value will be used as the member. F
 The algorithm used to calculate the hash value is defined in `AbstractHashMixin`, it can be described as below:
 
 ```python
-class AbstractHashMixin:
+import hashlib
+from inspect import  getsource
 
+class AbstractHashMixin:
+    __hash_config__ = ...
     ...
 
-    def calc_hash(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> KeyT:
+    def calc_hash(self, f = None, args = None, kwds = None):
         if not callable(f):
             raise TypeError(f"Can not calculate hash for {f=}")
         conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
-        h.update(get_fullname(f).encode())
-        source = get_source(f)
+        h.update(f.__qualname__.encode())
+        source = getsource(f)
         if source is not None:
             h.update(source.encode())
         if args is not None:
@@ -447,29 +513,39 @@ As the code snippet above, the hash value is calculated by the full name of the 
 
 The serializer and decoder are defined in `__hash_config__` attribute of the policy class, and they are used to serialize and decode the arguments and keyword arguments. The default serializer and decoder are [`pickle`][] and `md5` respectively. If no `decoder` is provided, the hash value will be returned as bytes.
 
-If want to use a different algorithm, we can select a mixin hash class defined in `src/redis_func_cache/mixins/hash.py`.
+If we want to use a different algorithm, we can select a mixin hash class defined in `src/redis_func_cache/mixins/hash.py`.
 For example:
 
 ```python
-from redis_func_cache import AbstractHashMixin, RedisFuncCache
+from redis import Redis
+from redis_func_cache import RedisFuncCache
+from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import JsonSha1HexHashMixin
-from redis_func_cache.mixins.policy import LruScriptsMixin
+from redis_func_cache.mixins.policies import LruScriptsMixin
 
 
 class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
     __key__ = "my-lru"
 
-my_json_sha1_hex_cache = RedisFuncCache(name="json_sha1_hex", policy=MyLruPolicy, redis=redis_factory)
+my_json_sha1_hex_cache = RedisFuncCache(name="json_sha1_hex", policy=MyLruPolicy, client=lambda: Redis.from_url("redis://"))
 ```
 
-If want to use write a new algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
+If you want to use write a new algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
 For example:
 
 ```python
-from redis_func_cache import AbstractHashMixin, RedisFuncCache
-from redis_func_cache.mixins.policy import LruScriptsMixin
+from redis import Redis
 
-def my_func_hash(...):
+from redis_func_cache import RedisFuncCache
+from redis_func_cache.policies.abstract import AbstractPolicy
+from redis_func_cache.mixins.hash import AbstractHashMixin
+from redis_func_cache.mixins.policies import LruScriptsMixin
+
+
+redis_client = Redis.from_url("redis://")
+
+
+def my_func_hash(*args, **kwargs):
     ...
 
 
@@ -482,13 +558,16 @@ class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
     __key__ = "my-custom-hash-lru"
 
 
-my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2, redis=redis_factory)
+my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2, client=redis_client)
 
 
 @my_custom_hash_cache
-def some_func(...):
+def some_func(*args, **kwargs):
     ...
 ```
+
+> 💡 **Tip**:\
+> The purpose of the hash algorithm is to ensure the isolation of caches. Therefore, you can generate unique key names in any style, not just using hashes.
 
 ## Known Issues
 
@@ -497,7 +576,7 @@ def some_func(...):
   - For a common method defined inside a class, the class must be serializable; otherwise, the first `self` argument cannot be serialized.
   - For a class method (decorated by `@classmethod`), the class type itself, i.e., the first `cls` argument, must be serializable.
 
-- Compatibility with other decorators is not guaranteed.
+- Compatibility with other [decorator][]s is not guaranteed.
 
 - The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. Its maximum value is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
 
@@ -520,6 +599,7 @@ docker compose up --abort-on-container-exit
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
 
+[decorator]: https://docs.python.org/glossary.html#term-decorator "A function returning another function, usually applied as a function transformation using the @wrapper syntax"
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
 
