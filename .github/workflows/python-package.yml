@@ -56,7 +56,7 @@ jobs:
           cache: pip
 
       - name: Install project and dependencies
-        run: pip install -e .[types] ruff mypy  pytest pytest-cov
+        run: pip install -e .[types] ruff mypy pytest pytest-cov
 
       - name: Lint with ruff
         run: ruff check
