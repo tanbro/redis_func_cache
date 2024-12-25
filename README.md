@@ -5,11 +5,9 @@
 [![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://redis-func-cache.readthedocs.io/)
 [![pypi-version](https://img.shields.io/pypi/v/redis_func_cache.svg)](https://pypi.org/project/redis_func_cache/)
 
-`redis_func_cache` is a _Python_ library for caching function return values in [Redis][], similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module, which comes with some cache [decorator][]s quite handy when we want to code something with memorization.
+`redis_func_cache` is a Python library for caching function return values in Redis, similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module. The `functools` module includes useful cache decorators that are handy when implementing memoization.
 
-When we need to cache function return values distributed over multiple processes or machines, we can use [Redis][] as a backend.
-The purpose of the project is to provide a simple and clean way to use [Redis][] as a backend for cache [decorator][]s.
-It implements caches with _LRU_, _RR_, _FIFO_, _RR_ and _LFU_ eviction/replacement policies(<https://wikipedia.org/wiki/Cache_replacement_policies>).
+When we need to cache function return values across multiple processes or machines, [Redis][] can be used as a distributed backend. The purpose of this project is to provide simple and clean decorator functions to use Redis as a cache backend. It implements caches with various eviction/replacement policies such as LRU, FIFO, RR, and LFU. (Refer to [Cache Replacement Policies on Wikipedia](https://wikipedia.org/wiki/Cache_replacement_policies) for more details.)
 
 Here is a simple example:
 
@@ -40,7 +38,7 @@ Here is a simple example:
 
    @lru_cache
    def a_slow_func():
-       sleep(10) # here simulate a slow operation
+       sleep(10) # Sleep to simulate a slow operation
        return "OK"
 
    t = time()
@@ -63,7 +61,7 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 
 ## Features
 
-- Supports multiple cache eviction policies: _LRU_, _FIFO_, _LFU_, _RR_ ...
+- Supports multiple cache eviction policies: LRU, FIFO, LFU, RR ...
 - Asynchronous and synchronous support.
 - [Redis][] cluster support.
 - Simple [decorator][] syntax.
@@ -83,6 +81,12 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
     git clone https://github.com/tanbro/redis_func_cache.git
     cd redis_func_cache
     pip install .
+    ```
+
+- Or install from Github directly:
+
+    ```bash
+    pip install git+https://github.com/tanbro/redis_func_cache.git@main
     ```
 
 ## Data structure
@@ -184,10 +188,10 @@ async def my_async_func(*args, **kwargs):
     ...
 ```
 
-> ⁉️ **Attention**\
-> When a [`RedisFuncCache`][] is created with an async [Redis][] client, the cache can only be used to decorate async functions.
-> These async functions will be decorated with an asynchronous wrapper, and the IO operations with [Redis][] will be performed asynchronously.
-> Additionally, the normal synchronous [`RedisFuncCache`][] can only decorate normal synchronous functions, which will be decorated with a synchronous wrapper, and the IO operations with [Redis][] will be performed synchronously.
+> ❗ **Attention:**
+>
+> - When a [`RedisFuncCache`][] is created with an async [Redis][] client, it can only be used to decorate async functions. These async functions will be decorated with an asynchronous wrapper, and the I/O operations between the [Redis][] client and server will be performed asynchronously.
+> - Conversely, a synchronous [`RedisFuncCache`][] can only decorate synchronous functions. These functions will be decorated with a synchronous wrapper, and I/O operations with [Redis][] will be performed synchronously.
 
 ### Eviction policies
 
@@ -224,10 +228,10 @@ So far, the following cache eviction policies are available:
 
 - **[`LruTPolicy`][]**
 
-    > 💡**Tip**:\
-    > _LRU-T_ means _LRU_ on timestamp, it is a pseudo _LRU_ policy, not very serious/legitimate.
-    > The policy removes the lowest member according to the timestamp of invocation, and does not completely ensure eviction of the least recently used item, since the timestamp may be inaccurate.
-    > However, the policy is still **MOST RECOMMENDED** for common use. It is faster than the LRU policy and accurate enough for most cases.
+    > 💡 **Tip:**\
+    > _LRU-T_ stands for _LRU on timestamp_. It is a pseudo-LRU policy that approximates the behavior of LRU but is not as precise. The policy removes items based on their invocation timestamps, which may not always accurately reflect the least recently used item due to potential timestamp inaccuracies.
+    >
+    > Despite this limitation, _LRU-T_ is **highly recommended** for common use cases. It offers better performance compared to the traditional LRU policy and provides sufficient accuracy for most applications.
 
 - [`FifoPolicy`][]: first in first out
 - [`LfuPolicy`][]: least frequently used
@@ -235,7 +239,7 @@ So far, the following cache eviction policies are available:
 - [`MruPolicy`][]: most recently used
 - [`RrPolicy`][]: random remove
 
-> ℹ️ **Info**:\
+> ℹ️ **Info:**\
 > Explore source codes in directory `src/redis_func_cache/policies` for more details.
 
 ### Multiple [Redis][] key pairs
@@ -344,7 +348,7 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
 
     When the cache reaches its `maxsize`, adding a new item will cause an existing cached item to be removed according to the eviction policy.
 
-    > ℹ️ **Note**:\
+    > ℹ️ **Note:**\
     > For "multiple" policies, each decorated function has its own standalone data structure, so the value represents the maximum size of each individual data structure.
 
 - `ttl`: The expiration time (in seconds) for the cache data structure.
@@ -352,7 +356,7 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
     The cache's [redis][] data structure will expire and be released after the specified time.
     Each time the cache is accessed, the expiration time will be reset.
 
-    > ℹ️ **Note**:\
+    > ℹ️ **Note:**\
     > For "multiple" policies, each decorated function has its own standalone data structure, so the `ttl` value represents the expiration time of each individual data structure. The expiration time will be reset each time the cache is accessed individually.
 
 ### Complex return types
@@ -379,7 +383,7 @@ my_pickle_cache = RedisFuncCache(
 )
 ```
 
-> ⚠️ **Warning**:\
+> ⚠️ **Warning:**\
 > [`pickle`][] is considered a security risk, and should not be used with runtime/version sensitive data. Use it cautiously and only when necessary.
 > It's a good practice to only cache functions that return simple, [JSON][] serializable data types.
 
@@ -468,7 +472,7 @@ def my_func(*args, **kwargs):
 
 In the example, we'll get a cache generates [redis][] keys separated by `-`, instead of `:`, prefixed by `"my-prefix"`, and suffixed by `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names could be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
 
-> ❗ **Important**:\
+> ❗ **Important:**\
 > The calculated key name **MUST** be unique.
 >
 > [`BaseSinglePolicy`], [`BaseMultiplePolicy`], [`BaseClusterSinglePolicy`], and [`BaseClusterMultiplePolicy`] calculate their key names by calling the `calc_keys` method, which uses the `__key__` attribute.
@@ -567,7 +571,7 @@ def some_func(*args, **kwargs):
     ...
 ```
 
-> 💡 **Tip**:\
+> 💡 **Tip:**\
 > The purpose of the hash algorithm is to ensure the isolation of caches. Therefore, you can generate unique key names in any style, not just using hashes.
 
 ## Known Issues
