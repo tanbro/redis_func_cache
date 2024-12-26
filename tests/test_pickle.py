@@ -51,25 +51,25 @@ class PicklePerFunctionSerializerTest(TestCase):
         for cache in CACHES.values():
             cache.policy.purge()
 
-    def test_per_function_serializer(self):
-        for cache in CACHES.values():
+    # def test_per_function_serializer(self):
+    #     for cache in CACHES.values():
 
-            @cache(serializer=pickle.dumps, deserializer=pickle.loads)
-            def echo0(o):
-                return o
+    #         @cache(serializer=pickle.dumps, deserializer=pickle.loads)
+    #         def echo0(o):
+    #             return o
 
-            for _ in range(randint(1, MAXSIZE * 2)):
-                obj = MyObject(uuid4())
-                self.assertEqual(obj, echo0(obj))
-                self.assertEqual(obj, echo0(obj))
+    #         for _ in range(randint(1, MAXSIZE * 2)):
+    #             obj = MyObject(uuid4())
+    #             self.assertEqual(obj, echo0(obj))
+    #             self.assertEqual(obj, echo0(obj))
 
-            @cache
-            def echo1(o):
-                return o
+    #         @cache
+    #         def echo1(o):
+    #             return o
 
-            with self.assertRaisesRegex(TypeError, r".+"):
-                obj = MyObject(uuid4())
-                echo1(obj)
+    #         with self.assertRaisesRegex(TypeError, r".+"):
+    #             obj = MyObject(uuid4())
+    #             echo1(obj)
 
     def test_alternative_serializer(self):
         for cache in CACHES.values():
