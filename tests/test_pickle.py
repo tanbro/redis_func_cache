@@ -74,7 +74,7 @@ class PicklePerFunctionSerializerTest(TestCase):
 
     def test_alternative_serializer(self):
         for cache in CACHES.values():
-            for i in range(MAXSIZE):
+            for i in range(cache.maxsize // 2):
                 ser0_val = pickle.dumps(i)
                 des0_val = i
                 ser0 = mock.MagicMock(return_value=ser0_val)

@@ -398,9 +398,56 @@ def my_func_with_complex_return_value(x):
 > [`pickle`][] is considered a security risk, and should not be used with runtime/version sensitive data. Use it cautiously and only when necessary.
 > It's a good practice to only cache functions that return simple, [JSON][] serializable data types.
 
-Other serialization functions also should be workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack](https://msgpack.org/), [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
+Other serialization functions also should be workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack][], [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
 
 ## Advanced Usage
+
+### Custom result serializer
+
+The result of the decorated function is serialized by default using [JSON][] (via the json module from the standard library) and then saved to [Redis][].
+
+To utilize alternative serialization methods, such as [msgpack][], you have two options:
+
+1. Specify the `serializer` argument in the constructor of [`RedisFuncCache`][], where the argument is a tuple of `(serializer, deserializer)`:
+
+   This method applies globally: all functions decorated by this cache will use the specified serializer.
+
+   For example:
+
+   ```python
+   import msgpack
+   from redis import Redis
+   from redis_func_cache import RedisFuncCache, LruTPolicy
+
+   cache = RedisFuncCache(
+       __name__,
+       LruTPolicy,
+       lambda: Redis.from_url("redis://"),
+       serializer=(msgpack.packb, msgpack.unpackb)
+    )
+
+   @cache
+   def my_func(x):
+      ...
+   ```
+
+1. Specify the `serializer` and `deserializer` arguments directly in the decorator:
+
+   This method applies on a per-function basis: only the decorated function will use the specified serializer.
+
+   For example:
+
+   ```python
+   import msgpack
+   from redis import Redis
+   from redis_func_cache import RedisFuncCache, LruTPolicy
+
+   cache = RedisFuncCache(__name__, LruTPolicy, lambda: Redis.from_url("redis://"))
+
+   @cache(serializer=msgpack.packb, deserializer=msgpack.unpackb)
+   def my_func(x):
+      ...
+   ```
 
 ### Custom key format
 
@@ -543,7 +590,11 @@ from redis_func_cache.mixins.policies import LruScriptsMixin
 class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
     __key__ = "my-lru"
 
-my_json_sha1_hex_cache = RedisFuncCache(name="json_sha1_hex", policy=MyLruPolicy, client=lambda: Redis.from_url("redis://"))
+my_json_sha1_hex_cache = RedisFuncCache(
+    name="json_sha1_hex",
+    policy=MyLruPolicy,
+    client=lambda: Redis.from_url("redis://")
+)
 ```
 
 If you want to use write a new algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
@@ -574,7 +625,11 @@ class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
     __key__ = "my-custom-hash-lru"
 
 
-my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2, client=redis_client)
+my_custom_hash_cache = RedisFuncCache(
+    name=__name__,
+    policy=MyLruPolicy2,
+    client=redis_client
+)
 
 
 @my_custom_hash_cache
@@ -618,6 +673,8 @@ docker compose up --abort-on-container-exit
 [decorator]: https://docs.python.org/glossary.html#term-decorator "A function returning another function, usually applied as a function transformation using the @wrapper syntax"
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
+
+[msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
 [`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy
