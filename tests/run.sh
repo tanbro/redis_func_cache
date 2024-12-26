@@ -16,7 +16,7 @@ do
     TMPDIR=$(mktemp -d)
     trap 'rm -rf $TMPDIR' EXIT
     $PYTHON -m venv $TMPDIR
-    $TMPDIR/bin/python -m pip install -e ./ -r tests/requirements.txt coverage
+    $TMPDIR/bin/python -m pip install -e . -r tests/requirements.txt coverage
     $TMPDIR/bin/python -m coverage run -m unittest -cfv
     $TMPDIR/bin/python -m coverage report
     echo

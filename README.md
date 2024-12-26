@@ -621,25 +621,25 @@ docker compose up --abort-on-container-exit
 [`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"
 [`MruPolicy`]: redis_func_cache.policies.mru.MruPolicy "Most Recently Used policy"
 [`RrPolicy`]: redis_func_cache.policies.rr.RrPolicy "Random Remove policy"
-[`LruTPolicy`]: redis_func_cache.policies.lru_t.LruTPolicy "Time based Least Recently Used policy."
+[`LruTPolicy`]: redis_func_cache.policies.lru.LruTPolicy "Time based Least Recently Used policy."
 
 [`FifoMultiplePolicy`]: redis_func_cache.policies.fifo.FifoMultiplePolicy
 [`LfuMultiplePolicy`]: redis_func_cache.policies.lfu.LfuMultiplePolicy
 [`LruMultiplePolicy`]: redis_func_cache.policies.lru.LruMultiplePolicy
 [`MruMultiplePolicy`]: redis_func_cache.policies.mru.MruMultiplePolicy
 [`RrMultiplePolicy`]: redis_func_cache.policies.rr.RrMultiplePolicy
-[`LruTMultiplePolicy`]: redis_func_cache.policies.lru_t.LruTMultiplePolicy
+[`LruTMultiplePolicy`]: redis_func_cache.policies.lru.LruTMultiplePolicy
 
 [`FifoClusterPolicy`]: redis_func_cache.policies.fifo.FifoClusterPolicy
 [`LfuClusterPolicy`]: redis_func_cache.policies.lfu.LfuClusterPolicy
 [`LruClusterPolicy`]: redis_func_cache.policies.lru.LruClusterPolicy
 [`MruClusterPolicy`]: redis_func_cache.policies.mru.MruClusterPolicy
 [`RrClusterPolicy`]: redis_func_cache.policies.rr.RrClusterPolicy
-[`LruTClusterPolicy`]: redis_func_cache.policies.lru_t.LruTClusterPolicy
+[`LruTClusterPolicy`]: redis_func_cache.policies.lru.LruTClusterPolicy
 
 [`FifoClusterMultiplePolicy`]: redis_func_cache.policies.fifo.FifoClusterMultiplePolicy
 [`LfuClusterMultiplePolicy`]: redis_func_cache.policies.lfu.LfuClusterMultiplePolicy
 [`LruClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruClusterMultiplePolicy
 [`MruClusterMultiplePolicy`]: redis_func_cache.policies.mru.MruClusterMultiplePolicy
 [`RrClusterMultiplePolicy`]: redis_func_cache.policies.rr.RrClusterMultiplePolicy
-[`LruTClusterMultiplePolicy`]: redis_func_cache.policies.lru_t.LruTClusterMultiplePolicy
+[`LruTClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruTClusterMultiplePolicy

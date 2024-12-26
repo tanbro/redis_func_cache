@@ -1,24 +1,11 @@
-from os import getenv
 from random import randint, random
 from unittest import TestCase
 from unittest.mock import patch
 from uuid import uuid4
 
-from redis import Redis
+from redis_func_cache import LruPolicy, RedisFuncCache
 
-from redis_func_cache import FifoPolicy, LfuPolicy, LruPolicy, LruTPolicy, MruPolicy, RedisFuncCache, RrPolicy
-
-REDIS_URL = getenv("REDIS_URL", "redis://")
-REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
-MAXSIZE = 8
-CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-}
+from ._catches import CACHES, MAXSIZE, REDIS_FACTORY
 
 
 def _echo(x):
