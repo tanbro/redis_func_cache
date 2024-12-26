@@ -10,9 +10,10 @@ def _echo(x):
 
 
 class BasicTest(IsolatedAsyncioTestCase):
-    async def setUp(self):
-        for cache in ASYNC_CACHES.values():
-            await cache.policy.apurge()
+    def setUp(self):
+        loop = asyncio.get_event_loop()
+        coros = (cache.policy.apurge() for cache in ASYNC_CACHES.values())
+        loop.run_until_complete(asyncio.gather(*coros))
 
     async def test_simple(self):
         for cache in ASYNC_CACHES.values():
