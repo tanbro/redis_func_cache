@@ -505,19 +505,19 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     return a + b
         """
 
-        def decorator(f: FT, ser=None, des=None):
+        def decorator(f: FT):
             @wraps(f)
             def wrapper(*f_args, **f_kwargs):
-                return self.exec(f, f_args, f_kwargs, ser, des, **keywords)
+                return self.exec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
             @wraps(f)
             async def awrapper(*f_args, **f_kwargs):
-                return await self.aexec(f, f_args, f_kwargs, ser, des, **keywords)
+                return await self.aexec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
             return awrapper if iscoroutinefunction(f) else wrapper
 
         if user_function is None:
             return decorator  # type: ignore
-        return decorator(user_function, serializer, deserializer)  # type: ignore
+        return decorator(user_function)  # type: ignore
 
     __call__ = decorate
