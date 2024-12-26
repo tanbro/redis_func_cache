@@ -1,2 +1,2 @@
--e .[msgpack]
+msgpack>=1.0
 coverage

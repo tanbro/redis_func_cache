@@ -26,7 +26,7 @@ class BasicTest(TestCase):
 
             # mock hit
             for i in range(cache.maxsize):
-                with patch.object(cache, "get", return_value=cache.serialize_return_value(i)) as mock_get:
+                with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:
                     with patch.object(cache, "put") as mock_put:
                         echo(i)
                         mock_get.assert_called_once()
@@ -139,7 +139,7 @@ class BasicTest(TestCase):
             card = rc.zcard(k0)
             self.assertEqual(card, MAXSIZE)
             members = rc.zrange(k0, "-inf", "+inf", byscore=True)  # type: ignore
-            values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+            values = [cache.deserialize(x) for x in rc.hmget(k1, members)]  # type: ignore
             self.assertListEqual(values, list(range(1, MAXSIZE + 1)))
 
     def test_mru(self):
@@ -158,7 +158,7 @@ class BasicTest(TestCase):
         rc = cache.client
 
         members = rc.zrange(k0, "+inf", "-inf", byscore=True, desc=True)  # type: ignore
-        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        values = [cache.deserialize(x) for x in rc.hmget(k1, members)]  # type: ignore
         self.assertListEqual(sorted(values), list(range(MAXSIZE - 1)) + [MAXSIZE])
 
     def test_fifo(self):
@@ -182,7 +182,7 @@ class BasicTest(TestCase):
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
-        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        values = [cache.deserialize(x) for x in rc.hmget(k1, members)]  # type: ignore
         self.assertListEqual(sorted(values), list(range(1, MAXSIZE)) + [MAXSIZE])
 
     def test_lfu(self):
@@ -207,7 +207,7 @@ class BasicTest(TestCase):
 
         card = rc.zcard(k0)
         members = rc.zrange(k0, 0, card - 1)
-        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        values = [cache.deserialize(x) for x in rc.hmget(k1, members)]  # type: ignore
         self.assertListEqual(sorted(values), list(range(0, v)) + list(range(v + 1, MAXSIZE + 1)))
 
     def test_rr(self):
@@ -230,7 +230,7 @@ class BasicTest(TestCase):
         rc = cache.client
 
         members = rc.smembers(k0)
-        values = [cache.deserialize_return_value(x) for x in rc.hmget(k1, members)]  # type: ignore
+        values = [cache.deserialize(x) for x in rc.hmget(k1, members)]  # type: ignore
         self.assertIn(MAXSIZE, values)
 
     def test_direct_redis_client(self):

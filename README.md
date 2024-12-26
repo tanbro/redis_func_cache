@@ -371,16 +371,27 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
 
-def redis_factory():
-    ...
-
-
 my_pickle_cache = RedisFuncCache(
     __name__,
     LruTPolicy,
     lambda: Redis.from_url("redis://"),
     serializer=(pickle.dumps, pickle.loads)
 )
+
+# or like this:
+my_pickle_cache1 = RedisFuncCache(
+    __name__,
+    LruTPolicy,
+    lambda: Redis.from_url("redis://"),
+    serializer="pickle"
+)
+
+# or just like this:
+cache = RedisFuncCache(__name__, LruTPolicy, lambda: Redis.from_url("redis://"))
+
+@cache(serializer=pickle.loads, deserializer=pickle.dumps)
+def my_func_with_complex_return_value(x):
+    ...
 ```
 
 > ⚠️ **Warning:**\

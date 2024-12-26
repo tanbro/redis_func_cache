@@ -159,8 +159,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                   - ``"json"``: Use :func:`json.dumps` and :func:`json.loads`
                   - ``"pickle"``: Use :func:`pickle.dumps` and :func:`pickle.loads`
-                  - ``"msgpack"``: Use :func:`msgpack.packb` and :func:`msgpack.unpackb`
-                  - ``"cloudpickle"``: Use :func:`cloudpickle.dumps` and :func:`pickle.loads`
+                  - ``"msgpack"``: Use :func:`msgpack.packb` and :func:`msgpack.unpackb`. Only available when :mod:`msgpack` is installed.
+                  - ``"cloudpickle"``: Use :func:`cloudpickle.dumps` and :func:`pickle.loads`. Only available when :mod:`cloudpickle` is installed.
 
                 - When ``serializer`` is a pair of callbacks, the first one is used to serialize return value, the second one is used to deserialize return value.
 
@@ -247,22 +247,25 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def serializer(self) -> Tuple[SerializerT, DeserializerT]:
-        """The serializer and deserializer used in the cache."""
-        return (self._user_return_value_serializer, self._user_return_value_deserializer)
+        """The serializer and deserializer used in the cache.
+
+        The cache use them to serialize/deserialize the return value of what decorated.
+        """
+        return (self._serializer, self._deserializer)
 
     @serializer.setter
     def serializer(
         self, value: Union[Literal["json", "pickle", "msgpack", "cloudpickle"], Tuple[SerializerT, DeserializerT]]
     ):
         if isinstance(value, str):
-            self._user_return_value_serializer, self._user_return_value_deserializer = self.__serializers__[value]
+            self._serializer, self._deserializer = self.__serializers__[value]
         elif (
             isinstance(value, Sequence)
             and not isinstance(value, (bytes, bytearray, str))
             and len(value) == 2
             and all(callable(x) for x in value)
         ):
-            self._user_return_value_serializer, self._user_return_value_deserializer = value
+            self._serializer, self._deserializer = value
         else:
             raise ValueError("serializer must be a string or a sequence type of a pair of callable objects")
 
@@ -297,13 +300,17 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Whether the redis client is asynchronous."""
         return isinstance(self.client, (redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster))
 
-    def serialize_return_value(self, value: Any) -> EncodedT:
+    def serialize(self, value: Any, f=None) -> EncodedT:
         """Serialize return value of what decorated."""
-        return self._user_return_value_serializer(value)
+        if f:
+            return f(value)
+        return self._serializer(value)
 
-    def deserialize_return_value(self, data: EncodedT) -> Any:
+    def deserialize(self, data: EncodedT, f=None) -> Any:
         """Deserialize return value of what decorated."""
-        return self._user_return_value_deserializer(data)
+        if f:
+            return f(data)
+        return self._deserializer(data)
 
     @classmethod
     def get(
@@ -392,37 +399,61 @@ class RedisFuncCache(Generic[RedisClientTV]):
         ext_args = ext_args or ()
         await script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, encoded_options), ext_args))
 
-    def exec(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
-        """Execute the given user function with given arguments.
+    def _before_get(self, user_function, user_args, user_kwds):
+        keys = self.policy.calc_keys(user_function, user_args, user_kwds)
+        hash_value = self.policy.calc_hash(user_function, user_args, user_kwds)
+        ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
+        return keys, hash_value, ext_args
+
+    def exec(
+        self,
+        user_function: Callable,
+        user_args: Sequence,
+        user_kwds: Mapping[str, Any],
+        serializer: Optional[SerializerT] = None,
+        deserializer: Optional[DeserializerT] = None,
+        **options,
+    ):
+        """Execute the given user function with the provided arguments.
 
         Args:
-            user_function: user function to execute
-            user_args: positional arguments to pass to the user function
-            user_kwds: keyword arguments to pass to the user function
-            options: reserved
+            user_function: The user function to execute.
+            user_args: Positional arguments to pass to the user function.
+            user_kwds: Keyword arguments to pass to the user function.
+            serializer: Custom serializer passed from :meth:`decorate`.
+            deserializer: Custom deserializer passed from :meth:`decorate`.
+            options: Additional options passed from :meth:`decorate`'s `**kwargs`.
 
         Returns:
-            The cached return value if it is cached, otherwise the return value of the user function directly.
+            The cached return value if it exists in the cache; otherwise, the direct return value of the user function.
 
-        In this method, :meth:`get` is called before the ``user_function``, and :meth:`put` is called afterward.
+        Notes:
+            This method first calls :meth:`get` to attempt retrieving a cached result before executing the ``user_function``.
+            If no cached result is found, it executes the ``user_function``, then calls :meth:`put` to store the result in the cache.
         """
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise RuntimeError(
                 f"A tuple of two {redis.commands.core.Script} objects is required for execution, but actually got ({script_0!r}, {script_1!r})."
             )
-        keys = self.policy.calc_keys(user_function, user_args, user_kwds)
-        hash_value = self.policy.calc_hash(user_function, user_args, user_kwds)
-        ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
+        keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
         cached = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
-            return self.deserialize_return_value(cached)
+            return self.deserialize(cached, deserializer)
         user_return_value = user_function(*user_args, **user_kwds)
-        user_retval_serialized = self.serialize_return_value(user_return_value)
+        user_retval_serialized = self.serialize(user_return_value, serializer)
         self.put(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
 
-    async def aexec(self, user_function: Callable, user_args: Sequence, user_kwds: Mapping[str, Any], **options):
+    async def aexec(
+        self,
+        user_function: Callable,
+        user_args: Sequence,
+        user_kwds: Mapping[str, Any],
+        serializer: Optional[SerializerT] = None,
+        deserializer: Optional[DeserializerT] = None,
+        **options,
+    ):
         """Async version of :meth:`.exec`"""
         script_0, script_1 = self.policy.lua_scripts
         if not (
@@ -432,35 +463,46 @@ class RedisFuncCache(Generic[RedisClientTV]):
             raise RuntimeError(
                 f"A tuple of two {redis.commands.core.AsyncScript} objects is required for async execution, but actually got ({script_0!r}, {script_1!r})."
             )
-        keys = self.policy.calc_keys(user_function, user_args, user_kwds)
-        hash_value = self.policy.calc_hash(user_function, user_args, user_kwds)
-        ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
+        keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
         cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
-            return self.deserialize_return_value(cached)
+            return self.deserialize(cached, deserializer)
         ret_val = user_function(*user_args, **user_kwds)
         if iscoroutine(ret_val):
             user_return_value = await ret_val
         else:
             user_return_value = ret_val
-        user_retval_serialized = self.serialize_return_value(user_return_value)
+        user_retval_serialized = self.serialize(user_return_value, serializer)
         await self.aput(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
 
-    def decorate(self, user_function: Optional[FT] = None, /, **kwargs) -> FT:
-        """Decorate the given function with cache.
+    def decorate(
+        self,
+        user_function: Optional[FT] = None,
+        /,
+        serializer: Optional[SerializerT] = None,
+        deserializer: Optional[DeserializerT] = None,
+        **keywords,
+    ) -> FT:
+        """Decorate the given function with caching.
 
-        Equivalent to :attr:`__call__`
+        Args:
+            user_function: The function to be decorated.
+            serializer: Custom serialize function for the return value of the user function. If defined, it overrides the first element of :attr:`serializer`.
+            deserializer: Custom deserialize function for the return value of the user function. If defined, it overrides the second element of :attr:`deserializer`.
+            **keywords: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
+
+        This method is equivalent to :attr:`__call__`.
         """
 
         def decorator(f: FT):
             @wraps(f)
             def wrapper(*f_args, **f_kwargs):
-                return self.exec(f, f_args, f_kwargs, **kwargs)
+                return self.exec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
             @wraps(f)
             async def awrapper(*f_args, **f_kwargs):
-                return await self.aexec(f, f_args, f_kwargs, **kwargs)
+                return await self.aexec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
             return awrapper if iscoroutinefunction(f) else wrapper
 
