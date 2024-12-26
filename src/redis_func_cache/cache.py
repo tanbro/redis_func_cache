@@ -4,7 +4,7 @@ import json
 import pickle
 import weakref
 from functools import wraps
-from inspect import iscoroutine, iscoroutinefunction
+from inspect import isasyncgenfunction, iscoroutine, iscoroutinefunction
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -20,6 +20,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 import redis.asyncio.client
@@ -43,11 +44,12 @@ from .policies.abstract import AbstractPolicy
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
 
-    FT = TypeVar("FT", bound=Callable)
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
 
 __all__ = ("RedisFuncCache",)
+
+FunctionTV = TypeVar("FunctionTV", bound=Callable)
 
 RedisClientTV = TypeVar(
     "RedisClientTV",
@@ -444,12 +446,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     def decorate(
         self,
-        user_function: Optional[FT] = None,
+        user_function: Optional[FunctionTV] = None,
         /,
         serializer: Optional[SerializerT] = None,
         deserializer: Optional[DeserializerT] = None,
         **keywords,
-    ) -> FT:
+    ) -> FunctionTV:
         """Decorate the given function with caching.
 
         Args:
@@ -505,7 +507,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     return a + b
         """
 
-        def decorator(f: FT):
+        def decorator(f: FunctionTV):
             @wraps(f)
             def wrapper(*f_args, **f_kwargs):
                 return self.exec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
@@ -514,10 +516,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
             async def awrapper(*f_args, **f_kwargs):
                 return await self.aexec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
-            return awrapper if iscoroutinefunction(f) else wrapper
+            if iscoroutinefunction(f) or isasyncgenfunction(f):
+                return cast(FunctionTV, awrapper)
+            return cast(FunctionTV, wrapper)
 
         if user_function is None:
-            return decorator  # type: ignore
-        return decorator(user_function)  # type: ignore
+            return cast(FunctionTV, decorator)
+        return cast(FunctionTV, decorator(user_function))
 
     __call__ = decorate
