@@ -58,44 +58,7 @@ RedisClientTV = TypeVar(
 
 
 class RedisFuncCache(Generic[RedisClientTV]):
-    """A function cache class backed by Redis.
-
-    Attributes:
-        __call__: Equivalent to the :meth:`decorate` method.
-                  This allows an instance to be used as a :term:`decorator` without parentheses.
-
-                  Example:
-
-                    Once we create a cache instance::
-
-                        from redis_func_cache import RedisFuncCache
-
-                        cache = RedisFuncCache("my_cache", MyPolicy, redis_client)
-
-                    We can use it as a decorator, with or without parentheses::
-
-                        @cache
-                        def my_func(a, b):
-                            return a + b
-
-                    or::
-
-                        @cache()
-                        def my_func(a, b):
-                            return a + b
-
-                    or::
-
-                        @cache.decorate
-                        def my_func(a, b):
-                            return a + b
-
-                    or::
-
-                        @cache.decorate()
-                        def my_func(a, b):
-                            return a + b
-    """
+    """A function cache class backed by Redis."""
 
     def __init__(
         self,
@@ -178,6 +141,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                       my_cache = RedisFuncCache(__name__, MyPolicy, redis_client, serializer=(my_serializer, my_deserializer))
 
+        Attributes:
+            __call__: Equivalent to the :meth:`decorate` method.
+            __serializers__: A dictionary of serializers.
         """
         self.name = name
         self.prefix = prefix
@@ -493,6 +459,50 @@ class RedisFuncCache(Generic[RedisClientTV]):
             **keywords: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
         This method is equivalent to :attr:`__call__`.
+
+        Example:
+            Once we create a cache instance::
+
+                from redis_func_cache import RedisFuncCache
+
+                cache = RedisFuncCache("my_cache", MyPolicy, redis_client)
+
+            We can use it as a decorator, either the instance itself or the :meth:`decorate` method, with or without parentheses::
+
+                @cache
+                def my_func(a, b):
+                    return a + b
+
+            or::
+
+                @cache()
+                def my_func(a, b):
+                    return a + b
+
+            or::
+
+                @cache.decorate
+                def my_func(a, b):
+                    return a + b
+
+            or::
+
+                @cache.decorate()
+                def my_func(a, b):
+                    return a + b
+
+
+            or::
+
+                @cache(serializer=my_serializer, deserializer=my_deserializer)
+                def my_func(a, b):
+                    return a + b
+
+            or::
+
+                @cache.decorate(serializer=my_serializer, deserializer=my_deserializer)
+                def my_func(a, b):
+                    return a + b
         """
 
         def decorator(f: FT):
