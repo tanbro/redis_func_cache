@@ -403,9 +403,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 f"A tuple of two {redis.commands.core.Script} objects is required for execution, but actually got ({script_0!r}, {script_1!r})."
             )
         keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
-        cached = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
-        if cached is not None:
-            return self.deserialize(cached, deserializer)
+        cached_return_value = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
+        if cached_return_value is not None:
+            return self.deserialize(cached_return_value, deserializer)
         user_return_value = user_function(*user_args, **user_kwds)
         user_retval_serialized = self.serialize(user_return_value, serializer)
         self.put(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
