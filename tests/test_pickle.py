@@ -51,25 +51,37 @@ class PicklePerFunctionSerializerTest(TestCase):
         for cache in CACHES.values():
             cache.policy.purge()
 
-    # def test_per_function_serializer(self):
-    #     for cache in CACHES.values():
+    def test_per_function_serializer(self):
+        for cache in CACHES.values():
+            ser0 = mock.MagicMock(return_value=b"0")
+            des0 = mock.MagicMock(return_value=0)
 
-    #         @cache(serializer=pickle.dumps, deserializer=pickle.loads)
-    #         def echo0(o):
-    #             return o
+            ser1 = mock.MagicMock(return_value=b"0")
+            des1 = mock.MagicMock(return_value=0)
 
-    #         for _ in range(randint(1, MAXSIZE * 2)):
-    #             obj = MyObject(uuid4())
-    #             self.assertEqual(obj, echo0(obj))
-    #             self.assertEqual(obj, echo0(obj))
+            @cache(serializer=ser0, deserializer=des0)
+            def echo0(o):
+                return o
 
-    #         @cache
-    #         def echo1(o):
-    #             return o
+            for _ in range(MAXSIZE // 2):
+                ser0.reset_mock()
+                des0.reset_mock()
+                obj = MyObject(uuid4())
+                echo0(obj)
+                ser0.assert_called_once()
+                des0.assert_not_called()
 
-    #         with self.assertRaisesRegex(TypeError, r".+"):
-    #             obj = MyObject(uuid4())
-    #             echo1(obj)
+            @cache(serializer=ser1, deserializer=des1)
+            def echo1(o):
+                return o
+
+            for _ in range(MAXSIZE // 2):
+                ser1.reset_mock()
+                des1.reset_mock()
+                obj = MyObject(uuid4())
+                echo1(obj)
+                ser1.assert_called_once()
+                des1.assert_not_called()
 
     def test_alternative_serializer(self):
         for cache in CACHES.values():
