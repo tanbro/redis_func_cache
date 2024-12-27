@@ -72,12 +72,12 @@ jobs:
         run: mypy
 
       - name: create redis cluster
-        run: redis-cli --cluster create 127.0.0.1:36380 127.0.0.1:36381 127.0.0.1:36382 --cluster-yes
+        run: redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382 --cluster-yes
 
       - name: Test with pytest
         env:
           REDIS_URL: "redis://127.0.0.1:6379"
-          REDIS_CLUSTER_NODES: "127.0.0.1:36380 127.0.0.1:36381 127.0.0.1:36382"
+          REDIS_CLUSTER_NODES: "127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382"
         run: pytest --cov --junitxml=junit.xml
 
       - name: Upload coverage to Codecov

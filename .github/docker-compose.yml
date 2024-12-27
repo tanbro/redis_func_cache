@@ -23,14 +23,14 @@ services:
   redis-cluster_0:
     <<: *x-redis-cluster
     environment:
-      - REDIS_PORT=36380
+      - REDIS_PORT=6380
 
   redis-cluster_1:
     <<: *x-redis-cluster
     environment:
-      - REDIS_PORT=36381
+      - REDIS_PORT=6381
 
   redis-cluster_2:
     <<: *x-redis-cluster
     environment:
-      - REDIS_PORT=36382
+      - REDIS_PORT=6382
