@@ -75,4 +75,4 @@ services:
       - REDIS_URL=redis://redis-standalone
       - REDIS_CLUSTER_NODES=redis-cluster_0:6379 redis-cluster_1:6379 redis-cluster_2:6379
     entrypoint: /bin/bash
-    command: /workspace/.github/run.sh
+    command: tests/run.sh
