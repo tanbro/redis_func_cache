@@ -24,13 +24,33 @@ services:
     <<: *x-redis-cluster
     environment:
       - REDIS_PORT=6380
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        rm -f $$REDIS_CLUSTER_CONFIG_FILE && \
+        redis-server --port 6380 --appendonly no --save "" --cluster-enabled yes --cluster-config-file $$REDIS_CLUSTER_CONFIG_FILE
+
 
   redis-cluster_1:
     <<: *x-redis-cluster
     environment:
       - REDIS_PORT=6381
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        rm -f $$REDIS_CLUSTER_CONFIG_FILE && \
+        redis-server --port 6381 --appendonly no --save "" --cluster-enabled yes --cluster-config-file $$REDIS_CLUSTER_CONFIG_FILE
+
 
   redis-cluster_2:
     <<: *x-redis-cluster
     environment:
       - REDIS_PORT=6382
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        rm -f $$REDIS_CLUSTER_CONFIG_FILE && \
+        redis-server --port 6382 --appendonly no --save "" --cluster-enabled yes --cluster-config-file $$REDIS_CLUSTER_CONFIG_FILE
