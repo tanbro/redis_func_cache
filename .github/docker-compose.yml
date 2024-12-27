@@ -9,6 +9,11 @@ x-redis-cluster: &x-redis-cluster
     - |
       rm -f /tmp/redis-cluster-nodes.conf
       redis-server redis.conf
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
 
 services:
   redis-cluster_0:
