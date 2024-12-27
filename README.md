@@ -665,8 +665,6 @@ def some_func(*args, **kwargs):
     ...
 ```
 
-### Corrected and Polished Text
-
 > 💡 **Tip:**\
 > The purpose of the hash algorithm here is to ensure the isolation of caches. Therefore, you can generate unique key names using any method, not just hashes.
 
