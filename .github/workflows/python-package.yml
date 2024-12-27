@@ -47,19 +47,14 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: startup redis cluster compose
-        run: >
-          (cd .github && docker compose up -d)
-
       - name: apt install redis-tools
-        run: >
-          sudo apt-get install -y redis-tools
-
-      - name: create redis cluster
-        run: >
-          redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 --cluster-yes
+        run: sudo apt-get install -y redis-tools
 
       - uses: actions/checkout@v4
+
+      - name: Up redis cluster compose
+        working-directory: .github
+        run: docker-compose up -d
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -75,6 +70,9 @@ jobs:
 
       - name: Static type check with mypy
         run: mypy
+
+      - name: create redis cluster
+        run: redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 --cluster-yes
 
       - name: Test with pytest
         env:
@@ -92,6 +90,10 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Down redis cluster compose
+        working-directory: .github
+        run: docker-compose down
 
   build:
     runs-on: ubuntu-latest

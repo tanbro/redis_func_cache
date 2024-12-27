@@ -1,26 +1,24 @@
+x-redis-cluster: &x-redis-cluster
+    image: redis:alpine
+    volumes:
+      - ./:/work
+    command:
+      - /bin/sh
+      - -c
+      - |
+        rm -f /tmp/redis-cluster-nodes.conf
+        redis-server /work/redis-cluster_${REDIS_CLUSTER_ID}.conf
+
 services:
   redis-cluster_0:
-    image: redis:alpine
-    volumes:
-      - ./:/work
+    <<: *x-redis-cluster
+    environment:
+      - REDIS_CLUSTER_ID=0
     ports:
       - "6380:6380"
-    command:
-      - /bin/sh
-      - -c
-      - |
-        rm -f /tmp/redis-cluster-nodes.conf
-        redis-server /work/redis-cluster_0.conf
 
   redis-cluster_1:
-    image: redis:alpine
-    volumes:
-      - ./:/work
     ports:
       - "6381:6381"
-    command:
-      - /bin/sh
-      - -c
-      - |
-        rm -f /tmp/redis-cluster-nodes.conf
-        redis-server /work/redis-cluster_1.conf
+    environment:
+      - REDIS_CLUSTER_ID=1
