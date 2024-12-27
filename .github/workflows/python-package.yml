@@ -43,6 +43,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: .coverage
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
