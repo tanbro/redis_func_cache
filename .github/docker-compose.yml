@@ -1,36 +1,108 @@
-x-redis-cluster: &x-redis-cluster
+x-redis: &x-redis
   image: redis:alpine
-  network_mode: host
-  volumes:
-    - ./:/work
-  working_dir: /work
-  environment:
-    - REDIS_CLUSTER_CONFIG_FILE=${REDIS_CLUSTER_CONFIG_FILE:-/tmp/nodes.conf}
-    - REDIS_PORT=${REDIS_PORT:-6379}
-  entrypoint: /bin/sh
-  command:
-    - -c
-    - |
-      rm -f $$REDIS_CLUSTER_CONFIG_FILE && \
-      redis-server --port $$REDIS_PORT --appendonly no --save "" --cluster-enabled yes --cluster-config-file $$REDIS_CLUSTER_CONFIG_FILE
+
+x-redis-server: &x-redis-server
+  <<: *x-redis
+  entrypoint: redis-server
+  command: []
   healthcheck:
     test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
     interval: 10s
     timeout: 5s
     retries: 5
 
+x-redis-cluster: &x-redis-cluster
+  <<: *x-redis-server
+  entrypoint: /bin/sh
+  command:
+    - -c
+    - |
+      rm -f /tmp/redis-cluster-nodes.conf && \
+      redis-server --appendonly no --save "" --cluster-enabled yes --cluster-config-file /tmp/redis-cluster-nodes.conf
+
 services:
+  redis-standalone:
+    <<: *x-redis-server
+    command: ["--appendonly", "no", "--save", '""']
+
   redis-cluster_0:
     <<: *x-redis-cluster
-    environment:
-      - REDIS_PORT=6380
 
   redis-cluster_1:
     <<: *x-redis-cluster
-    environment:
-      - REDIS_PORT=6381
 
   redis-cluster_2:
     <<: *x-redis-cluster
+
+  redis-cluster-creator:
+    <<: *x-redis
+    depends_on:
+      redis-cluster_0:
+        condition: service_healthy
+      redis-cluster_1:
+        condition: service_healthy
+      redis-cluster_2:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - |
+        redis-cli --cluster create redis-cluster_0:6379 redis-cluster_1:6379 redis-cluster_2:6379 --cluster-yes \
+        && sleep infinity
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --cluster check redis-cluster_0:6379",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  unittest:
+    image: quay.io/pypa/manylinux_2_28_x86_64
+    depends_on:
+      redis-standalone:
+        condition: service_healthy
+      redis-cluster-creator:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ..
+        target: /workspace
+    working_dir: /workspace
     environment:
-      - REDIS_PORT=6382
+      - REDIS_URL=redis://redis-standalone
+      - REDIS_CLUSTER_NODES=redis-cluster_0:6379 redis-cluster_1:6379 redis-cluster_2:6379
+      - SETUPTOOLS_SCM_PRETEND_VERSION=0
+      - PIP_DISABLE_PIP_VERSION_CHECK=1
+      - PIP_ROOT_USER_ACTION=ignore
+      - PIP_NO_WARN_SCRIPT_LOCATION=1
+    entrypoint: [/bin/bash, "-c"]
+    command: |
+      set -eux
+      PYTHON_LIST=(python3.8 python3.9 python3.10 python3.11 python3.12 python3.13 pypy3.9 pypy3.10)
+      for PYTHON in $${PYTHON_LIST[@]}
+      do
+          echo
+          echo "================================================================"
+          echo "Begin of $${PYTHON} unit-test"
+          echo "================================================================"
+          echo
+          TMPDIR=$$(mktemp -d)
+          trap 'rm -rf $TMPDIR' EXIT
+          $$PYTHON -m venv $TMPDIR
+          echo
+          $$TMPDIR/bin/python -m pip install -e .[types,msgpack] -r tests/requirements.txt ruff mypy pytest pytest-cov
+          echo
+          $$TMPDIR/bin/python -m ruff check
+          echo
+          $$TMPDIR/bin/python -m mypy
+          echo
+          $$TMPDIR/bin/python -m pytest --cov --junitxml=junit.xml
+          echo
+          echo "*****************************************************************"
+          echo "End of $${PYTHON} unit-test"
+          echo "*****************************************************************"
+          echo
+      done

@@ -31,54 +31,13 @@ jobs:
 
   unittest:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
-
-    services:
-      redis:
-        image: redis:alpine
-        ports:
-          - "6379:6379"
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
-      - name: apt install redis-tools
-        run: sudo apt-get install -y redis-tools
-
       - uses: actions/checkout@v4
 
-      - name: Up redis cluster compose
+      - name: Compose up for unittest
         working-directory: .github
-        run: docker compose --verbose up -d
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-
-      - name: Install project and dependencies
-        run: pip install -e .[types,msgpack] -r tests/requirements.txt ruff mypy pytest pytest-cov
-
-      - name: Lint with ruff
-        run: ruff check
-
-      - name: Static type check with mypy
-        run: mypy
-
-      - name: create redis cluster
-        run: redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382 --cluster-yes
-
-      - name: Test with pytest
-        env:
-          REDIS_URL: "redis://127.0.0.1:6379"
-          REDIS_CLUSTER_NODES: "127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382"
-        run: pytest --cov --junitxml=junit.xml
+        run: docker compose up --abort-on-container-exit
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -90,10 +49,6 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Down redis cluster compose
-        working-directory: .github
-        run: docker compose down -v
 
   build:
     runs-on: ubuntu-latest
