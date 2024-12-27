@@ -574,10 +574,38 @@ class AbstractHashMixin:
 
 As the code snippet above, the hash value is calculated by the full name of the function, the source code of the function, the arguments and keyword arguments --- they are serialized and hashed, then decoded.
 
-The serializer and decoder are defined in `__hash_config__` attribute of the policy class, and they are used to serialize and decode the arguments and keyword arguments. The default serializer and decoder are [`pickle`][] and `md5` respectively. If no `decoder` is provided, the hash value will be returned as bytes.
+The serializer and decoder are defined in the `__hash_config__` attribute of the policy class and are used to serialize arguments and decode the resulting hash. By default, the serializer is [`pickle`][] and the decoder uses the md5 algorithm. If no decoder is specified, the hash value is returned as bytes.
 
-If we want to use a different algorithm, we can select a mixin hash class defined in `src/redis_func_cache/mixins/hash.py`.
-For example:
+This configuration can be illustrated as follows:
+
+```mermaid
+flowchart TD
+    A[Start] --> B{Is the decorated function callable?}
+    B -->|No| C[Raise TypeError]
+    B -->|Yes| D[Get hash config]
+    D --> E[Initialize hash object]
+    E --> F[Update hash with function fullname]
+    F --> G[Try to get function source]
+    G -->|Success| H[Update hash with source code]
+    G -->|Failure| I[Skip source update]
+    I --> J{Are sequence arguments provided?}
+    H --> J
+    J -->|Yes| K[Update hash with serialized sequence arguments]
+    J -->|No| L{Are keywords arguments provided?}
+    K --> L
+    L -->|Yes| M[Update hash with serialized keywords arguments]
+    L -->|No| N{Is decoder specified?}
+    M --> N
+    N -->|Yes| O[Decode hash and return]
+    N -->|No| P[Return raw hash digest]
+```
+
+If we want to use a different algorithm, we can select a mixin hash class defined in `src/redis_func_cache/mixins/hash.py`. For example:
+
+- To serialize the function with [JSON][], use the SHA1 hash algorithm, store hex string in redis, you can choose the `JsonSha1HexHashMixin` class.
+- To serialize the function with [`pickle`][], use the MD5 hash algorithm, store base64 string in redis, you can choose the `PickleMd5Base64HashMixin` class.
+
+These mixin classes provide alternative hash algorithms and serializers, allowing for flexible customization of the hashing behavior.
 
 ```python
 from redis import Redis
@@ -597,7 +625,7 @@ my_json_sha1_hex_cache = RedisFuncCache(
 )
 ```
 
-If you want to use write a new algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
+Or even write a new algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
 For example:
 
 ```python
@@ -637,8 +665,10 @@ def some_func(*args, **kwargs):
     ...
 ```
 
+### Corrected and Polished Text
+
 > 💡 **Tip:**\
-> The purpose of the hash algorithm is to ensure the isolation of caches. Therefore, you can generate unique key names in any style, not just using hashes.
+> The purpose of the hash algorithm here is to ensure the isolation of caches. Therefore, you can generate unique key names using any method, not just hashes.
 
 ## Known Issues
 
