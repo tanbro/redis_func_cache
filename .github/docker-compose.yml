@@ -2,7 +2,7 @@ services:
   redis-cluster_0:
     image: redis:alpine
     volumes:
-      - .github/workflow/:/work
+      - ./:/work
     ports:
       - "6380:6380"
     command:
@@ -15,7 +15,7 @@ services:
   redis-cluster_1:
     image: redis:alpine
     volumes:
-      - .github/workflow/:/work
+      - ./:/work
     ports:
       - "6381:6381"
     command:
