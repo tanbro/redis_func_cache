@@ -10,13 +10,33 @@
             "windows": {
                 "command": "docs/make html"
             },
-            "problemMatcher": []
+            "problemMatcher": [
+                "$python"
+            ]
         },
         {
             "label": "docs: webserver",
-            "type": "shell",
-            "command": "python -m http.server -d docs/_build/html",
-            "problemMatcher": []
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "-m",
+                "http.server",
+                "-d",
+                "docs/_build/html"
+            ],
+            "problemMatcher": [
+                "$python"
+            ]
+        },
+        {
+            "label": "static type check - mypy",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "-m",
+                "mypy"
+            ],
+            "problemMatcher": [
+                "$python"
+            ]
         }
     ]
 }
