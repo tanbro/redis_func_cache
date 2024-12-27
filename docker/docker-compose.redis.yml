@@ -1,0 +1,72 @@
+name: redis_func_cache
+
+x-network_mode: &x-network_mode
+  network_mode: host
+
+x-redis: &x-redis
+  <<: *x-network_mode
+  image: redis:alpine
+
+x-redis-server: &x-redis-server
+  <<: *x-redis
+  entrypoint: redis-server
+  command: []
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
+x-redis-cluster: &x-redis-cluster
+  <<: *x-redis-server
+  entrypoint: /bin/sh
+  command:
+    - -c
+    - |
+      rm -f /tmp/redis-cluster-nodes.conf && \
+      redis-server --port $$REDIS_PORT --appendonly no --save "" --cluster-enabled yes --cluster-config-file /tmp/redis-cluster-nodes.conf
+
+services:
+  redis-standalone:
+    <<: *x-redis-server
+    command: ["--appendonly", "no", "--save", '""']
+
+  redis-cluster_0:
+    <<: *x-redis-cluster
+    environment:
+      REDIS_PORT: "6380"
+
+  redis-cluster_1:
+    <<: *x-redis-cluster
+    environment:
+      REDIS_PORT: "6381"
+
+  redis-cluster_2:
+    <<: *x-redis-cluster
+    environment:
+      REDIS_PORT: "6382"
+
+  redis-cluster-creator:
+    <<: *x-redis
+    depends_on:
+      redis-cluster_0:
+        condition: service_healthy
+      redis-cluster_1:
+        condition: service_healthy
+      redis-cluster_2:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - |
+        redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382 --cluster-yes \
+        && sleep infinity
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --cluster check 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5

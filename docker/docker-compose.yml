@@ -1,0 +1,26 @@
+name: redis_func_cache
+
+include:
+  - docker-compose.redis.yml
+
+services:
+  unittest:
+    <<: *x-network_mode
+    image: quay.io/pypa/manylinux_2_28_x86_64
+    depends_on:
+      redis_standalone:
+        condition: service_healthy
+      redis_cluster_creator:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ..
+        target: /workspace
+    working_dir: /workspace
+    environment:
+      PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/web/simple}
+      REDIS_URL: redis://127.0.0.1:6379
+      REDIS_CLUSTER_NODES: "127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382"
+    command:
+      - /bin/sh
+      - tests/run.sh

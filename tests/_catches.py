@@ -1,5 +1,6 @@
 from os import getenv
-from typing import Dict, List
+from typing import Callable, Dict, List
+from warnings import warn
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -20,6 +21,13 @@ from redis_func_cache import (
     RrClusterMultiplePolicy,
     RrPolicy,
 )
+
+try:
+    from dotenv import load_dotenv
+except ImportError as err:
+    warn(f"{err} is not installed.")
+else:
+    load_dotenv()
 
 MAXSIZE = 8
 
@@ -52,15 +60,15 @@ CLUSTER_NODES: List[ClusterNode] = []
 CLUSTER_CACHES: Dict[str, RedisFuncCache] = {}
 if REDIS_CLUSTER_NODES:
     CLUSTER_NODES = [
-        ClusterNode(cluster.split(":")[0], int(cluster.split(":")[1])) for cluster in REDIS_CLUSTER_NODES.split()
+        ClusterNode(cluster.split(":")[-2], int(cluster.split(":")[-1])) for cluster in REDIS_CLUSTER_NODES.split()
     ]
-    REDIS_CLIENT: RedisCluster = RedisCluster(startup_nodes=CLUSTER_NODES)
+    REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # noqa: E731
 
     CLUSTER_CACHES = {
-        "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-        "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-        "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-        "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-        "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
-        "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy, client=REDIS_CLIENT, maxsize=MAXSIZE),
+        "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
     }

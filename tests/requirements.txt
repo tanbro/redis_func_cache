@@ -1,2 +1,3 @@
+python-dotenv
 msgpack>=1.0
 coverage

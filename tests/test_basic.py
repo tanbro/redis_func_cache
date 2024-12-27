@@ -241,5 +241,5 @@ class BasicTest(TestCase):
         def echo(x):
             return x
 
-        for x in range(MAXSIZE):
-            self.assertEqual(echo(x), x)
+        for i in range(MAXSIZE):
+            self.assertEqual(echo(i), i)

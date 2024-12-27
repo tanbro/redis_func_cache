@@ -1,14 +1,18 @@
 x-redis-cluster: &x-redis-cluster
   image: redis:alpine
+  network_mode: host
   volumes:
     - ./:/work
   working_dir: /work
+  environment:
+    - REDIS_CLUSTER_CONFIG_FILE=${REDIS_CLUSTER_CONFIG_FILE:-/tmp/nodes.conf}
+    - REDIS_PORT=${REDIS_PORT:-6379}
+  entrypoint: /bin/sh
   command:
-    - /bin/sh
     - -c
     - |
-      rm -f /tmp/redis-cluster-nodes.conf
-      redis-server redis.conf
+      rm -f $$REDIS_CLUSTER_CONFIG_FILE && \
+      redis-server --port $$REDIS_PORT --appendonly no --save "" --cluster-enabled yes --cluster-config-file $$REDIS_CLUSTER_CONFIG_FILE
   healthcheck:
     test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
     interval: 10s
@@ -18,15 +22,15 @@ x-redis-cluster: &x-redis-cluster
 services:
   redis-cluster_0:
     <<: *x-redis-cluster
-    ports:
-      - "127.0.0.1:6380:6379"
+    environment:
+      - REDIS_PORT=6380
 
   redis-cluster_1:
     <<: *x-redis-cluster
-    ports:
-      - "127.0.0.1:6381:6379"
+    environment:
+      - REDIS_PORT=6381
 
   redis-cluster_2:
     <<: *x-redis-cluster
-    ports:
-      - "127.0.0.1:6382:6379"
+    environment:
+      - REDIS_PORT=6382
