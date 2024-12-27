@@ -74,35 +74,5 @@ services:
     environment:
       - REDIS_URL=redis://redis-standalone
       - REDIS_CLUSTER_NODES=redis-cluster_0:6379 redis-cluster_1:6379 redis-cluster_2:6379
-      - SETUPTOOLS_SCM_PRETEND_VERSION=0
-      - PIP_DISABLE_PIP_VERSION_CHECK=1
-      - PIP_ROOT_USER_ACTION=ignore
-      - PIP_NO_WARN_SCRIPT_LOCATION=1
-    entrypoint: [/bin/bash, "-c"]
-    command: |
-      set -eux
-      PYTHON_LIST=(python3.8 python3.9 python3.10 python3.11 python3.12 python3.13 pypy3.9 pypy3.10)
-      for PYTHON in $${PYTHON_LIST[@]}
-      do
-          echo
-          echo "================================================================"
-          echo "Begin of $${PYTHON} unit-test"
-          echo "================================================================"
-          echo
-          TMPDIR=$$(mktemp -d)
-          trap 'rm -rf $TMPDIR' EXIT
-          $$PYTHON -m venv $TMPDIR
-          echo
-          $$TMPDIR/bin/python -m pip install -e .[types,msgpack] -r tests/requirements.txt ruff mypy pytest pytest-cov
-          echo
-          $$TMPDIR/bin/python -m ruff check
-          echo
-          $$TMPDIR/bin/python -m mypy
-          echo
-          $$TMPDIR/bin/python -m pytest --cov --junitxml=junit.xml
-          echo
-          echo "*****************************************************************"
-          echo "End of $${PYTHON} unit-test"
-          echo "*****************************************************************"
-          echo
-      done
+    entrypoint: /bin/bash
+    command: /workspace/.github/run.sh
