@@ -1,5 +1,6 @@
 exclude .*
 exclude codecov.*
+exclude coverage.*
 exclude junit.*
 exclude qodana.*
 exclude requirements.txt

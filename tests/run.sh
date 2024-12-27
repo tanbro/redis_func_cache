@@ -26,7 +26,7 @@ do
     $TMPDIR/bin/python -m mypy
     echo
     echo "Unit test with coverage:"
-    $TMPDIR/bin/python -m pytest --cov --junitxml=junit.xml
+    $TMPDIR/bin/python -m pytest --cov --cov-report=xml --junitxml=junit.xml
     echo
     echo "*****************************************************************"
     echo "End of ${PYTHON} unit-test"
