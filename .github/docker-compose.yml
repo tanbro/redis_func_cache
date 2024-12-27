@@ -25,3 +25,8 @@ services:
     <<: *x-redis-cluster
     ports:
       - "127.0.0.1:6381:6379"
+
+  redis-cluster_2:
+    <<: *x-redis-cluster
+    ports:
+      - "127.0.0.1:6382:6379"
