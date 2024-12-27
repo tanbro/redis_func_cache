@@ -46,7 +46,35 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis-cluster_0:
+        image: redis:alpine
+        ports:
+          - "6380:6380"
+        options: >-
+          --command "rm -f /tmp/redis-cluster* ; redis-server .github/workflows/redis-cluster_0.conf --cluster-enabled yes"
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis-cluster_1:
+        image: redis:alpine
+        ports:
+          - "6381:6381"
+        options: >-
+          --command "rm -f /tmp/redis-cluster* ; redis-server .github/workflows/redis-cluster_1.conf --cluster-enabled yes"
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
+      - name: apt install redis-tools
+        run: sudo apt-get install -y redis-tools
+
+      - name: create redis cluster
+        run: redis-cli --cluster create 127.0.0.1:6381 127.0.0.1:6381 --cluster-yes
+
       - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
@@ -65,6 +93,9 @@ jobs:
         run: mypy
 
       - name: Test with pytest
+        env:
+          REDIS_URL: "redis://127.0.0.1:6379"
+          REDIS_CLUSTER_NODES: "127.0.0.1:6380 127.0.0.1:6381"
         run: pytest --cov --junitxml=junit.xml
 
       - name: Upload coverage to Codecov
