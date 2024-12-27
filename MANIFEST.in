@@ -1,4 +1,8 @@
 exclude .*
+exclude codecov.*
+exclude junit.*
+exclude qodana.*
+exclude requirements.txt
 
 prune .*
 
