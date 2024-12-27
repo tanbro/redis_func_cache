@@ -18,6 +18,7 @@ services:
       - "6380:6380"
 
   redis-cluster_1:
+    <<: *x-redis-cluster
     ports:
       - "6381:6381"
     environment:
