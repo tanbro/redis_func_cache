@@ -51,7 +51,7 @@ jobs:
         ports:
           - "6380:6380"
         options: >-
-          --entrypoint "rm -f /tmp/redis-cluster_*-nodes.conf ; redis-server .github/workflows/redis-cluster_0.conf --cluster-enabled yes"
+          --entrypoint "sh -c 'rm -f /tmp/redis-cluster_*-nodes.conf; redis-server .github/workflows/redis-cluster_0.conf --cluster-enabled yes'"
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
@@ -62,7 +62,7 @@ jobs:
         ports:
           - "6381:6381"
         options: >-
-          --entrypoint "rm -f /tmp/redis-cluster_*-nodes.conf ; redis-server .github/workflows/redis-cluster_1.conf --cluster-enabled yes"
+          --entrypoint "sh -c 'rm -f /tmp/redis-cluster_*-nodes.conf; redis-server .github/workflows/redis-cluster_1.conf --cluster-enabled yes'"
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
