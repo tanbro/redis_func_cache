@@ -19,7 +19,7 @@ x-redis-server: &x-redis-server
 
 x-redis-cluster: &x-redis-cluster
   <<: *x-redis-server
-  entrypoint: /bin/sh
+  entrypoint: sh
   command:
     - -c
     - |
@@ -55,8 +55,8 @@ services:
         condition: service_healthy
       redis-cluster_2:
         condition: service_healthy
+    entrypoint: sh
     command:
-      - /bin/sh
       - -c
       - |
         redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382 --cluster-yes \

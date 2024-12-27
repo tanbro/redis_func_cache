@@ -21,6 +21,6 @@ services:
       PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/web/simple}
       REDIS_URL: ${REDIS_URL:-redis://127.0.0.1:6379}
       REDIS_CLUSTER_NODES: ${REDIS_CLUSTER_NODES:-127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382}
-    entrypoint: /bin/sh
+    entrypoint: bash
     command:
       - tests/run.sh

@@ -13,7 +13,7 @@ x-redis-server: &x-redis-server
 
 x-redis-cluster: &x-redis-cluster
   <<: *x-redis-server
-  entrypoint: /bin/sh
+  entrypoint: sh
   command:
     - -c
     - |
@@ -43,8 +43,8 @@ services:
         condition: service_healthy
       redis-cluster_2:
         condition: service_healthy
+    entrypoint: sh
     command:
-      - /bin/sh
       - -c
       - |
         redis-cli --cluster create redis-cluster_0:6379 redis-cluster_1:6379 redis-cluster_2:6379 --cluster-yes \
@@ -74,5 +74,5 @@ services:
     environment:
       - REDIS_URL=redis://redis-standalone
       - REDIS_CLUSTER_NODES=redis-cluster_0:6379 redis-cluster_1:6379 redis-cluster_2:6379
-    entrypoint: /bin/bash
+    entrypoint: bash
     command: tests/run.sh
