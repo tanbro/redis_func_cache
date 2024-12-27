@@ -65,7 +65,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "redis-cli --cluster check 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382",
+          "redis-cli --cluster check 127.0.0.1:6380",
         ]
       interval: 10s
       timeout: 5s
