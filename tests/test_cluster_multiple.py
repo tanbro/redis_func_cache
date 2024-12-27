@@ -1,17 +1,17 @@
 from random import randint
 from unittest import TestCase, skipUnless
 
-from ._catches import CLUSTER_CACHES, MAXSIZE, REDIS_CLUSTER_NODES
+from ._catches import CLUSTER_MULTI_CACHES, MAXSIZE, REDIS_CLUSTER_NODES
 
 
 @skipUnless(REDIS_CLUSTER_NODES, "REDIS_CLUSTER_NODES environment variable is not set")
 class ClusterMultipleTest(TestCase):
     def setUp(self):
-        for cache in CLUSTER_CACHES.values():
+        for cache in CLUSTER_MULTI_CACHES.values():
             cache.policy.purge()
 
     def test_int(self):
-        for cache in CLUSTER_CACHES.values():
+        for cache in CLUSTER_MULTI_CACHES.values():
 
             @cache
             def echo(x):
@@ -22,7 +22,7 @@ class ClusterMultipleTest(TestCase):
                 self.assertEqual(i, echo(i))
 
     def test_two_functions(self):
-        for cache in CLUSTER_CACHES.values():
+        for cache in CLUSTER_MULTI_CACHES.values():
 
             @cache
             def echo1(x):

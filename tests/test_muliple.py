@@ -1,16 +1,16 @@
 from random import randint
 from unittest import TestCase
 
-from ._catches import CACHES, MAXSIZE
+from ._catches import MAXSIZE, MULTI_CACHES
 
 
 class MultipleTest(TestCase):
     def setUp(self):
-        for cache in CACHES.values():
+        for cache in MULTI_CACHES.values():
             cache.policy.purge()
 
     def test_int(self):
-        for cache in CACHES.values():
+        for cache in MULTI_CACHES.values():
 
             @cache
             def echo(x):
@@ -21,7 +21,7 @@ class MultipleTest(TestCase):
                 self.assertEqual(i, echo(i))
 
     def test_two_functions(self):
-        for cache in CACHES.values():
+        for cache in MULTI_CACHES.values():
 
             @cache
             def echo1(x):
