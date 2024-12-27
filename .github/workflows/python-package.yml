@@ -54,7 +54,7 @@ jobs:
 
       - name: Up redis cluster compose
         working-directory: .github
-        run: docker compose up -d
+        run: docker compose --verbose up -d
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -93,7 +93,7 @@ jobs:
 
       - name: Down redis cluster compose
         working-directory: .github
-        run: docker compose down
+        run: docker compose down -v
 
   build:
     runs-on: ubuntu-latest
