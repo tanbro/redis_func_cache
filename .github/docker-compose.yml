@@ -1,0 +1,26 @@
+services:
+  redis-cluster_0:
+    image: redis:alpine
+    volumes:
+      - .github/workflow/:/work
+    ports:
+      - "6380:6380"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        rm -f /tmp/redis-cluster-nodes.conf
+        redis-server /work/redis-cluster_0.conf
+
+  redis-cluster_1:
+    image: redis:alpine
+    volumes:
+      - .github/workflow/:/work
+    ports:
+      - "6381:6381"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        rm -f /tmp/redis-cluster-nodes.conf
+        redis-server /work/redis-cluster_1.conf
