@@ -57,7 +57,7 @@ jobs:
 
       - name: create redis cluster
         run: >
-          redis-cli --cluster create 127.0.0.1:6381 127.0.0.1:6381 --cluster-yes
+          redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 --cluster-yes
 
       - uses: actions/checkout@v4
 
