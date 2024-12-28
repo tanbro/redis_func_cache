@@ -54,8 +54,8 @@ Changelog = "https://github.com/tanbro/spam/redis_func_cache/main/CHANGELOG.md"
 [project.optional-dependencies]
 types = ["types-redis"]
 hiredis=["redis[hiredis]"]
-cloudpickle=["cloudpickle"]
 msgpack=["msgpack>=1.0"]
+cloudpickle=["cloudpickle"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

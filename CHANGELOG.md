@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.3 (In Development)
+
+- ✨ **New Features:**
+  - Added setter methods for the `name`, `prefix`, `maxsize`, `ttl`, and `serializer` properties in the `RedisFuncCache` class.
+  - Introduced support for `msgpack` and `cloudpickle`.
+  - Added a "per-function" custom serializer feature to the `RedisFuncCache` class.
+
+- 🛠 **Improvements:**
+  - Updated the default values of several arguments in the `RedisFuncCache` constructor.
+  - Improved type casting in the `cache` module.
+
+- 📦 **Packaging:**
+  - Added `msgpack` and `cloudpickle` as optional dependencies.
+  - Adjusted the `manifest.in` file.
+
+- 🧪 **Tests:**
+  - Added new tests for multiple and cluster key caching.
+  - Fixed asynchronous bugs in existing tests.
+  - Optimized Docker Compose-based tests.
+
+- 🛠️ **CI:**
+  - Added Redis cluster tests in GitHub Actions.
+  - Fixed issues with `codecov` coverage upload.
+
 ## v0.2.2
 
 > 📅 2024-12-23
