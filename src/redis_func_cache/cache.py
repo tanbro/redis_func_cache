@@ -460,7 +460,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         Args:
             user_function: The function to be decorated.
             serializer: Custom serialize function for the return value of the user function. If defined, it overrides the first element of :attr:`serializer`.
-            deserializer: Custom deserialize function for the return value of the user function. If defined, it overrides the second element of :attr:`deserializer`.
+            deserializer: Custom deserialize function for the return value of the user function. If defined, it overrides the second element of :attr:`serializer`.
             **keywords: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
         This method is equivalent to :attr:`__call__`.
