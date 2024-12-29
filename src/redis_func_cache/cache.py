@@ -508,6 +508,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 @cache.decorate(serializer=my_serializer, deserializer=my_deserializer)
                 def my_func(a, b):
                     return a + b
+
+        Note:
+            The `serializer` and `deserializer` only affect the currently decorated function.
         """
 
         def decorator(f: FunctionTV):
