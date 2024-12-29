@@ -120,21 +120,21 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 If not provided, the cache will use :func:`json.dumps` and :func:`json.loads`.
 
-                - When it's a string, it must be one of the following:
+                - It could be a string, and must be one of the following:
 
                   - ``"json"``: Use :func:`json.dumps` and :func:`json.loads`
                   - ``"pickle"``: Use :func:`pickle.dumps` and :func:`pickle.loads`
                   - ``"msgpack"``: Use :func:`msgpack.packb` and :func:`msgpack.unpackb`. Only available when :mod:`msgpack` is installed.
                   - ``"cloudpickle"``: Use :func:`cloudpickle.dumps` and :func:`pickle.loads`. Only available when :mod:`cloudpickle` is installed.
 
-                - When ``serializer`` is a pair of callbacks, the first one is used to serialize return value, the second one is used to deserialize return value.
+                - Or it could be **a PAIR of callbacks**, the first one is used to serialize return value, the second one is used to deserialize return value.
 
                   Here is an example of first(serialize) callback::
 
                       def my_serializer(value):
                           return msgpack.packb(value, use_bin_type=True)
 
-                  And example of second(deserialize) callback::
+                  And and example of second(deserialize) callback::
 
                       def my_deserializer(data):
                           return msgpack.unpackb(data, raw=False)
