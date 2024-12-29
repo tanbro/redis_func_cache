@@ -271,13 +271,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Whether the redis client is asynchronous."""
         return isinstance(self.client, (redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster))
 
-    def serialize(self, value: Any, f=None) -> EncodedT:
+    def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
         """Serialize return value of what decorated."""
         if f:
             return f(value)
         return self._serializer(value)
 
-    def deserialize(self, data: EncodedT, f=None) -> Any:
+    def deserialize(self, data: EncodedT, f: Optional[DeserializerT] = None) -> Any:
         """Deserialize return value of what decorated."""
         if f:
             return f(data)
@@ -288,7 +288,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         cls,
         script: redis.commands.core.Script,
         key_pair: Tuple[KeyT, KeyT],
-        hash_: KeyT,
+        hash_value: KeyT,
         ttl: int,
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
@@ -298,7 +298,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         Args:
             script: Redis Lua script to be evaluated, which should attempt to retrieve the return value from the cache using the given keys and hash.
             key_pair: The key name pair of the Redis set and hash-map data structure used by the cache.
-            hash_: The member of the Redis key and also the field name of the Redis hash map.
+            hash_value: The member of the Redis key and also the field name of the Redis hash map.
             ttl: Time-to-live of the cache in seconds.
             options: Reserved for future use.
             ext_args: Extra arguments passed to the Lua script.
@@ -308,7 +308,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        return script(keys=key_pair, args=chain((ttl, hash_, encoded_options), ext_args))
+        return script(keys=key_pair, args=chain((ttl, hash_value, encoded_options), ext_args))
 
     @classmethod
     async def aget(
@@ -330,7 +330,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         cls,
         script: redis.commands.core.Script,
         key_pair: Tuple[KeyT, KeyT],
-        hash_: KeyT,
+        hash_value: KeyT,
         value: EncodableT,
         maxsize: int,
         ttl: int,
@@ -342,7 +342,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         Args:
             script: Redis Lua script to be evaluated, which shall store the return value in the cache.
             key_pair: The key name pair of the Redis set and hash-map data structure used by the cache.
-            hash_: The member of the Redis key and also the field name of the Redis hash map.
+            hash_value: The member of the Redis key and also the field name of the Redis hash map.
             ttl: Time-to-live of the cache in seconds.
             options: Reserved for future use.
             ext_args: Extra arguments passed to the Lua script.
@@ -351,7 +351,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, encoded_options), ext_args))
+        script(keys=key_pair, args=chain((maxsize, ttl, hash_value, value, encoded_options), ext_args))
 
     @classmethod
     async def aput(

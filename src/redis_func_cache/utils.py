@@ -36,7 +36,9 @@ def get_source(o: Any, default: Optional[DefaultT] = None) -> Union[str, Default
 
     Args:
         o: The callable object whose source code is to be retrieved.
+
         default: The default value to return if the source code cannot be retrieved.
+
             This provides a fallback mechanism to handle cases where the source code is not available.
 
     Returns:

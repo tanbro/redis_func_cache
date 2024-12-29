@@ -73,7 +73,15 @@ autodoc_typehints = "description"
 # autodoc_class_signature = "separated"
 
 autoclass_content = "both"
-autodoc_member_order = "bysource"
+
+# The default options for autodoc directives. They are applied to all autodoc directives automatically.
+# It must be a dictionary which maps option names to the values.
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'no-value': True,
+    'undoc-members': True,
+    'show-inheritance': True,
+}
 
 # -- Options for myst_parser extension ---------------------------------------
 
