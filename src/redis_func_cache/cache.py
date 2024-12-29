@@ -46,6 +46,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
+    SerializerPairT = Tuple[SerializerT, DeserializerT]
+    SerializerSetterValueT = Union[Literal["json", "pickle", "msgpack", "cloudpickle"], SerializerPairT]
 
 __all__ = ("RedisFuncCache",)
 
@@ -70,9 +72,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
         prefix: str = DEFAULT_PREFIX,
-        serializer: Union[
-            Literal["json", "pickle", "msgpack", "cloudpickle"], Tuple[SerializerT, DeserializerT]
-        ] = "json",
+        serializer: SerializerSetterValueT = "json",
     ):
         """Initializes the Cache instance with the given parameters.
 
@@ -141,7 +141,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                   We can then pass the two callbacks to ``serializer`` parameter::
 
-                      my_cache = RedisFuncCache(__name__, MyPolicy, redis_client, serializer=(my_serializer, my_deserializer))
+                      my_cache = RedisFuncCache(
+                        __name__,
+                        MyPolicy,
+                        redis_client,
+                        serializer=(my_serializer, my_deserializer)
+                    )
 
         Attributes:
             __call__: Equivalent to the :meth:`decorate` method.
@@ -168,7 +173,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         __tmp_dict["msgpack"] = (lambda x: msgpack.packb(x), lambda x: msgpack.unpackb(x))  # pyright: ignore[reportOptionalMemberAccess]
     if cloudpickle:
         __tmp_dict["cloudpickle"] = (lambda x: cloudpickle.dumps(x), lambda x: pickle.loads(x))  # pyright: ignore[reportOptionalMemberAccess]
-    __serializers__: Mapping[str, Tuple[SerializerT, DeserializerT]] = __tmp_dict
+    __serializers__: Mapping[str, SerializerPairT] = __tmp_dict
     del __tmp_dict
 
     @property
@@ -214,7 +219,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self._ttl = int(value)
 
     @property
-    def serializer(self) -> Tuple[SerializerT, DeserializerT]:
+    def serializer(self) -> SerializerPairT:
         """The serializer and deserializer used in the cache.
 
         The cache use them to serialize/deserialize the return value of what decorated.
@@ -222,9 +227,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         return (self._serializer, self._deserializer)
 
     @serializer.setter
-    def serializer(
-        self, value: Union[Literal["json", "pickle", "msgpack", "cloudpickle"], Tuple[SerializerT, DeserializerT]]
-    ):
+    def serializer(self, value: SerializerSetterValueT):
         if isinstance(value, str):
             self._serializer, self._deserializer = self.__serializers__[value]
         elif (
