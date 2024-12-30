@@ -17,16 +17,16 @@ do
     trap 'rm -rf $TMPDIR' EXIT
     $PYTHON -m venv $TMPDIR
     echo
-    $TMPDIR/bin/python -m pip install -e .[types,msgpack] -r tests/requirements.txt ruff mypy pytest pytest-cov
+    $TMPDIR/bin/python -Bm pip install --no-compile -e .[types,msgpack] -r tests/requirements.txt ruff mypy pytest pytest-cov
     echo
-    echo "Lint check:"
-    $TMPDIR/bin/python -m ruff check
+    echo "Linting:"
+    $TMPDIR/bin/python -Bm ruff check
     echo
-    echo "Static type check:"
-    $TMPDIR/bin/python -m mypy
+    echo "Static type checking:"
+    $TMPDIR/bin/python -Bm mypy
     echo
     echo "Unit test with coverage:"
-    $TMPDIR/bin/python -m pytest --cov --cov-report=xml --junitxml=junit.xml
+    $TMPDIR/bin/python -Bm pytest --cov --cov-report=xml --junitxml=junit.xml
     echo
     echo "*****************************************************************"
     echo "End of ${PYTHON} unit-test"
