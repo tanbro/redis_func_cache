@@ -7,7 +7,11 @@
   - Introduced support for `msgpack` and `cloudpickle`.
   - Added a "per-function" custom serializer feature to the `RedisFuncCache` class.
 
-- 🛠 **Improvements:**
+- 💔 **Broken changes:**
+  - The `lru-t` policy class have been moved to `policies/lru` module
+  - The `fifo-t` policy class have been moved to `policies/fifo` module
+
+- 🛠️ **Improvements:**
   - Updated the default values of several arguments in the `RedisFuncCache` constructor.
   - Improved type casting in the `cache` module.
 
@@ -20,9 +24,10 @@
   - Fixed asynchronous bugs in existing tests.
   - Optimized Docker Compose-based tests.
 
-- 🛠️ **CI:**
+- ⚙️ **CI:**
   - Added Redis cluster tests in GitHub Actions.
   - Fixed issues with `codecov` coverage upload.
+  - PyPY testings removed from `tests/run.sh`
 
 ## v0.2.2
 
