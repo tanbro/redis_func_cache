@@ -4,42 +4,44 @@ README
 .. include:: README.include.md
    :parser: myst_parser.sphinx_
 
-How to build the docs
-=====================
+How to Build the Documentation
+==============================
 
-#. The documentation is build by `Sphinx <https://www.sphinx-doc.org/>`_, we need to install the requirements:
-
-   .. code:: sh
-
-      pip install -r docs/requirements.txt
-
-#. Generate API-Docs. You may clear `docs/apidocs` directory then re-generate them if source tree changed:
+#. The documentation is built using `Sphinx <https://www.sphinx-doc.org/>`_.
+   We need to install the package and its testing requirements:
 
    .. code:: sh
 
-      sphinx-apidoc -o docs/apidocs -e -H APIs src
+      pip install -e . -r docs/requirements.txt
+
+#. Generate API documentation.
+   If the source tree has changed, you may clear the `docs/apidocs` directory and regenerate the API documentation:
+
+   .. code:: sh
+
+      sphinx-apidoc -o docs/apidocs -f -e -H APIs src
 
 #. Build HTML documentation:
 
-   * Make tool:
+   * Using the Make tool (for Unix/Linux/macOS):
 
       .. code:: sh
 
          make -C docs html
 
-   * Windows:
+   * On Windows:
 
       .. code:: bat
 
          docs\make html
 
-The built-out static web site is at ``docs/_build/html``, we can serve it:
+The built static website is located at ``docs/_build/html``. You can serve it with a simple HTTP server:
 
 .. code:: sh
 
-   python -m http.server -d docs/_build/html
+   python -m http.server --directory docs/_build/html
 
-then open http://localhost:8000/ in a web browser.
+Then open http://localhost:8000/ in a web browser.
 
 .. tip::
    Try another port if ``8000`` is already in use.
@@ -47,11 +49,6 @@ then open http://localhost:8000/ in a web browser.
 
    .. code:: sh
 
-      python -m http.server -d docs/_build/html 8080
+      python -m http.server --directory docs/_build/html 8080
 
    .. seealso:: Python ``stdlib``'s :mod:`http.server`
-
-.. tip::
-   If want to build PDF, use ``make rinoh`` instead.
-
-   .. seealso:: https://www.sphinx-doc.org/en/master/usage/builders/index.html#sphinx.builders.latex.LaTeXBuilder
