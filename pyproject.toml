@@ -4,7 +4,7 @@ requires = ["setuptools>=64", "setuptools-scm>=8"]
 
 [project]
 authors = [{ name = "liu xue yan", email = "liu_xue_yan@foxmail.com" }]
-description = "A python library for caching function results in redis, like that in stdlib's functools"
+description = "A Python library that provides decorators for caching function results in Redis"
 name = "redis_func_cache"
 readme = "README.md"
 
@@ -16,9 +16,9 @@ dependencies = [
   "typing-extensions; python_version<'3.12'",
 ]
 
-keywords = ["redis", "cache", "decorate", "decorator"]
+keywords = ["redis", "cache", "decorator"]
 
-license = { text = "AGPLv3+" }
+license = { text = "BSD-3-Clause" }
 
 classifiers = [
   "License :: OSI Approved :: BSD License",
@@ -40,6 +40,8 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Lua",
 ]
 
 dynamic = ["version"]

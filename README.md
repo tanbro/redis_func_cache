@@ -5,7 +5,7 @@
 [![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://redis-func-cache.readthedocs.io/)
 [![pypi-version](https://img.shields.io/pypi/v/redis_func_cache.svg)](https://pypi.org/project/redis_func_cache/)
 
-`redis_func_cache` is a Python library for caching function return values in Redis, similar to the caching functionality provided by the standard library's [`functools`](https://docs.python.org/library/functools.html) module. The `functools` module includes useful cache decorators that are handy when implementing memoization.
+`redis_func_cache` is a Python library that provides decorators for caching function results in Redis, similar to the caching functionality offered by the standard library's [`functools`](https://docs.python.org/library/functools.html) module. Like `functools`, it includes useful decorators such as `lru_cache`, which are valuable for implementing memoization.
 
 When we need to cache function return values across multiple processes or machines, [Redis][] can be used as a distributed backend. The purpose of this project is to provide simple and clean decorator functions to use Redis as a cache backend. It implements caches with various eviction/replacement policies such as LRU, FIFO, RR, and LFU. (Refer to [Cache Replacement Policies on Wikipedia](https://wikipedia.org/wiki/Cache_replacement_policies) for more details.)
 
