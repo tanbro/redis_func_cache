@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import pickle
+from abc import ABC
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
 
@@ -45,7 +46,7 @@ class HashConfig:
     """
 
 
-class AbstractHashMixin:
+class AbstractHashMixin(ABC):
     """An abstract mixin class for hash function name, source code, and arguments.
 
     **Do NOT use the mixin class directly.**

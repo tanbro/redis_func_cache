@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import weakref
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, TypeVar, Union
 
 from ..utils import read_lua_file
@@ -19,7 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ("AbstractPolicy",)
 
 
-class AbstractPolicy:
+class AbstractPolicy(ABC):
     """An abstract policy class for :class:`.RedisFuncCache`.
 
     Subclasses **MUST** implement the following methods:
@@ -56,6 +57,7 @@ class AbstractPolicy:
         """
         return self._cache  # type: ignore
 
+    @abstractmethod
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
@@ -77,8 +79,9 @@ class AbstractPolicy:
         Returns:
             A pair of key names, used for identifying and accessing the cache in Redis.
         """
-        raise NotImplementedError()  # pragma: no cover
+        pass
 
+    @abstractmethod
     def calc_hash(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> KeyT:
@@ -100,7 +103,7 @@ class AbstractPolicy:
             The calculated hash value.
 
         """
-        raise NotImplementedError()  # pragma: no cover
+        pass
 
     def calc_ext_args(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
@@ -113,7 +116,7 @@ class AbstractPolicy:
 
         The extra arguments are expected to be encodable types and will be passed to the Lua script at the tail of its ``args`` parameter.
 
-        Subclass my override this method to provide custom handling for specific functions or scenarios.
+        Subclass may optionally override this method to provide custom handling for specific functions or scenarios.
 
         Args:
             f: The function for which to calculate the extended arguments. May be None.
@@ -124,7 +127,7 @@ class AbstractPolicy:
             The calculated extended arguments, which may include any encodable type.
             If no extended arguments can be calculated based on the provided inputs, and nothing will be appended to the Lua script's ``args`` parameter.
 
-        .. note::
+        Note:
             - By default, it returns ``None``, indicating no extra arguments.
             - This method is designed to handle optional inputs, allowing for flexible use cases where the function or its arguments may not be specified.
             - The return type indicates a possible collection of encodable types, accommodating a wide range of outputs depending on the function and inputs provided.
@@ -157,11 +160,11 @@ class AbstractPolicy:
             - This method is not implemented in the base class.
             - Subclasses can optionally implement this method.
         """
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError()
 
     async def apurge(self) -> int:
         """Asynchronously purge the cache."""
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError()
 
     def size(self) -> int:
         """Return the number of items in the cache.
@@ -173,8 +176,8 @@ class AbstractPolicy:
         Since the size is fetched from Redis, it involves I/O operations.
         Therefore, this is a method rather than a property.
         """
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError()
 
     async def asize(self) -> int:
         """Asynchronously return the number of items in the cache."""
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError()
