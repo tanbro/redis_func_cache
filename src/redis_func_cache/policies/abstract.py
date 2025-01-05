@@ -90,7 +90,7 @@ class AbstractPolicy(ABC):
         This method is intended to generate a unique hash based on the input function and its parameters.
         If any of the inputs are None, it indicates that the parameter was not provided.
 
-        .. important::
+        Important:
             - This method is not implemented in the base class.
             - Subclasses **MUST** implement this method.
 
@@ -156,7 +156,7 @@ class AbstractPolicy(ABC):
     def purge(self) -> int:
         """Purge the cache.
 
-        .. note::
+        Note:
             - This method is not implemented in the base class.
             - Subclasses can optionally implement this method.
         """
@@ -169,7 +169,7 @@ class AbstractPolicy(ABC):
     def size(self) -> int:
         """Return the number of items in the cache.
 
-        .. note::
+        Note:
             - This method is not implemented in the base class.
             - Subclasses can optionally implement this method.
 
