@@ -10,6 +10,8 @@
 - 💔 **Broken changes:**
   - The `lru-t` policy class have been moved to `policies/lru` module
   - The `fifo-t` policy class have been moved to `policies/fifo` module
+  - Rename `apurge` to `purge_aio` in AbstractPolicy and BaseSinglePolicy
+  - Rename `asize` to `size_aio` in AbstractPolicy and BaseSinglePolicy
 
 - 🛠️ **Improvements:**
   - Updated the default values of several arguments in the `RedisFuncCache` constructor.

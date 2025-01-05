@@ -11,7 +11,7 @@ def _echo(x):
 
 class BasicTest(IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        coros = (cache.policy.apurge() for cache in ASYNC_CACHES.values())
+        coros = (cache.policy.purge_aio() for cache in ASYNC_CACHES.values())
         await asyncio.gather(*coros)
 
     async def test_simple(self):
@@ -27,4 +27,4 @@ class BasicTest(IsolatedAsyncioTestCase):
                 self.assertEqual(i, await echo(i))
                 self.assertEqual(i, await echo(i))
 
-            self.assertEqual(cache.maxsize, await cache.policy.asize())
+            self.assertEqual(cache.maxsize, await cache.policy.size_aio())
