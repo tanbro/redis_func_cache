@@ -156,11 +156,11 @@ class AbstractPolicy(ABC):
             - This method is not implemented in the base class.
             - Subclasses can optionally implement this method.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     async def apurge(self) -> int:
         """Asynchronously purge the cache."""
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def size(self) -> int:
         """Return the number of items in the cache.
@@ -172,8 +172,8 @@ class AbstractPolicy(ABC):
         Since the size is fetched from Redis, it involves I/O operations.
         Therefore, this is a method rather than a property.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     async def asize(self) -> int:
         """Asynchronously return the number of items in the cache."""
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
