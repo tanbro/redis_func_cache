@@ -4,36 +4,63 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "docs: make html",
+            "label": "build",
             "type": "shell",
-            "command": "make -C docs html",
-            "windows": {
-                "command": "docs/make html"
+            "command": "${command:python.interpreterPath} -m build",
+            "problemMatcher": [
+                "$python"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "test",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m unittest",
+            "problemMatcher": [
+                "$python"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "docs: build",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m sphinx -j auto -d _build/doctrees . _build/html",
+            "options": {
+                "cwd": "${workspaceFolder}/docs"
             },
             "problemMatcher": [
                 "$python"
             ]
         },
         {
-            "label": "docs: webserver",
-            "command": "${command:python.interpreterPath}",
-            "args": [
-                "-m",
-                "http.server",
-                "-d",
-                "docs/_build/html"
-            ],
+            "label": "docs: serve",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m http.server -d _build/html",
+            "options": {
+                "cwd": "${workspaceFolder}/docs"
+            },
             "problemMatcher": [
                 "$python"
             ]
         },
         {
-            "label": "static type check - mypy",
-            "command": "${command:python.interpreterPath}",
-            "args": [
-                "-m",
-                "mypy"
-            ],
+            "label": "lint",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m ruff check --fix && ${command:python.interpreterPath} -m ruff format",
+            "problemMatcher": [
+                "$python"
+            ]
+        },
+        {
+            "label": "static type check",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m mypy",
             "problemMatcher": [
                 "$python"
             ]

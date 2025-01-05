@@ -5,7 +5,7 @@
 [![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://redis-func-cache.readthedocs.io/)
 [![pypi-version](https://img.shields.io/pypi/v/redis_func_cache.svg)](https://pypi.org/project/redis_func_cache/)
 
-`redis_func_cache` is a Python library that provides decorators for caching function results in Redis, similar to the caching functionality offered by the standard library's [`functools`](https://docs.python.org/library/functools.html) module. Like `functools`, it includes useful decorators such as `lru_cache`, which are valuable for implementing memoization.
+`redis_func_cache` is a Python library that provides decorators for caching function results in Redis, similar to the caching functionality offered by the standard library. Like [`functools`](https://docs.python.org/library/functools.html) module, it includes useful decorators such as [`lru_cache`](https://docs.python.org/library/functools.html#functools.lru_cache), which are valuable for implementing memoization.
 
 When we need to cache function return values across multiple processes or machines, [Redis][] can be used as a distributed backend. The purpose of this project is to provide simple and clean decorator functions to use Redis as a cache backend. It implements caches with various eviction/replacement policies such as LRU, FIFO, RR, and LFU. (Refer to [Cache Replacement Policies on Wikipedia](https://wikipedia.org/wiki/Cache_replacement_policies) for more details.)
 
@@ -27,16 +27,16 @@ Here is a simple example:
 
    ```python
    from time import sleep, time
-
    from redis import Redis
-
    from redis_func_cache import LruTPolicy, RedisFuncCache
 
+   # Create a redis client
    redis_client = Redis.from_url("redis://")
 
+   # Create an lru cache, it connects Redis by previous created redis client
    lru_cache = RedisFuncCache(__name__, LruTPolicy, redis_client)
 
-   @lru_cache
+   @lru_cache # Decorate a function to cache its result
    def a_slow_func():
        sleep(10) # Sleep to simulate a slow operation
        return "OK"
@@ -61,11 +61,11 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 
 ## Features
 
-- Supports multiple cache eviction policies: LRU, FIFO, LFU, RR ...
-- Asynchronous and synchronous support.
-- [Redis][] cluster support.
-- Simple [decorator][] syntax.
 - Based on [redis-py][], the official Python client for [Redis][].
+- Simple [decorator][] syntax.
+- Both asynchronous and synchronous I/O support.
+- [Redis][] cluster support.
+- Supports multiple cache eviction policies: LRU, FIFO, LFU, RR ...
 
 ## Install
 
