@@ -164,13 +164,17 @@ It works almost the same as the standard library's `functools.lru_cache`, except
 
 If we browse the [Redis][] database, we can find the pair of keys' names look like:
 
-- `func-cache:my-first-lru-cache:lru:__main__:fib:0`
+- `func-cache:my-first-lru-cache:lru_t:0`
 
     The key (with `0` suffix) is a sorted set that stores the hash of function invoking and their corresponding scores.
 
-- `func-cache:my-first-lru-cache:lru:__main__:fib:1`
+- `func-cache:my-first-lru-cache:lru_t:1`
 
     The key (with `1` suffix) is a hash map. Each key field in it is the hash value of a function invoking, and the value filed is the return value of the function.
+
+> ❗ **Important:**\
+> The name **SHOULD** be unique for each [`RedisFuncCache`][] instance.
+> Therefore, we need to choose a unique name carefully using the `name` argument.
 
 ### Async functions
 
@@ -320,6 +324,8 @@ Thus, the names of the key pair may be like:
 
 Notice what is in `{...}`: the [Redis][] cluster will determine which node to use by the `{...}` pattern rather than the entire key string.
 
+Therefore, all cached results for the same cache instance will be stored in the same node, irrespective of the functions involved.
+
 Policies that support cluster are:
 
 - [`FifoClusterPolicy`][]
@@ -330,6 +336,8 @@ Policies that support cluster are:
 - [`LruTClusterPolicy`][]
 
 ### [Redis][] Cluster support with multiple key pairs
+
+This policy ensures that all cached results for the same function are stored in the same node. Meanwhile, results of different functions may be stored in different nodes.
 
 Policies that support both cluster and store cache in multiple [Redis][] key pairs are:
 
@@ -361,44 +369,45 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
 
 ### Complex return types
 
-The return value (de)serializer [JSON][] (`json` module of std-lib) by default, which does not work with complex objects.
+The return value's (de)serializer is [JSON][] (`json` module of std-lib) by default, which does not work with complex objects.
+However, we can still use [`pickle`][]. This can be achieved by specifying either the `serializers` argument of [`RedisFuncCache`][], or the `serializer` and `deserializer` arguments of the decorator:
 
-But, still, we can use [`pickle`][] to serialize the return value, by specifying `serializers` argument of [`RedisFuncCache`][]:
-
-```python
-import pickle
-from redis import Redis
-from redis_func_cache import RedisFuncCache, LruTPolicy
-
-
-my_pickle_cache = RedisFuncCache(
-    __name__,
-    LruTPolicy,
-    lambda: Redis.from_url("redis://"),
-    serializer=(pickle.dumps, pickle.loads)
-)
-
-# or like this:
-my_pickle_cache1 = RedisFuncCache(
-    __name__,
-    LruTPolicy,
-    lambda: Redis.from_url("redis://"),
-    serializer="pickle"
-)
-
-# or just like this:
-cache = RedisFuncCache(__name__, LruTPolicy, lambda: Redis.from_url("redis://"))
-
-@cache(serializer=pickle.loads, deserializer=pickle.dumps)
-def my_func_with_complex_return_value(x):
-    ...
-```
-
-> ⚠️ **Warning:**\
-> [`pickle`][] is considered a security risk, and should not be used with runtime/version sensitive data. Use it cautiously and only when necessary.
-> It's a good practice to only cache functions that return simple, [JSON][] serializable data types.
+> 💡 **Example:**
+>
+> ```python
+> import pickle
+> from redis import Redis
+> from redis_func_cache import RedisFuncCache, LruTPolicy
+>
+> # like this:
+> my_pickle_cache = RedisFuncCache(
+>     __name__,
+>     LruTPolicy,
+>     lambda: Redis.from_url("redis://"),
+>     serializer="pickle"
+> )
+>
+> # or like this:
+> my_pickle_cache1 = RedisFuncCache(
+>     __name__,
+>     LruTPolicy,
+>     lambda: Redis.from_url("redis://"),
+>     serializer=(pickle.dumps, pickle.loads)
+> )
+>
+> # or just like this:
+> cache = RedisFuncCache(__name__, LruTPolicy, lambda: Redis.from_url("redis://"))
+>
+> @cache(serializer=pickle.loads, deserializer=pickle.dumps)
+> def my_func_with_complex_return_value(x):
+>     ...
+> ```
 
 Other serialization functions also should be workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack][], [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
+
+> ⚠️ **Warning:**\
+> [`pickle`][] is considered a security risk, and also cant not be used with runtime/version sensitive data. Use it cautiously and only when necessary.
+> It's a good practice to only cache functions that return [JSON][] serializable simple data.
 
 ## Advanced Usage
 
@@ -490,9 +499,11 @@ If you want to use a different format, you can subclass [`AbstractPolicy`][] or 
 The following example demonstrates how to custom key format for an _LRU_ policy:
 
 ```python
-import redis
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, Tuple, override
 
+import redis
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import PickleMd5HashMixin
@@ -530,13 +541,13 @@ def my_func(*args, **kwargs):
 
 In the example, we'll get a cache generates [redis][] keys separated by `-`, instead of `:`, prefixed by `"my-prefix"`, and suffixed by `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names could be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
 
-> ❗ **Important:**\
-> The calculated key name **MUST** be unique.
->
-> [`BaseSinglePolicy`], [`BaseMultiplePolicy`], [`BaseClusterSinglePolicy`], and [`BaseClusterMultiplePolicy`] calculate their key names by calling the `calc_keys` method, which uses the `__key__` attribute.
-> If you subclass any of these classes, you should override the `__key__` attribute.
-
 `LruScriptsMixin` tells the policy which lua script to use, and `PickleMd5HashMixin` tells the policy to use [`pickle`][] to serialize and `md5` to calculate the hash value of the function.
+
+> ❗ **Important:**\
+> The calculated key name **SHOULD** be unique for each [`RedisFuncCache`][] instance.
+>
+> [`BaseSinglePolicy`][], [`BaseMultiplePolicy`][], [`BaseClusterSinglePolicy`][], and [`BaseClusterMultiplePolicy`][] calculate their key names by calling the `calc_keys` method, which uses its `__key__` attribute and the `name` property of the [`RedisFuncCache`][] instance.
+> If you subclass any of these classes, you should override the `__key__` attribute to ensure that the key names remain unique.
 
 ### Custom Hash Algorithm
 
@@ -548,10 +559,11 @@ The algorithm used to calculate the hash value is defined in `AbstractHashMixin`
 
 ```python
 import hashlib
-from inspect import  getsource
+from inspect import getsource
 
 class AbstractHashMixin:
     __hash_config__ = ...
+
     ...
 
     def calc_hash(self, f = None, args = None, kwds = None):
@@ -629,28 +641,39 @@ Or even write a new algorithm, you can subclass [`AbstractHashMixin`][] and impl
 For example:
 
 ```python
-from redis import Redis
+from __future__ import annotations
 
+import hashlib
+from typing import TYPE_CHECKING, override, Any, Callable, Mapping, Sequence
+import cloudpickle
+from redis import Redis
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import AbstractHashMixin
 from redis_func_cache.mixins.policies import LruScriptsMixin
 
-
-redis_client = Redis.from_url("redis://")
-
-
-def my_func_hash(*args, **kwargs):
-    ...
+if TYPE_CHECKING:  # pragma: no cover
+    from redis.typing import KeyT
 
 
 class MyHashMixin(AbstractHashMixin):
-    def calc_hash(self, f=None, args=None, kwds=None):
-        return my_func_hash(f, args, kwds)
+    @override
+    def calc_hash(
+        self,
+        f: Callable | None = None,
+        args: Sequence | None = None,
+        kwds: Mapping[str, Any] | None = None
+    ) -> KeyT:
+        assert callable(f)
+        dig = hashlib('balck2b')
+        dig.update(f.__qualname__.encode())
+        dig.update(cloudpickle.dumps(args))
+        dig.update(cloudpickle.dumps(kwds))
+        return dig.hexdigest()
 
 
 class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
-    __key__ = "my-custom-hash-lru"
+    __key__ = "my-lru2"
 
 
 my_custom_hash_cache = RedisFuncCache(
@@ -659,6 +682,8 @@ my_custom_hash_cache = RedisFuncCache(
     client=redis_client
 )
 
+redis_client = Redis.from_url("redis://")
+
 
 @my_custom_hash_cache
 def some_func(*args, **kwargs):
@@ -666,7 +691,8 @@ def some_func(*args, **kwargs):
 ```
 
 > 💡 **Tip:**\
-> The purpose of the hash algorithm here is to ensure the isolation of caches. Therefore, you can generate unique key names using any method, not just hashes.
+> The purpose of the hash algorithm is to ensure the isolation of cached return values for different function invocations.
+> Therefore, you can generate unique key names using any method, not just hashes.
 
 ## Known Issues
 
