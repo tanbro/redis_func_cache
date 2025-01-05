@@ -26,10 +26,11 @@ class AbstractPolicy(ABC):
 
     and shall optional define the following attributes:
 
-    - ``__key__``: A component of the Redis key pair used by this policy.
-    - ``__scripts__``: A tuple containing two strings; the first string is the script for ``get``, and the second string is the script for ``put``.
+    Attributes:
+        __key__: A component of the Redis key pair used by this policy.
+        __scripts__: A tuple containing two strings; the first string is the script for ``get``, and the second string is the script for ``put``.
 
-    Whether to use it is determined by how :meth:`calc_keys` and :meth:`calc_hash` are implemented.
+    Whether to use :attr:`__key__` or :attr:`__scripts__` is determined by how :meth:`calc_keys` and :meth:`calc_hash` are implemented.
     """
 
     __key__: str
@@ -97,7 +98,6 @@ class AbstractPolicy(ABC):
 
         Returns:
             The calculated hash value.
-
         """
         pass
 
@@ -112,7 +112,7 @@ class AbstractPolicy(ABC):
 
         The extra arguments are expected to be encodable types and will be passed to the Lua script at the tail of its ``args`` parameter.
 
-        Subclass may optionally override this method to provide custom handling for specific functions or scenarios.
+        Subclass may *OPTIONALLY* override this method to provide custom handling for specific functions or scenarios.
 
         Args:
             f: The function for which to calculate the extended arguments. May be None.
