@@ -2,19 +2,15 @@ from __future__ import annotations
 
 import weakref
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Union
 
 from ..utils import read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.commands.core import AsyncScript, Script
-    from redis.typing import EncodableT, EncodedT, KeyT, ScriptTextT
+    from redis.typing import EncodableT, KeyT, ScriptTextT
 
     from ..cache import RedisFuncCache
-
-    UserFunctionT = TypeVar("UserFunctionT", bound=Callable)
-    SerializerT = Callable[[Any], EncodedT]
-    DeserializerT = Callable[[EncodedT], Any]
 
 
 __all__ = ("AbstractPolicy",)
