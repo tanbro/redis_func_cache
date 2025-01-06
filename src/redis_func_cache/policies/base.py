@@ -14,7 +14,7 @@ else:  # pragma: no cover
 
 
 from ..cache import RedisAsyncClientTypes, RedisFuncCache, RedisSyncClientTypes
-from ..utils import base64_hash_digest, get_fullname, get_source
+from ..utils import b64digest
 from .abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -113,13 +113,11 @@ class BaseMultiplePolicy(AbstractPolicy):
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
         if not callable(f):
-            raise TypeError(f"Can not calculate hash for {f=}")
-        fullname = get_fullname(f)
+            raise TypeError("Can not calculate hash for a not-callable object")
+        fullname = f"{f.__module__}:{f.__qualname__}"
         h = hashlib.md5(fullname.encode())
-        source = get_source(f)
-        if source is not None:
-            h.update(source.encode())
-        checksum = base64_hash_digest(h).decode()
+        h.update(f.__code__.co_code)
+        checksum = b64digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
 
@@ -162,11 +160,9 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     ) -> Tuple[KeyT, KeyT]:
         if not callable(f):
             raise TypeError("Can not calculate hash for a not-callable object")
-        fullname = get_fullname(f)
+        fullname = f"{f.__module__}:{f.__qualname__}"
         h = hashlib.md5(fullname.encode())
-        source = get_source(f)
-        if source is not None:
-            h.update(source.encode())
-        checksum = base64_hash_digest(h).decode()
+        h.update(f.__code__.co_code)
+        checksum = b64digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"

@@ -7,8 +7,6 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
 
-from ..utils import base64_hash_digest, get_fullname, get_source
-
 if TYPE_CHECKING:  # pragma: no cover
     from hashlib import _Hash
 
@@ -78,10 +76,8 @@ class AbstractHashMixin(ABC):
             raise TypeError(f"Can not calculate hash for {f=}")
         conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
-        h.update(get_fullname(f).encode())
-        source = get_source(f)
-        if source is not None:
-            h.update(source.encode())
+        h.update(f"{f.__module__}:{f.__qualname__}".encode())
+        h.update(f.__code__.co_code)
         if args is not None:
             h.update(conf.serializer(args))
         if kwds is not None:
@@ -89,14 +85,6 @@ class AbstractHashMixin(ABC):
         if conf.decoder is None:
             return h.digest()
         return conf.decoder(h)
-
-
-def hexdigest(x: _Hash):
-    return x.hexdigest()
-
-
-def json_dump_to_bytes(x):
-    return json.dumps(x).encode()
 
 
 class JsonMd5HashMixin(AbstractHashMixin):
@@ -108,7 +96,7 @@ class JsonMd5HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: JsonMd5HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
 
 
 class JsonMd5HexHashMixin(AbstractHashMixin):
@@ -120,7 +108,9 @@ class JsonMd5HexHashMixin(AbstractHashMixin):
     .. inheritance-diagram:: JsonMd5HexHashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes, decoder=hexdigest)
+    __hash_config__ = HashConfig(
+        algorithm="md5", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
+    )
 
 
 class JsonMd5Base64HashMixin(AbstractHashMixin):
@@ -132,7 +122,9 @@ class JsonMd5Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: JsonMd5Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=json_dump_to_bytes, decoder=base64_hash_digest)
+    __hash_config__ = HashConfig(
+        algorithm="md5", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
+    )
 
 
 class JsonSha1HashMixin(AbstractHashMixin):
@@ -144,7 +136,7 @@ class JsonSha1HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: JsonSha1HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes)
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=lambda x: json.dumps(x).encode())
 
 
 class JsonSha1HexHashMixin(AbstractHashMixin):
@@ -156,7 +148,9 @@ class JsonSha1HexHashMixin(AbstractHashMixin):
     .. inheritance-diagram:: JsonSha1HexHashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes, decoder=hexdigest)
+    __hash_config__ = HashConfig(
+        algorithm="sha1", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
+    )
 
 
 class JsonSha1Base64HashMixin(AbstractHashMixin):
@@ -168,7 +162,9 @@ class JsonSha1Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: JsonSha1Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=json_dump_to_bytes, decoder=base64_hash_digest)
+    __hash_config__ = HashConfig(
+        algorithm="sha1", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
+    )
 
 
 class PickleMd5HashMixin(AbstractHashMixin):
@@ -194,7 +190,7 @@ class PickleMd5HexHashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleMd5HexHashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=hexdigest)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
 
 
 class PickleMd5Base64HashMixin(AbstractHashMixin):
@@ -206,7 +202,7 @@ class PickleMd5Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleMd5Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=base64_hash_digest)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
 
 
 class PickleSha1HashMixin(AbstractHashMixin):
@@ -230,7 +226,7 @@ class PickleSha1HexHashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleSha1HexHashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=hexdigest)
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
 
 
 class PickleSha1Base64HashMixin(AbstractHashMixin):
@@ -242,4 +238,4 @@ class PickleSha1Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleSha1Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=base64_hash_digest)
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
