@@ -4,12 +4,13 @@ import json
 import pickle
 import weakref
 from functools import wraps
-from inspect import iscoroutine, iscoroutinefunction
+from inspect import iscoroutinefunction
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Coroutine,
     Generic,
     Iterable,
     Literal,
@@ -419,7 +420,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     async def aexec(
         self,
-        user_function: Callable,
+        user_function: Callable[..., Coroutine],
         user_args: Sequence,
         user_kwds: Mapping[str, Any],
         serializer: Optional[SerializerT] = None,
@@ -439,11 +440,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
             return self.deserialize(cached, deserializer)
-        ret_val = user_function(*user_args, **user_kwds)
-        if iscoroutine(ret_val):
-            user_return_value = await ret_val
-        else:
-            user_return_value = ret_val
+        user_return_value = await user_function(*user_args, **user_kwds)
         user_retval_serialized = self.serialize(user_return_value, serializer)
         await self.aput(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
@@ -525,11 +522,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             if self.is_async_client:
                 if not iscoroutinefunction(f):
-                    raise TypeError("The user function is not a coroutine function.")
+                    raise TypeError("The user function must be a coroutine function when using an async redis client.")
                 return cast(FunctionTV, awrapper)
             else:
                 if iscoroutinefunction(f):
-                    raise TypeError("The user function can not be a coroutine function.")
+                    raise TypeError("The user function cannot be a coroutine function when using a sync redis client.")
                 return cast(FunctionTV, wrapper)
 
         if user_function is None:
