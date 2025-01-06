@@ -4,7 +4,7 @@ import json
 import pickle
 import weakref
 from functools import wraps
-from inspect import isasyncgenfunction, iscoroutine, iscoroutinefunction
+from inspect import iscoroutine
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -52,6 +52,15 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ("RedisFuncCache",)
 
 FunctionTV = TypeVar("FunctionTV", bound=Callable)
+
+RedisSyncClientTypes = redis.client.Redis, redis.cluster.RedisCluster
+RedisAsyncClientTypes = redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster
+RedisClientTypes = (
+    redis.client.Redis,
+    redis.asyncio.client.Redis,
+    redis.cluster.RedisCluster,
+    redis.asyncio.cluster.RedisCluster,
+)
 
 RedisClientTV = TypeVar(
     "RedisClientTV",
@@ -416,7 +425,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self.put(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
 
-    async def exec_asynchronous(
+    async def aexec(
         self,
         user_function: Callable,
         user_args: Sequence,
@@ -519,11 +528,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 return self.exec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
             @wraps(f)
-            async def asynchronous_wrapper(*f_args, **f_kwargs):
-                return await self.exec_asynchronous(f, f_args, f_kwargs, serializer, deserializer, **keywords)
+            async def awrapper(*f_args, **f_kwargs):
+                return await self.aexec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
-            if iscoroutinefunction(f) or isasyncgenfunction(f):
-                return cast(FunctionTV, asynchronous_wrapper)
+            if self.is_async_client:
+                return cast(FunctionTV, awrapper)
             return cast(FunctionTV, wrapper)
 
         if user_function is None:

@@ -70,6 +70,16 @@ ASYNC_CACHES = {
     "lfu": RedisFuncCache(__name__, LfuPolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
+
+ASYNC_MULTI_CACHES = {
+    "tlru": RedisFuncCache(__name__, LruTMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+}
+
 CLUSTER_NODES: List[ClusterNode] = []
 CLUSTER_CACHES: Dict[str, RedisFuncCache] = {}
 if REDIS_CLUSTER_NODES:

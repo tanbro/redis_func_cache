@@ -12,10 +12,6 @@ if sys.version_info < (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing import override
 
-import redis.asyncio.client
-import redis.asyncio.cluster
-import redis.client
-import redis.cluster
 
 from ..cache import RedisFuncCache
 from ..utils import base64_hash_digest, get_fullname, get_source
@@ -24,12 +20,9 @@ from .abstract import AbstractPolicy
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
 
+from ..cache import RedisAsyncClientTypes, RedisSyncClientTypes
 
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
-
-
-_SYNCHRONOUS_CLIENT_TYPES = (redis.client.Redis, redis.cluster.RedisCluster)
-_ASYNCHRONOUS_CLIENT_TYPES = (redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster)
 
 
 class BaseSinglePolicy(AbstractPolicy):
@@ -61,36 +54,36 @@ class BaseSinglePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         client = self.cache.client
-        if not isinstance(client, _SYNCHRONOUS_CLIENT_TYPES):
+        if not isinstance(client, RedisSyncClientTypes):
             raise TypeError(
-                f"Expect type of the cache object's client is {_SYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is {RedisSyncClientTypes}, but actual type is {type(client)}"
             )
         return client.delete(*self.calc_keys())
 
     @override
-    async def purge_asynchronous(self) -> int:
+    async def apurge(self) -> int:
         client = self.cache.client
-        if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
+        if not isinstance(client, RedisAsyncClientTypes):
             raise TypeError(
-                f"Expect type of the cache object's client is {_ASYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is {RedisAsyncClientTypes}, but actual type is {type(client)}"
             )
         return await client.delete(*self.calc_keys())  # type: ignore[union-attr]
 
     @override
     def get_size(self) -> int:
         client = self.cache.client
-        if not isinstance(client, _SYNCHRONOUS_CLIENT_TYPES):
+        if not isinstance(client, RedisSyncClientTypes):
             raise TypeError(
-                f"Expect type of the cache object's client is {_ASYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is {RedisSyncClientTypes}, but actual type is {type(client)}"
             )
         return client.hlen(self.calc_keys()[1])
 
     @override
-    async def get_size_asynchronous(self) -> int:
+    async def aget_size(self) -> int:
         client = self.cache.client
-        if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
+        if not isinstance(client, RedisAsyncClientTypes):
             raise TypeError(
-                f"Expect type of the cache object's client is {_ASYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is {RedisAsyncClientTypes}, but actual type is {type(client)}"
             )
         return await client.hlen(self.calc_keys()[1])  # type: ignore[union-attr]
 
@@ -144,9 +137,9 @@ class BaseMultiplePolicy(AbstractPolicy):
     def purge(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         client = self.cache.client
-        if not isinstance(client, _SYNCHRONOUS_CLIENT_TYPES):
+        if not isinstance(client, RedisSyncClientTypes):
             raise TypeError(
-                f"Expect type of the cache object's client is one of {_SYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is one of {RedisSyncClientTypes}, but actual type is {type(client)}"
             )
         keys = client.keys(pat)
         if keys:
@@ -154,12 +147,12 @@ class BaseMultiplePolicy(AbstractPolicy):
         return 0
 
     @override
-    async def purge_asynchronous(self) -> int:
+    async def apurge(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         client = self.cache.client
-        if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
+        if not isinstance(client, RedisAsyncClientTypes):
             raise TypeError(
-                f"Expect type of the cache object's client is one of {_ASYNCHRONOUS_CLIENT_TYPES}, but actual type is {type(client)}"
+                f"Expect type of the cache object's client is one of {RedisAsyncClientTypes}, but actual type is {type(client)}"
             )
         keys = await client.keys(pat)  # type: ignore[union-attr]
         if keys:
