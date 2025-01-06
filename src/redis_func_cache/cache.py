@@ -416,7 +416,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self.put(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
 
-    async def aexec(
+    async def exec_asynchronous(
         self,
         user_function: Callable,
         user_args: Sequence,
@@ -425,7 +425,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         deserializer: Optional[DeserializerT] = None,
         **options,
     ):
-        """Async version of :meth:`.exec`"""
+        """Asynchronous version of :meth:`.exec`"""
         script_0, script_1 = self.policy.lua_scripts
         if not (
             isinstance(script_0, redis.commands.core.AsyncScript)
@@ -519,11 +519,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 return self.exec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
             @wraps(f)
-            async def awrapper(*f_args, **f_kwargs):
-                return await self.aexec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
+            async def asynchronous_wrapper(*f_args, **f_kwargs):
+                return await self.exec_asynchronous(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
             if iscoroutinefunction(f) or isasyncgenfunction(f):
-                return cast(FunctionTV, awrapper)
+                return cast(FunctionTV, asynchronous_wrapper)
             return cast(FunctionTV, wrapper)
 
         if user_function is None:

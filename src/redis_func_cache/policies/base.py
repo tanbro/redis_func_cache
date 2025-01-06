@@ -68,7 +68,7 @@ class BaseSinglePolicy(AbstractPolicy):
         return client.delete(*self.calc_keys())
 
     @override
-    async def purge_aio(self) -> int:
+    async def purge_asynchronous(self) -> int:
         client = self.cache.client
         if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
@@ -77,7 +77,7 @@ class BaseSinglePolicy(AbstractPolicy):
         return await client.delete(*self.calc_keys())  # type: ignore[union-attr]
 
     @override
-    def size(self) -> int:
+    def get_size(self) -> int:
         client = self.cache.client
         if not isinstance(client, _SYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
@@ -86,7 +86,7 @@ class BaseSinglePolicy(AbstractPolicy):
         return client.hlen(self.calc_keys()[1])
 
     @override
-    async def size_aio(self) -> int:
+    async def get_size_asynchronous(self) -> int:
         client = self.cache.client
         if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):
             raise TypeError(
@@ -154,7 +154,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         return 0
 
     @override
-    async def purge_aio(self) -> int:
+    async def purge_asynchronous(self) -> int:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         client = self.cache.client
         if not isinstance(client, _ASYNCHRONOUS_CLIENT_TYPES):

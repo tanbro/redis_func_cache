@@ -8,10 +8,12 @@
   - Added a "per-function" custom serializer feature to the `RedisFuncCache` class.
 
 - 💔 **Broken changes:**
-  - The `lru-t` policy class have been moved to `policies/lru` module
-  - The `fifo-t` policy class have been moved to `policies/fifo` module
-  - Rename `apurge` to `purge_aio` in AbstractPolicy and BaseSinglePolicy
-  - Rename `asize` to `size_aio` in AbstractPolicy and BaseSinglePolicy
+  - The `lru-t` policy class have been moved to `policies/lru` module.
+  - The `fifo-t` policy class have been moved to `policies/fifo` module.
+  - Rename `aexec` to `exec_asynchronous` in `RedisFuncCache` class.
+  - Rename `size` to `get_size` in `AbstractPolicy` and its subclasses.
+  - Rename `apurge` to `purge_asynchronous` in `AbstractPolicy` and its subclasses.
+  - Rename `asize` to `get_size_asynchronous` in `AbstractPolicy` and its subclasses.
 
 - 🛠️ **Improvements:**
   - Updated the default values of several arguments in the `RedisFuncCache` constructor.
