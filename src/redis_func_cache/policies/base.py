@@ -125,10 +125,10 @@ class BaseMultiplePolicy(AbstractPolicy):
 
     @override
     def purge(self) -> int:
-        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         client = self.cache.client
         if not isinstance(client, RedisSyncClientTypes):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         keys = client.keys(pat)
         if keys:
             return client.delete(*keys)
@@ -136,10 +136,10 @@ class BaseMultiplePolicy(AbstractPolicy):
 
     @override
     async def apurge(self) -> int:
-        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         client = self.cache.client
         if not isinstance(client, RedisAsyncClientTypes):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         keys = await client.keys(pat)  # type: ignore[union-attr]
         if keys:
             return await client.delete(*keys)  # type: ignore[union-attr]
