@@ -14,7 +14,7 @@ else:  # pragma: no cover
 
 
 from ..cache import RedisAsyncClientTypes, RedisFuncCache, RedisSyncClientTypes
-from ..utils import b64digest
+from ..utils import b64digest, get_function_code
 from .abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -116,7 +116,7 @@ class BaseMultiplePolicy(AbstractPolicy):
             raise TypeError("Can not calculate hash for a not-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"
         h = hashlib.md5(fullname.encode())
-        h.update(f.__code__.co_code)
+        h.update(get_function_code(f))
         checksum = b64digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
@@ -162,7 +162,7 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
             raise TypeError("Can not calculate hash for a not-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"
         h = hashlib.md5(fullname.encode())
-        h.update(f.__code__.co_code)
+        h.update(get_function_code(f))
         checksum = b64digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"
