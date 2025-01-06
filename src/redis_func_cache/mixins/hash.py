@@ -73,7 +73,7 @@ class AbstractHashMixin(ABC):
         They use different hash algorithms and serializers defined in the class attribute :attr:`.__hash_config__` to generate different ``hash`` value.
         """
         if not callable(f):
-            raise TypeError(f"Can not calculate hash for {f=}")
+            raise TypeError("Can not calculate hash for a not-callable object")
         conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
         h.update(f"{f.__module__}:{f.__qualname__}".encode())
