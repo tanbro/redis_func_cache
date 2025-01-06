@@ -52,16 +52,8 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ("RedisFuncCache",)
 
 FunctionTV = TypeVar("FunctionTV", bound=Callable)
-
 RedisSyncClientTypes = redis.client.Redis, redis.cluster.RedisCluster
 RedisAsyncClientTypes = redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster
-RedisClientTypes = (
-    redis.client.Redis,
-    redis.asyncio.client.Redis,
-    redis.cluster.RedisCluster,
-    redis.asyncio.cluster.RedisCluster,
-)
-
 RedisClientTV = TypeVar(
     "RedisClientTV",
     bound=Union[

@@ -13,14 +13,12 @@ else:  # pragma: no cover
     from typing import override
 
 
-from ..cache import RedisFuncCache
+from ..cache import RedisAsyncClientTypes, RedisFuncCache, RedisSyncClientTypes
 from ..utils import base64_hash_digest, get_fullname, get_source
 from .abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
-
-from ..cache import RedisAsyncClientTypes, RedisSyncClientTypes
 
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
 
