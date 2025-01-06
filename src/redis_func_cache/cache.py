@@ -4,7 +4,7 @@ import json
 import pickle
 import weakref
 from functools import wraps
-from inspect import iscoroutine
+from inspect import iscoroutine, iscoroutinefunction
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -532,8 +532,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 return await self.aexec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
 
             if self.is_async_client:
+                if not iscoroutinefunction(f):
+                    raise TypeError("The user function is not a coroutine function.")
                 return cast(FunctionTV, awrapper)
-            return cast(FunctionTV, wrapper)
+            else:
+                if iscoroutinefunction(f):
+                    raise TypeError("The user function can not be a coroutine function.")
+                return cast(FunctionTV, wrapper)
 
         if user_function is None:
             return cast(FunctionTV, decorator)
