@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3 (In Development)
+## v0.3 (🚧 In Development)
 
 - ✨ **New Features:**
   - Added setter methods for the `name`, `prefix`, `maxsize`, `ttl`, and `serializer` properties in the `RedisFuncCache` class.
@@ -12,7 +12,7 @@
   - The `fifo-t` policy class have been moved to `policies/fifo` module.
   - Rename `size` to `get_size`, `asize` to `aget_size` in `AbstractPolicy` and its subclasses.
 
-- 🛠️ **Improvements:**
+- 💹 **Improvements:**
   - Updated the default values of several arguments in the `RedisFuncCache` constructor.
   - Improved type casting in the `cache` module.
 
@@ -21,7 +21,7 @@
   - Adjusted the `manifest.in` file.
 
 - 🧪 **Tests:**
-  - Added new tests for multiple and cluster key caching.
+  - More test cases.
   - Fixed asynchronous bugs in existing tests.
   - Optimized Docker Compose-based tests.
 
