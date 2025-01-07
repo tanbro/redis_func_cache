@@ -171,9 +171,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
     __tmp_dict = {}
     __tmp_dict["json"] = (lambda x: json.dumps(x, ensure_ascii=False).encode(), lambda x: json.loads(x))
     __tmp_dict["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
-    if msgpack:
+    if msgpack:  # pragma: no cover
         __tmp_dict["msgpack"] = (lambda x: msgpack.packb(x), lambda x: msgpack.unpackb(x))  # pyright: ignore[reportOptionalMemberAccess]
-    if cloudpickle:
+    if cloudpickle:  # pragma: no cover
         __tmp_dict["cloudpickle"] = (lambda x: cloudpickle.dumps(x), lambda x: pickle.loads(x))  # pyright: ignore[reportOptionalMemberAccess]
     __serializers__: Mapping[str, SerializerPairT] = __tmp_dict
     del __tmp_dict
@@ -406,9 +406,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
-            raise RuntimeError(
-                f"A tuple of two {redis.commands.core.Script} objects is required for execution, but actually got ({script_0!r}, {script_1!r})."
-            )
+            raise RuntimeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
         keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
         cached_return_value = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached_return_value is not None:
@@ -433,9 +431,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             isinstance(script_0, redis.commands.core.AsyncScript)
             and isinstance(script_1, redis.commands.core.AsyncScript)
         ):
-            raise RuntimeError(
-                f"A tuple of two {redis.commands.core.AsyncScript} objects is required for async execution, but actually got ({script_0!r}, {script_1!r})."
-            )
+            raise RuntimeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
         keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
         cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
@@ -513,20 +509,26 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         def decorator(f: FunctionTV):
             @wraps(f)
-            def wrapper(*f_args, **f_kwargs):
-                return self.exec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
+            def wrapper(*args, **kwargs):
+                return self.exec(f, args, kwargs, serializer, deserializer, **keywords)
 
             @wraps(f)
-            async def awrapper(*f_args, **f_kwargs):
-                return await self.aexec(f, f_args, f_kwargs, serializer, deserializer, **keywords)
+            async def awrapper(*args, **kwargs):
+                return await self.aexec(f, args, kwargs, serializer, deserializer, **keywords)
 
+            if not callable(f):
+                raise TypeError("Can not decorate a non-callable object.")
             if self.is_async_client:
                 if not iscoroutinefunction(f):
-                    raise TypeError("The user function must be a coroutine function when using an async redis client.")
+                    raise TypeError(
+                        "The decorated function or method must be a coroutine when using an asynchronous redis client."
+                    )
                 return cast(FunctionTV, awrapper)
             else:
                 if iscoroutinefunction(f):
-                    raise TypeError("The user function cannot be a coroutine function when using a sync redis client.")
+                    raise TypeError(
+                        "The decorated function or method cannot be a coroutine when using a asynchronous redis client."
+                    )
                 return cast(FunctionTV, wrapper)
 
         if user_function is None:

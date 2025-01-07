@@ -73,9 +73,20 @@ class AbstractHashMixin(ABC):
         All other mixin classes in the module inherit this mixin class, and their ``hash`` value are all return by the method.
 
         They use different hash algorithms and serializers defined in the class attribute :attr:`.__hash_config__` to generate different ``hash`` value.
+
+        Args:
+            f: The function to calculate hash for.
+            args: The sequence arguments of the function.
+            kwds: The keyword arguments of the function.
+
+        Returns:
+            The hash value of the function.
+
+        Raises:
+            TypeError: If the function is not callable.
         """
         if not callable(f):
-            raise TypeError("Can not calculate hash for a not-callable object")
+            raise TypeError("Can not calculate hash for a non-callable object")
         conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
         h.update(f"{f.__module__}:{f.__qualname__}".encode())

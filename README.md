@@ -559,7 +559,6 @@ The algorithm used to calculate the hash value is defined in `AbstractHashMixin`
 
 ```python
 import hashlib
-from inspect import getsource
 
 class AbstractHashMixin:
     __hash_config__ = ...
@@ -571,10 +570,8 @@ class AbstractHashMixin:
             raise TypeError(f"Can not calculate hash for {f=}")
         conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
-        h.update(f.__qualname__.encode())
-        source = getsource(f)
-        if source is not None:
-            h.update(source.encode())
+        h.update(f"{f.__module__}:{f.__qualname__}".encode())
+        h.update(f.__code__.co_code)
         if args is not None:
             h.update(conf.serializer(args))
         if kwds is not None:
@@ -584,7 +581,7 @@ class AbstractHashMixin:
         return conf.decoder(h)
 ```
 
-As the code snippet above, the hash value is calculated by the full name of the function, the source code of the function, the arguments and keyword arguments --- they are serialized and hashed, then decoded.
+As the code snippet above, the hash value is calculated by the full name of the function, the bytes code of the function, the arguments and keyword arguments —— they are serialized and hashed, then decoded.
 
 The serializer and decoder are defined in the `__hash_config__` attribute of the policy class and are used to serialize arguments and decode the resulting hash. By default, the serializer is [`pickle`][] and the decoder uses the md5 algorithm. If no decoder is specified, the hash value is returned as bytes.
 
@@ -592,24 +589,21 @@ This configuration can be illustrated as follows:
 
 ```mermaid
 flowchart TD
-    A[Start] --> B{Is the decorated function callable?}
-    B -->|No| C[Raise TypeError]
-    B -->|Yes| D[Get hash config]
-    D --> E[Initialize hash object]
-    E --> F[Update hash with function fullname]
-    F --> G[Try to get function source]
-    G -->|Success| H[Update hash with source code]
-    G -->|Failure| I[Skip source update]
-    I --> J{Are sequence arguments provided?}
-    H --> J
-    J -->|Yes| K[Update hash with serialized sequence arguments]
-    J -->|No| L{Are keywords arguments provided?}
+    A[Start] --> B{Is f callable?}
+    B -->|No| C[Throw TypeError]
+    B -->|Yes| D[Get config conf]
+    D --> E[Create hash object h]
+    E --> F[Update hash: module name and qualified name]
+    F --> G[Update hash: function bytecode]
+    G --> H{Are args not None?}
+    H -->|Yes| I[Update hash: serialize args]
+    H -->|No| J{Are kwds not None?}
+    I --> J
+    J -->|Yes| K[Update hash: serialize kwds]
+    J -->|No| L{Is conf.decoder None?}
     K --> L
-    L -->|Yes| M[Update hash with serialized keywords arguments]
-    L -->|No| N{Is decoder specified?}
-    M --> N
-    N -->|Yes| O[Decode hash and return]
-    N -->|No| P[Return raw hash digest]
+    L -->|Yes| M[Return digest bytes]
+    L -->|No| N[Return decoded digest]
 ```
 
 If we want to use a different algorithm, we can select a mixin hash class defined in `src/redis_func_cache/mixins/hash.py`. For example:
@@ -617,7 +611,7 @@ If we want to use a different algorithm, we can select a mixin hash class define
 - To serialize the function with [JSON][], use the SHA1 hash algorithm, store hex string in redis, you can choose the `JsonSha1HexHashMixin` class.
 - To serialize the function with [`pickle`][], use the MD5 hash algorithm, store base64 string in redis, you can choose the `PickleMd5Base64HashMixin` class.
 
-These mixin classes provide alternative hash algorithms and serializers, allowing for flexible customization of the hashing behavior.
+These mixin classes provide alternative hash algorithms and serializers, allowing for flexible customization of the hashing behavior. The following example shows how to use the `JsonSha1HexHashMixin` class:
 
 ```python
 from redis import Redis
@@ -637,8 +631,7 @@ my_json_sha1_hex_cache = RedisFuncCache(
 )
 ```
 
-Or even write a new algorithm, you can subclass [`AbstractHashMixin`][] and implement `calc_hash` method.
-For example:
+Or even write an entire new algorithm. For that, we subclass `AbstractHashMixin` and override the `calc_hash` method. For example:
 
 ```python
 from __future__ import annotations

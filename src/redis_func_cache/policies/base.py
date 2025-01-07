@@ -113,7 +113,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
         if not callable(f):
-            raise TypeError("Can not calculate hash for a not-callable object")
+            raise TypeError("Can not calculate hash for a non-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"
         h = hashlib.md5(fullname.encode())
         h.update(get_function_code(f))
@@ -159,7 +159,7 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[KeyT, KeyT]:
         if not callable(f):
-            raise TypeError("Can not calculate hash for a not-callable object")
+            raise TypeError("Can not calculate hash for a non-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"
         h = hashlib.md5(fullname.encode())
         h.update(get_function_code(f))

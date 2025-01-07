@@ -3,7 +3,7 @@ from random import randint
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from ._catches import ASYNC_CACHES, ASYNC_MULTI_CACHES
+from ._catches import ASYNC_CACHES, ASYNC_MULTI_CACHES, CACHES
 
 
 def _echo(x):
@@ -81,3 +81,20 @@ class AsyncMultiTest(IsolatedAsyncioTestCase):
                         await echo2(i)
                         mock_get.assert_called_once()
                         mock_put.assert_not_called()
+
+    def test_type_error_async_for_sync(self):
+        for cache in ASYNC_CACHES.values():
+            with self.assertRaises(TypeError):
+
+                @cache
+                def _(x):
+                    return x
+
+    async def test_type_error_sync_for_async(self):
+        for cache in CACHES.values():
+            with self.assertRaises(TypeError):
+
+                @cache
+                async def _(x):
+                    await asyncio.sleep(0)
+                    return x
