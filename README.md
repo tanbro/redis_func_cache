@@ -109,7 +109,7 @@ This can be visualized as follows:
 
 The main idea of eviction policy is that the cache keys are stored in a set, and the cache values are stored in a hash map. Eviction is performed by removing the lowest-scoring item from the set, and then deleting the corresponding field and value from the hash map.
 
-Here is an example showing how the _LRU_ cache's eviction policy works(maximum size is 3):
+Here is an example showing how the *LRU* cache's eviction policy works(maximum size is 3):
 
 ![eviction_example](images/eviction_example.svg)
 
@@ -141,7 +141,7 @@ flowchart TD
 
 ### First example
 
-Using _LRU_ cache to decorate a recursive Fibonacci function:
+Using *LRU*a cache to decorate a recursive Fibonacci function:
 
 ```python
 from redis import Redis
@@ -204,7 +204,7 @@ async def my_async_func(*args, **kwargs):
 ### Eviction policies
 
 If you want to use other eviction policies, you can specify another policy class as the second argument of [`RedisFuncCache`][].
-For example, we use [`FifoPolicy`][] to implement a _FIFO_ cache:
+For example, we use [`FifoPolicy`][] to implement a *FIFO* cache:
 
 ```python
 from redis import Redis
@@ -237,9 +237,9 @@ So far, the following cache eviction policies are available:
 - **[`LruTPolicy`][]**
 
     > 💡 **Tip:**\
-    > _LRU-T_ stands for _LRU on timestamp_. It is a pseudo-LRU policy that approximates the behavior of LRU but is not as precise. The policy removes items based on their invocation timestamps, which may not always accurately reflect the least recently used item due to potential timestamp inaccuracies.
+    > *LRU-T* stands for *LRU on timestamp*. It is a pseudo-LRU policy that approximates the behavior of LRU but is not as precise. The policy removes items based on their invocation timestamps, which may not always accurately reflect the least recently used item due to potential timestamp inaccuracies.
     >
-    > Despite this limitation, _LRU-T_ is **highly recommended** for common use cases. It offers better performance compared to the traditional LRU policy and provides sufficient accuracy for most applications.
+    > Despite this limitation, *LRU-T* is **highly recommended** for common use cases. It offers better performance compared to the traditional LRU policy and provides sufficient accuracy for most applications.
 
 - [`FifoPolicy`][]: first in first out
 - [`LfuPolicy`][]: least frequently used
@@ -258,7 +258,7 @@ However, there may be instances where we want a unique key pair for each decorat
 One solution is to use different [`RedisFuncCache`][] instances to decorate different functions.
 
 Another way is to use a policy that stores cache data in different [Redis][] key pairs for each function. There are several policies to do that out of the box.
-For example, we can use [`LruTMultiplePolicy`][] for an _LRU_ cache that has multiple different [Redis][] key pairs to store return values of different functions, and each function has a standalone keys pair:
+For example, we can use [`LruTMultiplePolicy`][] for an *LRU* cache that has multiple different [Redis][] key pairs to store return values of different functions, and each function has a standalone keys pair:
 
 ```python
 from redis import  Redis
@@ -307,7 +307,7 @@ We have already known that the library implements cache algorithms based on a pa
 
 While a [Redis][] cluster will distribute keys to different nodes based on the hash value, we need to guarantee that two keys are placed on the same node. Several cluster policies are provided to achieve this. These policies use the `{...}` pattern in key names.
 
-For example, here we use a [`LruTClusterPolicy`][] to implement a cluster-aware _LRU_ cache:
+For example, here we use a [`LruTClusterPolicy`][] to implement a cluster-aware *LRU* cache:
 
 ```python
 from redis import Redis
@@ -500,7 +500,7 @@ Variables in the format string are defined as follows:
 
 If you want to use a different format, you can subclass [`AbstractPolicy`][] or any of above policy classes, and implement `calc_keys` method, then pass the custom policy class to [`RedisFuncCache`][].
 
-The following example demonstrates how to custom key format for an _LRU_ policy:
+The following example demonstrates how to custom key format for an *LRU* policy:
 
 ```python
 from __future__ import annotations
