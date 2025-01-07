@@ -141,7 +141,7 @@ flowchart TD
 
 ### First example
 
-Using *LRU*a cache to decorate a recursive Fibonacci function:
+Using *LRU* cache to decorate a recursive Fibonacci function:
 
 ```python
 from redis import Redis
