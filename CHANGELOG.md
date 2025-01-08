@@ -1,18 +1,21 @@
 # Changelog
 
-## v0.3 (🚧 In Development)
+## v0.3
+
+> 📅 2025-01-08
 
 - ✨ **New Features:**
   - Added setter methods for the `name`, `prefix`, `maxsize`, `ttl`, and `serializer` properties in the `RedisFuncCache` class.
   - Introduced support for `msgpack` and `cloudpickle`.
-  - Added a "per-function" custom serializer feature to the `RedisFuncCache` class.
+  - Added "per-function" custom serializer/deserializer parameter to `RedisFuncCache`'s decorate method.
 
-- 💔 **Broken changes:**
-  - The `lru-t` policy class have been moved to `policies/lru` module.
-  - The `fifo-t` policy class have been moved to `policies/fifo` module.
-  - Rename `size` to `get_size`, `asize` to `aget_size` in `AbstractPolicy` and its subclasses.
+- 💔 **Breaking Changes:**
+  - Moved the `lru-t` policy class to the `policies/lru` module.
+  - Moved the `fifo-t` policy class to the `policies/fifo` module.
+  - Renamed `size` to `get_size` and `asize` to `aget_size` in `AbstractPolicy` and its subclasses.
 
 - 💹 **Improvements:**
+  - The default hash function now calculates the hash value based on the callable's byte code instead of source code.
   - Updated the default values of several arguments in the `RedisFuncCache` constructor.
   - Improved type casting in the `cache` module.
 
@@ -21,14 +24,14 @@
   - Adjusted the `manifest.in` file.
 
 - 🧪 **Tests:**
-  - More test cases.
+  - Added more test cases.
   - Fixed asynchronous bugs in existing tests.
   - Optimized Docker Compose-based tests.
 
 - ⚙️ **CI:**
   - Added Redis cluster tests in GitHub Actions.
   - Fixed issues with `codecov` coverage upload.
-  - PyPY testings removed from `tests/run.sh`
+  - Removed PyPy testing from `tests/run.sh`.
 
 ## v0.2.2
 
