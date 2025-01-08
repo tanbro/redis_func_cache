@@ -34,9 +34,7 @@
             "options": {
                 "cwd": "${workspaceFolder}/docs"
             },
-            "problemMatcher": [
-                "$python"
-            ]
+            "problemMatcher": []
         },
         {
             "label": "docs: serve",
@@ -45,25 +43,25 @@
             "options": {
                 "cwd": "${workspaceFolder}/docs"
             },
-            "problemMatcher": [
-                "$python"
-            ]
+            "problemMatcher": []
         },
         {
             "label": "lint",
             "type": "shell",
             "command": "${command:python.interpreterPath} -m ruff check --fix && ${command:python.interpreterPath} -m ruff format",
-            "problemMatcher": [
-                "$python"
-            ]
+            "problemMatcher": []
         },
         {
             "label": "static type check",
             "type": "shell",
             "command": "${command:python.interpreterPath} -m mypy",
-            "problemMatcher": [
-                "$python"
-            ]
+            "problemMatcher": []
+        },
+        {
+            "label": "pre-commit",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m pre_commit run --all-files",
+            "problemMatcher": []
         }
     ]
 }
