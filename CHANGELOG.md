@@ -1,6 +1,8 @@
 # Changelog
 
-## v0.3 (🚧 In Development)
+## v0.3
+
+> 📅 2025-01-08
 
 - ✨ **New Features:**
   - Added setter methods for the `name`, `prefix`, `maxsize`, `ttl`, and `serializer` properties in the `RedisFuncCache` class.
