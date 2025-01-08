@@ -76,7 +76,7 @@ class AbstractHashMixin(ABC):
 
         Args:
             f: The function to calculate hash for.
-            args: The sequence arguments of the function.
+            args: The :term`sequence` arguments of the function.
             kwds: The keyword arguments of the function.
 
         Returns:

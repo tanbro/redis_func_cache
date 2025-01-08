@@ -52,7 +52,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ("RedisFuncCache",)
 
-FunctionTV = TypeVar("FunctionTV", bound=Callable)
+CallableTV = TypeVar("CallableTV", bound=Callable)
 RedisSyncClientTypes = redis.client.Redis, redis.cluster.RedisCluster
 RedisAsyncClientTypes = redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster
 RedisClientTV = TypeVar(
@@ -222,9 +222,14 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def serializer(self) -> SerializerPairT:
-        """The serializer and deserializer used in the cache.
+        """The serializer and deserializer pair used by the cache.
 
-        The cache use them to serialize/deserialize the return value of what decorated.
+        This property returns a :class:`tuple` of two :term:`callable` objects:
+
+        #. The first :term:`callable` is the serializer, which converts data into a storable format.
+        #. The second :term:`callable` is the deserializer, which reconstructs the original data from the stored format.
+
+        These are used to serialize and deserialize the return values of decorated functions.
         """
         return (self._serializer, self._deserializer)
 
@@ -248,7 +253,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         Note:
             This method returns an instance of the policy, not the type or class itself.
-            The `policy` argument passed to the constructor, however, is expected to be a type or class.
+            The `policy` :term:`argument` passed to the constructor, however, is expected to be a type or class.
         """
         if self._policy_instance is None:
             self._policy_instance = self._policy_type(weakref.proxy(self))
@@ -258,9 +263,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def client(self) -> RedisClientTV:
         """The redis client instance used in the cache.
 
-        Attention:
-            If what passed to the `client` argument of the constructor is a function,
-            it will be executed **every time** the property is accessed.
+        Caution:
+            If a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor,
+            it will be invoked **each time** this property is accessed, and its return value
+            will be used as the property value.
         """
         if self._redis_instance:
             return self._redis_instance
@@ -270,17 +276,33 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def is_async_client(self) -> bool:
-        """Whether the redis client is asynchronous."""
-        return isinstance(self.client, (redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster))
+        """Indicates whether the Redis client is asynchronous."""
+        return isinstance(self.client, RedisAsyncClientTypes)
 
     def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
-        """Serialize return value of what decorated."""
+        """Serialize the return value of the decorated function.
+
+        Args:
+            value: The value to be serialized.
+            f: A custom serializer function. Defaults to :data:`None`, which means the class's default serializer will be used.
+
+        Returns:
+            The serialized value.
+        """
         if f:
             return f(value)
         return self._serializer(value)
 
     def deserialize(self, data: EncodedT, f: Optional[DeserializerT] = None) -> Any:
-        """Deserialize return value of what decorated."""
+        """Deserialize the return value of the decorated function.
+
+        Args:
+            data: The serialized data to be deserialized.
+            f: A custom deserializer function. Defaults to :data:`None`, which means the class's default deserializer will be used.
+
+        Returns:
+            The deserialized value.
+        """
         if f:
             return f(data)
         return self._deserializer(data)
@@ -443,12 +465,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     def decorate(
         self,
-        user_function: Optional[FunctionTV] = None,
+        user_function: Optional[CallableTV] = None,
         /,
         serializer: Optional[SerializerT] = None,
         deserializer: Optional[DeserializerT] = None,
         **keywords,
-    ) -> FunctionTV:
+    ) -> CallableTV:
         """Decorate the given function with caching.
 
         Args:
@@ -507,7 +529,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             The `serializer` and `deserializer` only affect the currently decorated function.
         """
 
-        def decorator(f: FunctionTV):
+        def decorator(f: CallableTV):
             @wraps(f)
             def wrapper(*args, **kwargs):
                 return self.exec(f, args, kwargs, serializer, deserializer, **keywords)
@@ -523,16 +545,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     raise TypeError(
                         "The decorated function or method must be a coroutine when using an asynchronous redis client."
                     )
-                return cast(FunctionTV, awrapper)
+                return cast(CallableTV, awrapper)
             else:
                 if iscoroutinefunction(f):
                     raise TypeError(
                         "The decorated function or method cannot be a coroutine when using a asynchronous redis client."
                     )
-                return cast(FunctionTV, wrapper)
+                return cast(CallableTV, wrapper)
 
         if user_function is None:
-            return cast(FunctionTV, decorator)
-        return cast(FunctionTV, decorator(user_function))
+            return cast(CallableTV, decorator)
+        return cast(CallableTV, decorator(user_function))
 
     __call__ = decorate

@@ -85,7 +85,7 @@ class AbstractPolicy(ABC):
         """Calculate the hash for a given function and its arguments.
 
         This method is intended to generate a unique hash based on the input function and its parameters.
-        If any of the inputs are None, it indicates that the parameter was not provided.
+        If any of the inputs are None, it indicates that the :term:`parameter` was not provided.
 
         Important:
             - This method is not implemented in the base class.
