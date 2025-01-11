@@ -169,7 +169,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self.serializer = serializer  # type: ignore[assignment]
 
     __tmp_dict = {}
-    __tmp_dict["json"] = (lambda x: json.dumps(x, ensure_ascii=False).encode(), lambda x: json.loads(x))
+    __tmp_dict["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
     __tmp_dict["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
     if msgpack:  # pragma: no cover
         __tmp_dict["msgpack"] = (lambda x: msgpack.packb(x), lambda x: msgpack.unpackb(x))  # pyright: ignore[reportOptionalMemberAccess]
