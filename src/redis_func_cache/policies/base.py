@@ -12,8 +12,8 @@ if sys.version_info < (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing import override
 
-
-from ..cache import RedisAsyncClientTypes, RedisFuncCache, RedisSyncClientTypes
+from ..cache import RedisFuncCache
+from ..typing import is_async_client, is_sync_client
 from ..utils import b64digest, get_function_code
 from .abstract import AbstractPolicy
 
@@ -52,28 +52,28 @@ class BaseSinglePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         client = self.cache.client
-        if not isinstance(client, RedisSyncClientTypes):
+        if not is_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         return client.delete(*self.calc_keys())
 
     @override
     async def apurge(self) -> int:
         client = self.cache.client
-        if not isinstance(client, RedisAsyncClientTypes):
+        if not is_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         return await client.delete(*self.calc_keys())  # type: ignore[union-attr]
 
     @override
     def get_size(self) -> int:
         client = self.cache.client
-        if not isinstance(client, RedisSyncClientTypes):
+        if not is_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         return client.hlen(self.calc_keys()[1])
 
     @override
     async def aget_size(self) -> int:
         client = self.cache.client
-        if not isinstance(client, RedisAsyncClientTypes):
+        if not is_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         return await client.hlen(self.calc_keys()[1])  # type: ignore[union-attr]
 
@@ -124,7 +124,7 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         client = self.cache.client
-        if not isinstance(client, RedisSyncClientTypes):
+        if not is_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         keys = client.keys(pat)
@@ -135,7 +135,7 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     async def apurge(self) -> int:
         client = self.cache.client
-        if not isinstance(client, RedisAsyncClientTypes):
+        if not is_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         keys = await client.keys(pat)  # type: ignore[union-attr]

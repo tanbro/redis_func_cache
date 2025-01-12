@@ -19,7 +19,6 @@ from typing import (
     Sequence,
     Tuple,
     Type,
-    TypeVar,
     Union,
     cast,
 )
@@ -41,6 +40,7 @@ except ImportError:  # pragma: no cover
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .policies.abstract import AbstractPolicy
+from .typing import CallableTV, RedisClientTV, is_async_client
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
@@ -51,16 +51,6 @@ if TYPE_CHECKING:  # pragma: no cover
     SerializerSetterValueT = Union[Literal["json", "pickle", "msgpack", "cloudpickle"], SerializerPairT]
 
 __all__ = ("RedisFuncCache",)
-
-CallableTV = TypeVar("CallableTV", bound=Callable)
-RedisSyncClientTypes = redis.client.Redis, redis.cluster.RedisCluster
-RedisAsyncClientTypes = redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster
-RedisClientTV = TypeVar(
-    "RedisClientTV",
-    bound=Union[
-        redis.client.Redis, redis.asyncio.client.Redis, redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster
-    ],
-)
 
 
 class RedisFuncCache(Generic[RedisClientTV]):
@@ -277,7 +267,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     @property
     def is_async_client(self) -> bool:
         """Indicates whether the Redis client is asynchronous."""
-        return isinstance(self.client, RedisAsyncClientTypes)
+        return is_async_client(self.client)
 
     def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
         """Serialize the return value of the decorated function.
