@@ -265,7 +265,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         raise RuntimeError("No redis client or factory provided.")
 
     @property
-    def is_async_client(self) -> bool:
+    def asynchronous(self) -> bool:
         """Indicates whether the Redis client is asynchronous."""
         return is_async_client(self.client)
 
@@ -530,7 +530,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             if not callable(f):
                 raise TypeError("Can not decorate a non-callable object.")
-            if self.is_async_client:
+            if self.asynchronous:
                 if not iscoroutinefunction(f):
                     raise TypeError(
                         "The decorated function or method must be a coroutine when using an asynchronous redis client."
