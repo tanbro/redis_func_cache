@@ -14,7 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from hashlib import _Hash
 
 
-__all__ = ("b64digest", "get_function_code", "read_lua_file")
+__all__ = ("b64digest", "get_callable_bytecode", "read_lua_file")
 
 
 def b64digest(x: _Hash) -> bytes:
@@ -34,17 +34,17 @@ def b64digest(x: _Hash) -> bytes:
     return b64encode(x.digest()).rstrip(b"=")
 
 
-def get_function_code(f: Callable) -> bytes:
-    """Retrieve the bytecode of the given function.
+def get_callable_bytecode(obj: Callable) -> bytes:
+    """Retrieve the bytecode of the given callable object.
 
     Args:
-        f: The function to retrieve bytecode from.
+        obj: The function to retrieve bytecode from.
 
     Returns:
         The bytecode of the function, or `b""` the function has no `__code__` attribute.
     """
     try:
-        return f.__code__.co_code
+        return obj.__code__.co_code
     except AttributeError:
         return b""
 

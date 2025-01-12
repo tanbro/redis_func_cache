@@ -40,7 +40,7 @@ except ImportError:  # pragma: no cover
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .policies.abstract import AbstractPolicy
-from .typing import CallableTV, RedisClientTV, is_async_client
+from .typing import CallableTV, RedisClientTV, is_async_redis_client
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
@@ -267,7 +267,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     @property
     def asynchronous(self) -> bool:
         """Indicates whether the Redis client is asynchronous."""
-        return is_async_client(self.client)
+        return is_async_redis_client(self.client)
 
     def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
         """Serialize the return value of the decorated function.

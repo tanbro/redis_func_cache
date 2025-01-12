@@ -7,7 +7,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
 
-from ..utils import get_function_code
+from ..utils import get_callable_bytecode
 
 if TYPE_CHECKING:  # pragma: no cover
     from hashlib import _Hash
@@ -90,7 +90,7 @@ class AbstractHashMixin(ABC):
         conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
         h.update(f"{f.__module__}:{f.__qualname__}".encode())
-        h.update(get_function_code(f))
+        h.update(get_callable_bytecode(f))
         if args is not None:
             h.update(conf.serializer(args))
         if kwds is not None:

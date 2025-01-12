@@ -30,17 +30,15 @@ RedisClientT = Union[
 RedisClientTV = TypeVar("RedisClientTV", bound=RedisClientT)
 
 
-def is_async_client(
-    client: RedisClientT,
-) -> TypeGuard[RedisAsyncClientT]:
+def is_async_redis_client(client: RedisClientT) -> TypeGuard[RedisAsyncClientT]:
     """
-    Returns True if the given client is an asynchronous client.
+    Returns True if the given Redis client is an asynchronous client.
     """
     return isinstance(client, RedisAsyncClientTypes)
 
 
-def is_sync_client(client: RedisClientT) -> TypeGuard[RedisSyncClientT]:
+def is_sync_redis_client(client: RedisClientT) -> TypeGuard[RedisSyncClientT]:
     """
-    Returns True if the given client is a synchronous client.
+    Returns True if the given Redis client is a synchronous client.
     """
     return isinstance(client, RedisSyncClientTypes)

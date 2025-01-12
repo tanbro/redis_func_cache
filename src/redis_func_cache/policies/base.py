@@ -13,8 +13,8 @@ else:  # pragma: no cover
     from typing import override
 
 from ..cache import RedisFuncCache
-from ..typing import is_async_client, is_sync_client
-from ..utils import b64digest, get_function_code
+from ..typing import is_async_redis_client, is_sync_redis_client
+from ..utils import b64digest, get_callable_bytecode
 from .abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -52,28 +52,28 @@ class BaseSinglePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         client = self.cache.client
-        if not is_sync_client(client):
+        if not is_sync_redis_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         return client.delete(*self.calc_keys())
 
     @override
     async def apurge(self) -> int:
         client = self.cache.client
-        if not is_async_client(client):
+        if not is_async_redis_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         return await client.delete(*self.calc_keys())  # type: ignore[union-attr]
 
     @override
     def get_size(self) -> int:
         client = self.cache.client
-        if not is_sync_client(client):
+        if not is_sync_redis_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         return client.hlen(self.calc_keys()[1])
 
     @override
     async def aget_size(self) -> int:
         client = self.cache.client
-        if not is_async_client(client):
+        if not is_async_redis_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         return await client.hlen(self.calc_keys()[1])  # type: ignore[union-attr]
 
@@ -116,7 +116,7 @@ class BaseMultiplePolicy(AbstractPolicy):
             raise TypeError("Can not calculate hash for a non-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"
         h = hashlib.md5(fullname.encode())
-        h.update(get_function_code(f))
+        h.update(get_callable_bytecode(f))
         checksum = b64digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
@@ -124,7 +124,7 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def purge(self) -> int:
         client = self.cache.client
-        if not is_sync_client(client):
+        if not is_sync_redis_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         keys = client.keys(pat)
@@ -135,7 +135,7 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     async def apurge(self) -> int:
         client = self.cache.client
-        if not is_async_client(client):
+        if not is_async_redis_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         keys = await client.keys(pat)  # type: ignore[union-attr]
@@ -162,7 +162,7 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
             raise TypeError("Can not calculate hash for a non-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"
         h = hashlib.md5(fullname.encode())
-        h.update(get_function_code(f))
+        h.update(get_callable_bytecode(f))
         checksum = b64digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"

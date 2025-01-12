@@ -46,11 +46,10 @@ class AbstractPolicy(ABC):
 
     @property
     def cache(self) -> RedisFuncCache:
-        """Proxy to the cache object who uses this policy.
+        """Provides a proxy to the cache object that uses this policy.
 
-        It's in fact a :mod:`weakref` proxy object, returned by :func:`weakref.proxy`.
-
-        Here we type it as a :class:`RedisFuncCache` to make a better hint.
+        This is actually a :mod:`weakref` proxy object, created by :func:`weakref.proxy`.
+        Here We mark it to :class:`.RedisFuncCache`, which provides better type hinting.
         """
         return self._cache  # type: ignore
 
