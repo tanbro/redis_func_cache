@@ -46,6 +46,7 @@ Changelog = "https://github.com/tanbro/redis_func_cache/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 types = ["types-redis"]
+pygments = ["Pygments"]
 hiredis = ["redis[hiredis]"]
 msgpack = ["msgpack>=1.0"]
 cloudpickle = ["cloudpickle"]

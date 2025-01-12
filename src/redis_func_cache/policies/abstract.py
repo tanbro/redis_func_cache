@@ -4,7 +4,7 @@ import weakref
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Union
 
-from ..utils import read_lua_file
+from ..utils import clean_lua_script, read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.commands.core import AsyncScript, Script
@@ -131,7 +131,10 @@ class AbstractPolicy(ABC):
 
     def read_lua_scripts(self) -> Tuple[ScriptTextT, ScriptTextT]:
         """Read the Lua scripts from the package resources."""
-        return read_lua_file(self.__scripts__[0]), read_lua_file(self.__scripts__[1])
+        return (
+            clean_lua_script(read_lua_file(self.__scripts__[0])),
+            clean_lua_script(read_lua_file(self.__scripts__[1])),
+        )
 
     @property
     def lua_scripts(self) -> Union[Tuple[Script, Script], Tuple[AsyncScript, AsyncScript]]:

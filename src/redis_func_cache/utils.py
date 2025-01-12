@@ -14,7 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from hashlib import _Hash
 
 
-__all__ = ("b64digest", "get_callable_bytecode", "read_lua_file")
+__all__ = ("b64digest", "get_callable_bytecode", "read_lua_file", "clean_lua_script")
 
 
 def b64digest(x: _Hash) -> bytes:
@@ -62,4 +62,53 @@ def read_lua_file(file: str) -> str:
     This function locates and reads the entire text content of a specified Lua file.
     It uses the :mod:`importlib.resources` to locate the file.
     """
-    return dedent(importlib_resources.files(__package__).joinpath("lua").joinpath(file).read_text()).strip()
+    return dedent(importlib_resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
+
+
+def clean_lua_script(source: str) -> str:
+    """Clean a Lua script by removing comments and empty lines.
+
+    Args:
+        source: The source code of the Lua script to clean.
+
+    Returns:
+        The cleaned Lua file as a string.
+    """
+    try:
+        from pygments.filter import simplefilter
+        from pygments.lexers import get_lexer_by_name
+        from pygments.token import Comment, String
+    except ImportError:
+        return source
+
+    @simplefilter
+    def no_comment(self, lexer, stream, options):
+        yield from (
+            (ttype, value)
+            for ttype, value in stream
+            if not (
+                any(
+                    ttype is t_
+                    for t_ in (
+                        Comment,
+                        Comment.Hashbang,
+                        Comment.Multiline,
+                        Comment.Preproc,
+                        Comment.PreprocFile,
+                        Comment.Single,
+                        Comment.Special,
+                    )
+                )
+            )
+        )
+
+    @simplefilter
+    def no_docstring(self, lexer, stream, options):
+        yield from ((ttype, value) for ttype, value in stream if ttype is not String.Doc)
+
+    lexer = get_lexer_by_name("lua")
+    lexer.add_filter(no_comment())  # pyright: ignore[reportCallIssue]
+    lexer.add_filter(no_docstring())  # pyright: ignore[reportCallIssue]
+
+    lines_iter = (line for line in "".join(s for _, s in lexer.get_tokens(source)).splitlines() if line.strip())
+    return "\n".join(lines_iter)
