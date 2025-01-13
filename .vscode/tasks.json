@@ -48,7 +48,7 @@
         {
             "label": "lint",
             "type": "shell",
-            "command": "${command:python.interpreterPath} -m ruff check --fix && ${command:python.interpreterPath} -m ruff format",
+            "command": "ruff check --fix && ruff format",
             "problemMatcher": []
         },
         {

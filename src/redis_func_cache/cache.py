@@ -23,10 +23,6 @@ from typing import (
     cast,
 )
 
-import redis.asyncio.client
-import redis.asyncio.cluster
-import redis.client
-import redis.cluster
 import redis.commands.core
 
 try:  # pragma: no cover

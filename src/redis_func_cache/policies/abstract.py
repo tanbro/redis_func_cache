@@ -4,10 +4,11 @@ import weakref
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Union
 
+from redis.commands.core import AsyncScript, Script
+
 from ..utils import clean_lua_script, read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.commands.core import AsyncScript, Script
     from redis.typing import EncodableT, KeyT, ScriptTextT
 
     from ..cache import RedisFuncCache
