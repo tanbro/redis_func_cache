@@ -50,6 +50,7 @@ pygments = ["Pygments"]
 hiredis = ["redis[hiredis]"]
 msgpack = ["msgpack>=1.0"]
 cloudpickle = ["cloudpickle"]
+yaml = ["PyYAML"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

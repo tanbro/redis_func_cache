@@ -33,6 +33,18 @@ try:  # pragma: no cover
     import cloudpickle  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     cloudpickle = None  # type: ignore[assignment]
+try:  # pragma: no cover
+    import yaml  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    yaml = None  # type: ignore[assignment]
+else:
+    try:
+        from yaml import CSafeDumper as YamlDumper  # type: ignore[import-not-found]
+        from yaml import CSafeLoader as YamlLoader  # type: ignore[import-not-found]
+    except ImportError:
+        from yaml import SafeDumper as YamlDumper  # type: ignore[assignment, import-not-found]
+        from yaml import SafeLoader as YamlLoader  # type: ignore[assignment, import-not-found]
+
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .policies.abstract import AbstractPolicy
@@ -44,7 +56,7 @@ if TYPE_CHECKING:  # pragma: no cover
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
     SerializerPairT = Tuple[SerializerT, DeserializerT]
-    SerializerSetterValueT = Union[Literal["json", "pickle", "msgpack", "cloudpickle"], SerializerPairT]
+    SerializerSetterValueT = Union[Literal["json", "pickle", "msgpack", "cloudpickle", "yaml"], SerializerPairT]
 
 __all__ = ("RedisFuncCache",)
 
@@ -112,6 +124,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                   - ``"json"``: Use :func:`json.dumps` and :func:`json.loads`
                   - ``"pickle"``: Use :func:`pickle.dumps` and :func:`pickle.loads`
+                  - ``"yaml"``: Use ``yaml.dump`` and ``yaml.load``. Only available when ``yaml`` is installed.
                   - ``"msgpack"``: Use :func:`msgpack.packb` and :func:`msgpack.unpackb`. Only available when :mod:`msgpack` is installed.
                   - ``"cloudpickle"``: Use :func:`cloudpickle.dumps` and :func:`pickle.loads`. Only available when :mod:`cloudpickle` is installed.
 
@@ -154,15 +167,26 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
 
-    __tmp_dict = {}
-    __tmp_dict["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
-    __tmp_dict["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
+    _tmp_dict = {}
+    _tmp_dict["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
+    _tmp_dict["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
     if msgpack:  # pragma: no cover
-        __tmp_dict["msgpack"] = (lambda x: msgpack.packb(x), lambda x: msgpack.unpackb(x))  # pyright: ignore[reportOptionalMemberAccess]
+        _tmp_dict["msgpack"] = (
+            lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
+            lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
+        )
     if cloudpickle:  # pragma: no cover
-        __tmp_dict["cloudpickle"] = (lambda x: cloudpickle.dumps(x), lambda x: pickle.loads(x))  # pyright: ignore[reportOptionalMemberAccess]
-    __serializers__: Mapping[str, SerializerPairT] = __tmp_dict
-    del __tmp_dict
+        _tmp_dict["cloudpickle"] = (
+            lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
+            lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
+        )
+    if yaml:  # pragma: no cover
+        _tmp_dict["yaml"] = (
+            lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess]
+            lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess]
+        )
+    __serializers__: Mapping[str, SerializerPairT] = _tmp_dict
+    del _tmp_dict
 
     @property
     def name(self) -> str:

@@ -80,35 +80,36 @@ def clean_lua_script(source: str) -> str:
         from pygments.token import Comment, String
     except ImportError:
         return source
+    else:
 
-    @simplefilter
-    def no_comment(self, lexer, stream, options):
-        yield from (
-            (ttype, value)
-            for ttype, value in stream
-            if not (
-                any(
-                    ttype is t_
-                    for t_ in (
-                        Comment,
-                        Comment.Hashbang,
-                        Comment.Multiline,
-                        Comment.Preproc,
-                        Comment.PreprocFile,
-                        Comment.Single,
-                        Comment.Special,
+        @simplefilter
+        def no_comment(self, lexer, stream, options):
+            yield from (
+                (ttype, value)
+                for ttype, value in stream
+                if not (
+                    any(
+                        ttype is t_
+                        for t_ in (
+                            Comment,
+                            Comment.Hashbang,
+                            Comment.Multiline,
+                            Comment.Preproc,
+                            Comment.PreprocFile,
+                            Comment.Single,
+                            Comment.Special,
+                        )
                     )
                 )
             )
-        )
 
-    @simplefilter
-    def no_docstring(self, lexer, stream, options):
-        yield from ((ttype, value) for ttype, value in stream if ttype is not String.Doc)
+        @simplefilter
+        def no_docstring(self, lexer, stream, options):
+            yield from ((ttype, value) for ttype, value in stream if ttype is not String.Doc)
 
-    lexer = get_lexer_by_name("lua")
-    lexer.add_filter(no_comment())  # pyright: ignore[reportCallIssue]
-    lexer.add_filter(no_docstring())  # pyright: ignore[reportCallIssue]
+        lexer = get_lexer_by_name("lua")
+        lexer.add_filter(no_comment())  # pyright: ignore[reportCallIssue]
+        lexer.add_filter(no_docstring())  # pyright: ignore[reportCallIssue]
 
-    lines_iter = (line for line in "".join(s for _, s in lexer.get_tokens(source)).splitlines() if line.strip())
-    return "\n".join(lines_iter)
+        lines_iter = (line for line in "".join(s for _, s in lexer.get_tokens(source)).splitlines() if line.strip())
+        return "\n".join(lines_iter)

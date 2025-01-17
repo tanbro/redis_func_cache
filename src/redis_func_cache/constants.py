@@ -1,3 +1,5 @@
+"""Constants"""
+
 DEFAULT_MAXSIZE = 1024
 """Default maximum size of the cache."""
 
