@@ -378,7 +378,7 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
 ### Complex return types
 
 The return value's (de)serializer is [JSON][] (`json` module of std-lib) by default, which does not work with complex objects.
-However, we can still use [`pickle`][]. This can be achieved by specifying either the `serializers` argument of [`RedisFuncCache`][], or the `serializer` and `deserializer` arguments of the decorator:
+However, we can still use [`pickle`][]. This can be achieved by specifying either the `serializers` argument of [`RedisFuncCache`][]'s constructor(`__init__`), or the decorator(`__call__`):
 
 > 💡 **Example:**
 >
@@ -403,19 +403,25 @@ However, we can still use [`pickle`][]. This can be achieved by specifying eithe
 >     serializer=(pickle.dumps, pickle.loads)
 > )
 >
-> # or just like this:
+> # or like this:
 > cache = RedisFuncCache(__name__, LruTPolicy, lambda: Redis.from_url("redis://"))
 >
-> @cache(serializer=pickle.loads, deserializer=pickle.dumps)
+> @cache(serializer=pickle.loads, pickle.dumps)
 > def my_func_with_complex_return_value(x):
 >     ...
+>
+> # or just like this:
+> @cache(serializer="pickle")
+> def my_func_with_complex_return_value(x):
+>     ...
+>
 > ```
 
-Other serialization functions also should be workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack][], [YAML](https://yaml.org/), [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
+Other serialization libraries such as [bson][], [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack][], [yaml][], and [cloudpickle](https://github.com/cloudpipe/cloudpickle) are also supported.
 
-> ⚠️ **Warning:**\
-> [`pickle`][] is considered a security risk, and also cant not be used with runtime/version sensitive data. Use it cautiously and only when necessary.
-> It's a good practice to only cache functions that return [JSON][] serializable simple data.
+> ⚠️ **Warning:**  
+> The [`pickle`][] module is highly powerful but poses a significant security risk because it can execute arbitrary code during deserialization. Use it with extreme caution, especially when handling data from untrusted sources.  
+> For best practices, it is recommended to cache functions that return simple, [JSON][]-serializable data. If you need to serialize more complex data structures than those supported by [JSON][], consider using safer alternatives such as [bson][], [msgpack][], or [yaml][].
 
 ## Advanced Usage
 
@@ -425,34 +431,43 @@ The result of the decorated function is serialized by default using [JSON][] (vi
 
 To utilize alternative serialization methods, such as [msgpack][], you have two options:
 
-1. Specify the `serializer` argument in the constructor of [`RedisFuncCache`][], where the argument is a tuple of `(serializer, deserializer)`:
+1. Specify the `serializer` argument in the constructor of [`RedisFuncCache`][], where the argument is a tuple of `(serializer, deserializer)`, or name of the serializer function:
 
    This method applies globally: all functions decorated by this cache will use the specified serializer.
 
    For example:
 
    ```python
-   import msgpack
+   import bson
    from redis import Redis
    from redis_func_cache import RedisFuncCache, LruTPolicy
+
+   def serialize(x):
+      return bson.encode({"return_value": x})
+
+   def deserialize(x):
+      return bson.decode(x)["return_value"]
 
    cache = RedisFuncCache(
        __name__,
        LruTPolicy,
        lambda: Redis.from_url("redis://"),
-       serializer=(msgpack.packb, msgpack.unpackb)
+       serializer=(serialize, deserialize)
     )
 
    @cache
-   def my_func(x):
+   def func():
       ...
    ```
 
-1. Specify the `serializer` and `deserializer` arguments directly in the decorator:
+1. Specify the `serializer` argument directly in the decorator. The argument should be a tuple of (`serializer`, `deserializer`) or simply the name of the serializer function.
 
    This method applies on a per-function basis: only the decorated function will use the specified serializer.
 
    For example:
+
+   - We can use [msgpack][] as the serializer to cache functions whose return value is binary data, which is not possible with [JSON][].
+   - We can use [bson][] as the serializer to cache functions whose return value is a `datetime` object, which cannot be handled by either [JSON][] or [msgpack][].
 
    ```python
    import msgpack
@@ -461,9 +476,15 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
 
    cache = RedisFuncCache(__name__, LruTPolicy, lambda: Redis.from_url("redis://"))
 
-   @cache(serializer=msgpack.packb, deserializer=msgpack.unpackb)
-   def my_func(x):
-      ...
+   @cache(serializer=(msgpack.packb, msgpack.unpackb))
+   def create_or_get_token(user: str) -> bytes:
+      from secrets import token_bytes
+      return token_bytes(32)
+
+   @cache(serializer="bson")
+   def now_time():
+       from datetime import datetime
+       return datetime.now()  
    ```
 
 ### Custom key format
@@ -729,7 +750,9 @@ docker compose up --abort-on-container-exit
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
 
+[bson]: https://bsonspec.org/ "BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments."
 [msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
+[yaml]: https://yaml.org/ "YAML is a human-friendly data serialization language for all programming languages."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
 [`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy

@@ -1,5 +1,17 @@
 # Changelog
 
+## Developing
+
+- ✨ **New Features:**
+  - Added `bson` and `yaml` serializer/deserializer support for the `RedisFuncCache` class.
+
+- 💔 **Breaking Changes:**
+  - The `serializer` optional parameter in the `RedisFuncCache`'s `decorate` and `__call__` methods has been replaced. It now accepts a tuple of `(serializer, deserializer)` or simply the name of the serializer function.
+
+- 📦 **Packaging:**
+  - Added `bson`, `yaml` as optional dependencies, and `all` for all serializers.
+  - Added `types-all`, `types-PyYAML`, and `types-Pygments` as optional dependencies for typing hints.
+
 ## v0.3
 
 > 📅 2025-01-08
