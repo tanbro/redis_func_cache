@@ -59,7 +59,7 @@ class PicklePerFunctionSerializerTest(TestCase):
             ser1 = mock.MagicMock(return_value=b"0")
             des1 = mock.MagicMock(return_value=0)
 
-            @cache(serializer=ser0, deserializer=des0)
+            @cache(serialize=(ser0, des0))
             def echo0(o):
                 return o
 
@@ -71,7 +71,7 @@ class PicklePerFunctionSerializerTest(TestCase):
                 ser0.assert_called_once()
                 des0.assert_not_called()
 
-            @cache(serializer=ser1, deserializer=des1)
+            @cache(serializer=(ser1, des1))
             def echo1(o):
                 return o
 
@@ -95,8 +95,8 @@ class PicklePerFunctionSerializerTest(TestCase):
                 ser1 = mock.MagicMock(return_value=ser1_val)
                 des1 = mock.MagicMock(return_value=des1_val)
 
-                f0 = cache(echo0, serializer=ser0, deserializer=des0)
-                f1 = cache(echo1, serializer=ser1, deserializer=des1)
+                f0 = cache(echo0, serializer=(ser0, des0))
+                f1 = cache(echo1, serializer=(ser1, des1))
 
                 self.assertEqual(i, f0(i))
                 ser0.assert_called_once_with(i)

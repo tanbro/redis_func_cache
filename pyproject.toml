@@ -47,10 +47,17 @@ Changelog = "https://github.com/tanbro/redis_func_cache/main/CHANGELOG.md"
 [project.optional-dependencies]
 hiredis = ["redis[hiredis]"]
 pygments = ["Pygments>=2.9.0"]
+bson = ["pymongo>=3.9"]
 msgpack = ["msgpack>=1.0"]
 yaml = ["PyYAML>=5.4"]
 cloudpickle = ["cloudpickle>=3.0.0"]
-all = ["redis[hiredis]", "msgpack>=1.0", "PyYAML>=5.4", "cloudpickle>=3.0"]
+all = [
+  "redis[hiredis]",
+  "pymongo>=3.9",
+  "msgpack>=1.0",
+  "PyYAML>=5.4",
+  "cloudpickle>=3.0",
+]
 types = ["types-redis>=3.5"]
 types-PyYAML = ["types-PyYAML>=5.4"]
 types-Pygments = ["types-Pygments>=2.9"]

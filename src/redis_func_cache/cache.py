@@ -26,13 +26,17 @@ from typing import (
 import redis.commands.core
 
 try:  # pragma: no cover
-    import msgpack  # type: ignore[import-not-found]
+    import bson  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
-    msgpack = None  # type: ignore[assignment]
+    bson = None  # type: ignore[assignment]
 try:  # pragma: no cover
     import cloudpickle  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     cloudpickle = None  # type: ignore[assignment]
+try:  # pragma: no cover
+    import msgpack  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    msgpack = None  # type: ignore[assignment]
 try:  # pragma: no cover
     import yaml  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
@@ -56,7 +60,7 @@ if TYPE_CHECKING:  # pragma: no cover
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
     SerializerPairT = Tuple[SerializerT, DeserializerT]
-    SerializerSetterValueT = Union[Literal["json", "pickle", "msgpack", "cloudpickle", "yaml"], SerializerPairT]
+    SerializerSetterValueT = Union[Literal["json", "pickle", "bson", "msgpack", "yaml", "cloudpickle"], SerializerPairT]
 
 __all__ = ("RedisFuncCache",)
 
@@ -124,8 +128,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                   - ``"json"``: Use :func:`json.dumps` and :func:`json.loads`
                   - ``"pickle"``: Use :func:`pickle.dumps` and :func:`pickle.loads`
-                  - ``"yaml"``: Use ``yaml.dump`` and ``yaml.load``. Only available when ``yaml`` is installed.
+                  - ``"bson"``: Use :func:`bson.decode` and :func:`bson.encode`. Only available when ``pymongo`` is installed.
                   - ``"msgpack"``: Use :func:`msgpack.packb` and :func:`msgpack.unpackb`. Only available when :mod:`msgpack` is installed.
+                  - ``"yaml"``: Use ``yaml.dump`` and ``yaml.load``. Only available when ``yaml`` is installed.
                   - ``"cloudpickle"``: Use :func:`cloudpickle.dumps` and :func:`pickle.loads`. Only available when :mod:`cloudpickle` is installed.
 
                 - Or it could be **a PAIR of callbacks**, the first one is used to serialize return value, the second one is used to deserialize return value.
@@ -170,20 +175,25 @@ class RedisFuncCache(Generic[RedisClientTV]):
     _tmp_dict = {}
     _tmp_dict["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
     _tmp_dict["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
+    if cloudpickle:  # pragma: no cover
+        _tmp_dict["bson"] = (
+            lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
+            lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
+        )
     if msgpack:  # pragma: no cover
         _tmp_dict["msgpack"] = (
             lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if cloudpickle:  # pragma: no cover
-        _tmp_dict["cloudpickle"] = (
-            lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
-            lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
-        )
     if yaml:  # pragma: no cover
         _tmp_dict["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess]
+        )
+    if cloudpickle:  # pragma: no cover
+        _tmp_dict["cloudpickle"] = (
+            lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
+            lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
     __serializers__: Mapping[str, SerializerPairT] = _tmp_dict
     del _tmp_dict
@@ -415,8 +425,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function: Callable,
         user_args: Sequence,
         user_kwds: Mapping[str, Any],
-        serializer: Optional[SerializerT] = None,
-        deserializer: Optional[DeserializerT] = None,
+        serialize_func: Optional[SerializerT] = None,
+        deserialize_func: Optional[DeserializerT] = None,
         **options,
     ):
         """Execute the given user function with the provided arguments.
@@ -425,8 +435,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
             user_function: The user function to execute.
             user_args: Positional arguments to pass to the user function.
             user_kwds: Keyword arguments to pass to the user function.
-            serializer: Custom serializer passed from :meth:`decorate`.
-            deserializer: Custom deserializer passed from :meth:`decorate`.
+            deserialize_func: Custom serializer passed from :meth:`decorate`.
+            func_deserialize: Custom deserializer passed from :meth:`decorate`.
             options: Additional options passed from :meth:`decorate`'s `**kwargs`.
 
         Returns:
@@ -442,9 +452,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
         cached_return_value = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached_return_value is not None:
-            return self.deserialize(cached_return_value, deserializer)
+            return self.deserialize(cached_return_value, deserialize_func)
         user_return_value = user_function(*user_args, **user_kwds)
-        user_retval_serialized = self.serialize(user_return_value, serializer)
+        user_retval_serialized = self.serialize(user_return_value, serialize_func)
         self.put(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
 
@@ -453,8 +463,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function: Callable[..., Coroutine],
         user_args: Sequence,
         user_kwds: Mapping[str, Any],
-        serializer: Optional[SerializerT] = None,
-        deserializer: Optional[DeserializerT] = None,
+        serialize_func: Optional[SerializerT] = None,
+        deserialize_func: Optional[DeserializerT] = None,
         **options,
     ):
         """Asynchronous version of :meth:`.exec`"""
@@ -467,9 +477,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
         cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
-            return self.deserialize(cached, deserializer)
+            return self.deserialize(cached, deserialize_func)
         user_return_value = await user_function(*user_args, **user_kwds)
-        user_retval_serialized = self.serialize(user_return_value, serializer)
+        user_retval_serialized = self.serialize(user_return_value, serialize_func)
         await self.aput(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
         return user_return_value
 
@@ -477,16 +487,18 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self,
         user_function: Optional[CallableTV] = None,
         /,
-        serializer: Optional[SerializerT] = None,
-        deserializer: Optional[DeserializerT] = None,
+        serializer: Optional[SerializerSetterValueT] = None,
         **keywords,
     ) -> CallableTV:
         """Decorate the given function with caching.
 
         Args:
             user_function: The function to be decorated.
-            serializer: Custom serialize function for the return value of the user function. If defined, it overrides the first element of :attr:`serializer`.
-            deserializer: Custom deserialize function for the return value of the user function. If defined, it overrides the second element of :attr:`serializer`.
+
+            serializer: serialize/deserialize name or function pair for return value of what decorated.
+
+                If defined, it overrides the first element of :attr:`serializer`.
+
             **keywords: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
         This method is equivalent to :attr:`__call__`.
@@ -525,28 +537,35 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             or::
 
-                @cache(serializer=my_serializer, deserializer=my_deserializer)
+                @cache(serializer=(lambda x: yaml.safe_dump(x), lambda y: yaml.safe_load(y)))
                 def my_func(a, b):
                     return a + b
 
             or::
 
-                @cache.decorate(serializer=my_serializer, deserializer=my_deserializer)
+                @cache.decorate(serializer="yaml")
                 def my_func(a, b):
                     return a + b
 
         Note:
-            The `serializer` and `deserializer` only affect the currently decorated function.
+            The `serializer` parameter only affect the currently decorated function.
         """
+
+        serialize_func: Optional[SerializerT] = None
+        deserialize_func: Optional[DeserializerT] = None
+        if isinstance(serializer, str):
+            serialize_func, deserialize_func = self.__serializers__[serializer]
+        elif serializer is not None:
+            serialize_func, deserialize_func = serializer
 
         def decorator(f: CallableTV):
             @wraps(f)
             def wrapper(*args, **kwargs):
-                return self.exec(f, args, kwargs, serializer, deserializer, **keywords)
+                return self.exec(f, args, kwargs, serialize_func, deserialize_func, **keywords)
 
             @wraps(f)
             async def awrapper(*args, **kwargs):
-                return await self.aexec(f, args, kwargs, serializer, deserializer, **keywords)
+                return await self.aexec(f, args, kwargs, serialize_func, deserialize_func, **keywords)
 
             if not callable(f):
                 raise TypeError("Can not decorate a non-callable object.")

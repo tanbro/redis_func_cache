@@ -100,8 +100,9 @@ myst_fence_as_directive = ["mermaid"]
 # configuration for intersphinx: refer to the Python standard and/or 3rd libraries.
 intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
-    "redis": ("https://redis.readthedocs.io/en/latest/", None),
-    "msgpack": ("https://msgpack-python.readthedocs.io/en/latest/", None),
+    "redis": ("https://redis.readthedocs.io/en/stable/", None),
+    "pymongo": ("https://pymongo.readthedocs.io/en/stable/", None),
+    "msgpack": ("https://msgpack-python.readthedocs.io/en/stable/", None),
     "pygments": ("https://pygments.org/docs/", None),
 }
 

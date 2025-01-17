@@ -17,7 +17,7 @@ do
     trap 'rm -rf $TMPDIR' EXIT
     $PYTHON -m venv $TMPDIR
     echo
-    $TMPDIR/bin/python -Bm pip install --no-compile -e .[types,pygments,msgpack] -r tests/requirements.txt ruff mypy pytest pytest-cov
+    $TMPDIR/bin/python -Bm pip install --no-compile -e .[all,types-all] -r tests/requirements.txt ruff mypy pytest pytest-cov
     echo
     echo "Linting:"
     $TMPDIR/bin/python -Bm ruff check

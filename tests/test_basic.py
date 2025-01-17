@@ -255,7 +255,7 @@ class InvalidFunctionTestCase(TestCase):
         import pickle
 
         for cache in CACHES.values():
-            f = cache(pickle.dumps, serializer=pickle.dumps, deserializer=pickle.loads)
+            f = cache(pickle.dumps, serializer=(pickle.dumps, pickle.loads))
             for _ in range(cache.maxsize * 2 + 1):
                 v = uuid4()
                 self.assertEqual(pickle.dumps(v), f(v))
