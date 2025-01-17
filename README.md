@@ -411,7 +411,7 @@ However, we can still use [`pickle`][]. This can be achieved by specifying eithe
 >     ...
 > ```
 
-Other serialization functions also should be workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack][], [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
+Other serialization functions also should be workable, such as [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack][], [YAML](https://yaml.org/), [cloudpickle](https://github.com/cloudpipe/cloudpickle), etc.
 
 > ⚠️ **Warning:**\
 > [`pickle`][] is considered a security risk, and also cant not be used with runtime/version sensitive data. Use it cautiously and only when necessary.

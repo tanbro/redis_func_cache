@@ -101,7 +101,8 @@ myst_fence_as_directive = ["mermaid"]
 intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "redis": ("https://redis.readthedocs.io/en/latest/", None),
-    "msgpack": ("https://msgpack-python.readthedocs.io/en/latest/", None)
+    "msgpack": ("https://msgpack-python.readthedocs.io/en/latest/", None),
+    "pygments": ("https://pygments.org/docs/", None),
 }
 
 # -- Options for Napoleon settings ---------------------------------------

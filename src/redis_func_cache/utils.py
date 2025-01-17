@@ -58,7 +58,6 @@ def read_lua_file(file: str) -> str:
     Returns:
         The contents of the Lua file as a string.
 
-
     This function locates and reads the entire text content of a specified Lua file.
     It uses the :mod:`importlib.resources` to locate the file.
     """
@@ -66,13 +65,17 @@ def read_lua_file(file: str) -> str:
 
 
 def clean_lua_script(source: str) -> str:
-    """Clean a Lua script by removing comments and empty lines.
+    """Remove comments and empty lines from a Lua script.
 
     Args:
-        source: The source code of the Lua script to clean.
+        source: The Lua script source code to be cleaned.
 
     Returns:
-        The cleaned Lua file as a string.
+        The cleaned Lua script as a string.
+
+    Note:
+        This function utilizes the :mod:`pygments` library to remove comments and empty lines from the Lua script.
+        If :mod:`pygments` is not installed, the source code will be returned unchanged.
     """
     try:
         from pygments.filter import simplefilter
@@ -81,35 +84,31 @@ def clean_lua_script(source: str) -> str:
     except ImportError:
         return source
     else:
+        filter_types = (
+            String.Doc,
+            Comment,
+            Comment.Hashbang,
+            Comment.Multiline,
+            Comment.Preproc,
+            Comment.PreprocFile,
+            Comment.Single,
+            Comment.Special,
+        )
 
         @simplefilter
-        def no_comment(self, lexer, stream, options):
-            yield from (
-                (ttype, value)
-                for ttype, value in stream
-                if not (
-                    any(
-                        ttype is t_
-                        for t_ in (
-                            Comment,
-                            Comment.Hashbang,
-                            Comment.Multiline,
-                            Comment.Preproc,
-                            Comment.PreprocFile,
-                            Comment.Single,
-                            Comment.Special,
-                        )
-                    )
-                )
-            )
-
-        @simplefilter
-        def no_docstring(self, lexer, stream, options):
-            yield from ((ttype, value) for ttype, value in stream if ttype is not String.Doc)
+        def filter(self, lexer, stream, options):
+            yield from ((ttype, value) for ttype, value in stream if ttype not in filter_types)
 
         lexer = get_lexer_by_name("lua")
-        lexer.add_filter(no_comment())  # pyright: ignore[reportCallIssue]
-        lexer.add_filter(no_docstring())  # pyright: ignore[reportCallIssue]
+        lexer.add_filter(filter())  # pyright: ignore[reportCallIssue]
 
-        lines_iter = (line for line in "".join(s for _, s in lexer.get_tokens(source)).splitlines() if line.strip())
-        return "\n".join(lines_iter)
+        code = ""
+        for tok_type, tok_str in lexer.get_tokens(source):
+            code += tok_str
+
+        result = ""
+        for line in code.splitlines():
+            if line_stripped := line.strip():
+                result += line_stripped + "\n"
+
+        return result
