@@ -175,22 +175,22 @@ class RedisFuncCache(Generic[RedisClientTV]):
     _tmp_dict = {}
     _tmp_dict["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
     _tmp_dict["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
-    if cloudpickle:  # pragma: no cover
+    if bson:
         _tmp_dict["bson"] = (
             lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if msgpack:  # pragma: no cover
+    if msgpack:
         _tmp_dict["msgpack"] = (
             lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if yaml:  # pragma: no cover
+    if yaml:
         _tmp_dict["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if cloudpickle:  # pragma: no cover
+    if cloudpickle:
         _tmp_dict["cloudpickle"] = (
             lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]

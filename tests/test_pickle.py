@@ -59,7 +59,7 @@ class PicklePerFunctionSerializerTest(TestCase):
             ser1 = mock.MagicMock(return_value=b"0")
             des1 = mock.MagicMock(return_value=0)
 
-            @cache(serialize=(ser0, des0))
+            @cache(serializer=(ser0, des0))
             def echo0(o):
                 return o
 
