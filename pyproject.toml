@@ -45,7 +45,7 @@ Repository = "https://github.com/tanbro/redis_func_cache"
 Changelog = "https://github.com/tanbro/redis_func_cache/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-types = ["types-redis","types-Pygments"]
+types = ["types-redis","types-PyYAML","types-Pygments"]
 pygments = ["Pygments"]
 hiredis = ["redis[hiredis]"]
 msgpack = ["msgpack>=1.0"]
