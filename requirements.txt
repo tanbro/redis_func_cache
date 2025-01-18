@@ -1,12 +1,9 @@
 # The file defines requirements for the project's local development.
 # It's NOT package install dependencies.
 
--e .[all,types-all]
+-e .[all]
 
 -r docs/requirements.txt
 -r tests/requirements.txt
 
 pre-commit
-
-build
-twine
