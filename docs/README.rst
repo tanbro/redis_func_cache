@@ -14,6 +14,12 @@ How to Build the Documentation
 
       pip install -e . -r docs/requirements.txt
 
+   3rd package managers, such like `uv`_, can be used:
+
+   .. code:: sh
+
+      uv sync --group docs
+
 #. Generate API documentation.
    If the source tree has changed, you may clear the `docs/apidocs` directory and regenerate the API documentation:
 
@@ -52,3 +58,6 @@ Then open http://localhost:8000/ in a web browser.
       python -m http.server --directory docs/_build/html 8080
 
    .. seealso:: Python ``stdlib``'s :mod:`http.server`
+
+
+.. _uv: https://docs.astral.sh/uv/

@@ -734,7 +734,7 @@ def some_func(*args, **kwargs):
 - If there are multiple [`RedisFuncCache`][] instances with the same name, they may share the same cache data.
   This may lead to serious errors, so we should avoid using the same name for different instances.
 
-## Testing
+## Test
 
 A Docker Compose file for unit testing is provided in the `docker` directory to simplify the process. You can run it by executing:
 
@@ -742,6 +742,58 @@ A Docker Compose file for unit testing is provided in the `docker` directory to 
 cd docker
 docker compose up --abort-on-container-exit
 ```
+
+## Develop
+
+The project uses [uv][] as its manager. It should be installed before starting development.
+
+After installing [uv][], follow these steps to set up the project:
+
+1. Prepare a suitable Python environment:
+
+    If you do not already have Python installed, you can use [uv][] to install it. For example:
+
+    ```bash
+    uv python install 3.12
+    ```
+
+    Alternatively, you can use any other method to install Python.
+
+1. Clone the project and enter the project directory:
+
+    ```bash
+    git clone https://github.com/tanbro/redis_func_cache.git
+    cd redis_func_cache
+    ```
+
+1. Create a virtual environment for the project:
+
+    ```bash
+    uv venv
+    ```
+
+1. Install the project and its dependencies:
+
+    To install both runtime, test, documentation, typing and development dependencies:
+
+    ```bash
+    uv sync --all-groups
+    ```
+
+    Or, to install only development dependencies:
+
+    ```bash
+    uv sync --only-dev
+    ```
+
+1. Install [pre-commit][] hooks:
+
+    ```bash
+    pre-commit install
+    ```
+
+> ℹ️ **Note:** \
+> Ensure that you have a stable internet connection during the installation process to avoid interruptions.
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
@@ -753,6 +805,9 @@ docker compose up --abort-on-container-exit
 [bson]: https://bsonspec.org/ "BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments."
 [msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
 [yaml]: https://yaml.org/ "YAML is a human-friendly data serialization language for all programming languages."
+
+[uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
+[pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
 [`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy
