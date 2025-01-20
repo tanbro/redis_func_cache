@@ -772,6 +772,20 @@ After installing [uv][], follow these steps to set up the project:
     uv venv
     ```
 
+    Then, activate the virtual environment:
+
+    - On Unix-like systems:
+
+        ```bash
+        source .venv/bin/activate
+        ```
+
+    - On Windows:
+
+        ```powershell
+        .venv\Scripts\activate
+        ```
+
 1. Install the project and its dependencies:
 
     To install both runtime, test, documentation, typing and development dependencies:
