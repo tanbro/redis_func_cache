@@ -78,7 +78,7 @@ all = [
 ]
 
 dev = [
-  { include-group = "all" },
+  { include-group = "test" },
   { include-group = "lint" },
   { include-group = "static-type-check" },
   { include-group = "pre-commit" },

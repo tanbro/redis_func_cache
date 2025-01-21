@@ -1,6 +1,9 @@
 set -e
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=0
+export PIP_DISABLE_PIP_VERSION_CHECK=1
+export PIP_ROOT_USER_ACTION=ignore
+export PIP_NO_WARN_SCRIPT_LOCATION=1
 
 
 PYTHON_LIST=(python3.8 python3.9 python3.10 python3.11 python3.12 python3.13)
@@ -13,20 +16,18 @@ do
     echo
     TMPDIR=$(mktemp -d)
     trap 'rm -rf $TMPDIR' EXIT
-    uv venv --python ${PYTHON} $TMPDIR
+    ${PYTHON} -m venv $TMPDIR
     echo
-    source $TMPDIR/bin/activate
+    $TMPDIR/bin/pip install --no-compile -e . -r tests/requirements.txt ruff mypy pytest pytest-cov types-redis types-PyYAML types-Pygments
     echo
-    uv sync --group lint --group static-type-check --group pytest
+    echo "Lint check:"
+    $TMPDIR/bin/ruff check
     echo
-    echo "Lint:"
-    ruff check
+    echo "Static check:"
+    $TMPDIR/bin/mypy
     echo
-    echo "Static type check:"
-    mypy
-    echo
-    echo "Py test:"
-    pytest --cov --cov-report=xml --junitxml=junit.xml
+    echo "Unit test:"
+    $TMPDIR/bin/pytest --cov --cov-report=xml --junitxml=junit.xml
     echo
     echo "*****************************************************************"
     echo "End of ${PYTHON} unit-test"
