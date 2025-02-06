@@ -18,7 +18,7 @@ from ..utils import b64digest, get_callable_bytecode
 from .abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.typing import KeyT
+    pass
 
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
 
@@ -43,7 +43,7 @@ class BaseSinglePolicy(AbstractPolicy):
     @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Tuple[KeyT, KeyT]:
+    ) -> Tuple[str, str]:
         if self._keys is None:
             k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}"
             self._keys = f"{k}:0", f"{k}:1"
@@ -75,7 +75,8 @@ class BaseSinglePolicy(AbstractPolicy):
         client = self.cache.client
         if not is_async_redis_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
-        return await client.hlen(self.calc_keys()[1])  # type: ignore[union-attr]
+        keys = self.calc_keys()
+        return await client.hlen(keys[1])  # type: ignore[union-attr, return-value]
 
 
 class BaseClusterSinglePolicy(BaseSinglePolicy):
@@ -91,7 +92,7 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
     @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Tuple[KeyT, KeyT]:
+    ) -> Tuple[str, str]:
         if self._keys is None:
             k = f"{self.cache.prefix}{{{self.cache.name}:{self.__key__}}}"
             self._keys = f"{k}:0", f"{k}:1"
@@ -111,7 +112,7 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Tuple[KeyT, KeyT]:
+    ) -> Tuple[str, str]:
         if not callable(f):
             raise TypeError("Can not calculate hash for a non-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"
@@ -127,8 +128,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         if not is_sync_redis_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
-        keys = client.keys(pat)
-        if keys:
+        if keys := client.keys(pat):
             return client.delete(*keys)
         return 0
 
@@ -138,8 +138,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         if not is_async_redis_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
-        keys = await client.keys(pat)  # type: ignore[union-attr]
-        if keys:
+        if keys := await client.keys(pat):  # type: ignore[union-attr]
             return await client.delete(*keys)  # type: ignore[union-attr]
         return 0
 
@@ -157,7 +156,7 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Tuple[KeyT, KeyT]:
+    ) -> Tuple[str, str]:
         if not callable(f):
             raise TypeError("Can not calculate hash for a non-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"

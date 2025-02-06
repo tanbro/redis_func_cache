@@ -57,7 +57,7 @@ class AbstractPolicy(ABC):
     @abstractmethod
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Tuple[KeyT, KeyT]:
+    ) -> Tuple[str, str]:
         """Calculate the names of the key pair used in the Redis data structure for the cache.
 
         This method is responsible for calculating the key names used in the Redis data structure for caching.

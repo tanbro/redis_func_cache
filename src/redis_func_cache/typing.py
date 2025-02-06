@@ -18,6 +18,8 @@ RedisSyncClientTypes = redis.client.Redis, redis.cluster.RedisCluster
 RedisSyncClientT = Union[redis.client.Redis, redis.cluster.RedisCluster]
 RedisAsyncClientTypes = redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster
 RedisAsyncClientT = Union[redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster]
+RedisClusterClientTypes = redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster
+RedisClusterClientT = Union[redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster]
 RedisClientTypes = (
     redis.client.Redis,
     redis.cluster.RedisCluster,
@@ -42,3 +44,10 @@ def is_sync_redis_client(client: RedisClientT) -> TypeGuard[RedisSyncClientT]:
     Returns True if the given Redis client is a synchronous client.
     """
     return isinstance(client, RedisSyncClientTypes)
+
+
+def is_redis_cluster_client(client: RedisClientT) -> TypeGuard[RedisClusterClientT]:
+    """
+    Returns True if the given Redis client is a cluster client.
+    """
+    return isinstance(client, RedisClusterClientTypes)

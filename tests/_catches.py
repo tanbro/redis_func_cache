@@ -86,7 +86,7 @@ if REDIS_CLUSTER_NODES:
     CLUSTER_NODES = [
         ClusterNode(cluster.split(":")[-2], int(cluster.split(":")[-1])) for cluster in REDIS_CLUSTER_NODES.split()
     ]
-    REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # noqa: E731
+    REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # type: ignore[abstract]  # noqa: E731
 
     CLUSTER_CACHES = {
         "tlru": RedisFuncCache(__name__, LruTClusterPolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
