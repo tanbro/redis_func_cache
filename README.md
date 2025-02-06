@@ -745,52 +745,101 @@ docker compose up --abort-on-container-exit
 
 ## Develop
 
-The project uses [uv][] as its manager. It should be installed before starting development.
+We can use either the traditional method or [uv][] as the environment manager.
 
-After installing [uv][], follow these steps to set up the project:
+- If using the traditional method, a virtual environment is recommended:
 
-1. Prepare a suitable Python environment:
+  1. Initialize a virtual environment:
 
-    If you do not already have Python installed, you can use [uv][] to install it. For example:
+     - On Unix-like systems:
 
-    ```bash
-    uv python install 3.12
-    ```
+        ```bash
+        python -m venv .venv
+        source .venv/bin/activate
+        ```
 
-    Alternatively, you can use any other method to install Python.
+     - On Windows:
 
-1. Clone the project and enter the project directory:
+        - If Python was installed from the Microsoft Store:
 
-    ```bash
-    git clone https://github.com/tanbro/redis_func_cache.git
-    cd redis_func_cache
-    ```
+            ```powershell
+            python -m venv .venv
+            .venv\Scripts\Activate
+            ```
 
-1. Create a virtual environment for the project:
+        - Otherwise:
 
-    ```bash
-    uv venv
-    ```
+            ```powershell
+            python -m venv .venv
+            .venv\Scripts\Activate
+            ```
 
-1. Install the project and its dependencies:
+  1. Install the project and its dependencies:
 
-    To install both runtime, test, documentation, typing and development dependencies:
+     ```bash
+     pip install -r requirements.txt
+     ```
 
-    ```bash
-    uv sync --all-groups
-    ```
+- If using [uv][], it should be installed before starting development.
 
-    Or, to install only development dependencies:
+  After installing [uv][], follow these steps to set up the project:
 
-    ```bash
-    uv sync --only-dev
-    ```
+  1. Prepare a suitable Python environment:
 
-1. Install [pre-commit][] hooks:
+      If you do not already have Python installed, you can use [uv][] to install it. For example:
 
-    ```bash
-    pre-commit install
-    ```
+      ```bash
+      uv python install 3.12
+      ```
+
+      Alternatively, you can use any other method to install Python.
+
+  1. Clone the project and enter the project directory:
+
+      ```bash
+      git clone https://github.com/tanbro/redis_func_cache.git
+      cd redis_func_cache
+      ```
+
+  1. Create a virtual environment for the project:
+
+      ```bash
+      uv venv
+      ```
+
+      Then, activate the virtual environment:
+
+      - On Unix-like systems:
+
+          ```bash
+          source .venv/bin/activate
+          ```
+
+      - On Windows:
+
+          ```powershell
+          .venv\Scripts\activate
+          ```
+
+  1. Install the project and its dependencies:
+
+      To install runtime, test, documentation, typing, and development dependencies:
+
+      ```bash
+      uv sync --all-groups
+      ```
+
+      Or, to install only development dependencies:
+
+      ```bash
+      uv sync --only-dev
+      ```
+
+Finally, install [pre-commit][] hooks:
+
+```bash
+pre-commit install
+```
 
 > ℹ️ **Note:** \
 > Ensure that you have a stable internet connection during the installation process to avoid interruptions.
