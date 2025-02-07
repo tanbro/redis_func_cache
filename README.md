@@ -745,11 +745,20 @@ docker compose up --abort-on-container-exit
 
 ## Develop
 
-We can use either the traditional method or [uv][] as the environment manager.
+Clone the project and enter the project directory:
+
+```bash
+git clone https://github.com/tanbro/redis_func_cache.git
+cd redis_func_cache
+```
+
+We can use either the traditional method (`venv` and `pip` of standard library) or [uv][] as the environment manager.
 
 - If using the traditional method, a virtual environment is recommended:
 
-  1. Initialize a virtual environment:
+  1. Install a Python development environment on your system. The minimum required Python version is 3.8.
+
+  1. Initialize a virtual environment at sub-directory `.venv`, then activate it:
 
      - On Unix-like systems:
 
@@ -758,27 +767,30 @@ We can use either the traditional method or [uv][] as the environment manager.
         source .venv/bin/activate
         ```
 
+        > 💡 **Tip:** \
+        > On some older systems, `python` may be a symbolic link to `python2`. In such cases, you can use `python3` instead.
+
      - On Windows:
 
-        - If Python was installed from the Microsoft Store:
+        ```powershell
+        python -m venv .venv
+        .venv\Scripts\Activate
+        ```
 
-            ```powershell
-            python -m venv .venv
-            .venv\Scripts\Activate
-            ```
+        > 💡 **Tip:** \
+        > On Windows, the command-line executable for Python may be either `python`, `python3` or `py`, depending on your installation method.
 
-        - Otherwise:
-
-            ```powershell
-            python -m venv .venv
-            .venv\Scripts\Activate
-            ```
-
-  1. Install the project and its dependencies:
+  1. Install the project and its development dependencies:
 
      ```bash
      pip install -r requirements.txt
      ```
+
+  1. Install [pre-commit][] hooks:
+
+      ```bash
+      pre-commit install
+      ```
 
 - If using [uv][], it should be installed before starting development.
 
@@ -794,32 +806,11 @@ We can use either the traditional method or [uv][] as the environment manager.
 
       Alternatively, you can use any other method to install Python.
 
-  1. Clone the project and enter the project directory:
-
-      ```bash
-      git clone https://github.com/tanbro/redis_func_cache.git
-      cd redis_func_cache
-      ```
-
   1. Create a virtual environment for the project:
 
       ```bash
       uv venv
       ```
-
-      Then, activate the virtual environment:
-
-      - On Unix-like systems:
-
-          ```bash
-          source .venv/bin/activate
-          ```
-
-      - On Windows:
-
-          ```powershell
-          .venv\Scripts\activate
-          ```
 
   1. Install the project and its dependencies:
 
@@ -835,11 +826,11 @@ We can use either the traditional method or [uv][] as the environment manager.
       uv sync --only-dev
       ```
 
-Finally, install [pre-commit][] hooks:
+  1. Install [pre-commit][] hooks:
 
-```bash
-pre-commit install
-```
+     ```bash
+     uvx pre-commit install
+     ```
 
 > ℹ️ **Note:** \
 > Ensure that you have a stable internet connection during the installation process to avoid interruptions.
