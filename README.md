@@ -786,12 +786,6 @@ We can use either the traditional method (`venv` and `pip` of standard library) 
      pip install -r requirements.txt
      ```
 
-  1. Install [pre-commit][] hooks:
-
-      ```bash
-      pre-commit install
-      ```
-
 - If using [uv][], it should be installed before starting development.
 
   After installing [uv][], follow these steps to set up the project:
@@ -826,11 +820,11 @@ We can use either the traditional method (`venv` and `pip` of standard library) 
       uv sync --only-dev
       ```
 
-  1. Install [pre-commit][] hooks:
+We suggest installing [pre-commit][] hooks:
 
-     ```bash
-     uvx pre-commit install
-     ```
+```bash
+pre-commit install
+```
 
 > ℹ️ **Note:** \
 > Ensure that you have a stable internet connection during the installation process to avoid interruptions.

@@ -78,11 +78,12 @@ all = [
 ]
 
 dev = [
-  { include-group = "test" },
-  { include-group = "lint" },
   { include-group = "static-type-check" },
-  { include-group = "pre-commit" },
+  { include-group = "test" },
+  { include-group = "docs" },
 ]
+
+static-type-check = ["mypy", { include-group = "typing" }]
 
 typing-redis = ["types-redis>=3.5"]
 typing-PyYAML = ["types-PyYAML>=5.4"]
@@ -92,10 +93,6 @@ typing = [
   { include-group = "typing-PyYAML" },
   { include-group = "typing-Pygments" },
 ]
-
-lint = ["ruff"]
-static-type-check = ["mypy", { include-group = "typing" }]
-pre-commit = ["pre-commit"]
 
 docs = [
   "importlib_metadata;python_version<'3.8'",
