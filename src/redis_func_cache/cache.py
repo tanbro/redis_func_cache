@@ -40,7 +40,7 @@ except ImportError:  # pragma: no cover
 try:
     import cbor2  # type: ignore[import-not-found]
 except ImportError:
-    cbor2 = None
+    cbor2 = None  # type: ignore[assignment]
 try:  # pragma: no cover
     import yaml  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
