@@ -31,8 +31,10 @@ Here is a simple example:
 
    ```python
    import asyncio
-   from time import sleep, time
-   from redis import Redis
+   from time import time
+
+   from redis.asyncio import Redis
+
    from redis_func_cache import LruTPolicy, RedisFuncCache
 
    # Create a redis client
@@ -41,25 +43,28 @@ Here is a simple example:
    # Create an lru cache, it connects Redis by previous created redis client
    lru_cache = RedisFuncCache(__name__, LruTPolicy, redis_client)
 
-   @lru_cache # Decorate a function to cache its result
+
+   @lru_cache  # Decorate a function to cache its result
    async def a_slow_func():
-       await asyncio.sleep(10) # Sleep to simulate a slow operation
+       await asyncio.sleep(10)  # Sleep to simulate a slow operation
        return "OK"
 
-   t = time()
-   r = asyncio.run(a_slow_func())
-   print(f"duration={time()-t}, {r=}")
 
-   t = time()
-   r = asyncio.run(a_slow_func())
-   print(f"duration={time()-t}, {r=}")
+   with asyncio.Runner() as runner:
+       t = time()
+       r = runner.run(a_slow_func())
+       print(f"duration={time() - t}, {r=}")
+
+       t = time()
+       r = runner.run(a_slow_func())
+       print(f"duration={time() - t}, {r=}")
    ```
 
 The output should be like:
 
 ```
-duration=10.002939939498901, r='OK'
-duration=0.0008025169372558594, r='OK'
+duration=10.083423614501953, r='OK'
+duration=0.0015192031860351562, r='OK'
 ```
 
 We can see that the second call to `a_slow_func()` is served from the cache, which is much faster than the first call.
@@ -421,8 +426,8 @@ However, we can still use [`pickle`][]. This can be achieved by specifying eithe
 
 Other serialization libraries such as [bson][], [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack][], [yaml][], and [cloudpickle](https://github.com/cloudpipe/cloudpickle) are also supported.
 
-> ⚠️ **Warning:**  
-> The [`pickle`][] module is highly powerful but poses a significant security risk because it can execute arbitrary code during deserialization. Use it with extreme caution, especially when handling data from untrusted sources.  
+> ⚠️ **Warning:**
+> The [`pickle`][] module is highly powerful but poses a significant security risk because it can execute arbitrary code during deserialization. Use it with extreme caution, especially when handling data from untrusted sources.
 > For best practices, it is recommended to cache functions that return simple, [JSON][]-serializable data. If you need to serialize more complex data structures than those supported by [JSON][], consider using safer alternatives such as [bson][], [msgpack][], or [yaml][].
 
 ## Advanced Usage
@@ -486,7 +491,7 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
    @cache(serializer="bson")
    def now_time():
        from datetime import datetime
-       return datetime.now()  
+       return datetime.now()
    ```
 
 ### Custom key format

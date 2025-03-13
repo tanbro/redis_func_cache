@@ -76,7 +76,7 @@ class AbstractPolicy(ABC):
         Returns:
             A pair of key names, used for identifying and accessing the cache in Redis.
         """
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def calc_hash(
@@ -99,7 +99,7 @@ class AbstractPolicy(ABC):
         Returns:
             The calculated hash value.
         """
-        pass
+        raise NotImplementedError()
 
     def calc_ext_args(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
