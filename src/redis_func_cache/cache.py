@@ -46,10 +46,10 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     yaml = None  # type: ignore[assignment]
 else:
-    try:
+    if yaml.__with_libyaml__:
         from yaml import CSafeDumper as YamlDumper  # type: ignore[import-not-found]
         from yaml import CSafeLoader as YamlLoader  # type: ignore[import-not-found]
-    except ImportError:
+    else:
         from yaml import SafeDumper as YamlDumper  # type: ignore[assignment, import-not-found]
         from yaml import SafeLoader as YamlLoader  # type: ignore[assignment, import-not-found]
 
