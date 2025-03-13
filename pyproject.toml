@@ -50,6 +50,7 @@ pygments = ["Pygments>=2.9"]
 bson = ["pymongo>=3.9"]
 msgpack = ["msgpack>=1.0"]
 yaml = ["PyYAML>=5.4"]
+cbor=["cbor2>=5.0"]
 cloudpickle = ["cloudpickle>=3.0"]
 all = [
   "redis[hiredis]",
@@ -125,3 +126,7 @@ redis_func_cache = ["redis_func_cache/py.typed"]
 
 [tool.setuptools_scm]
 write_to = "src/redis_func_cache/_version.py"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+default = true

@@ -37,6 +37,10 @@ try:  # pragma: no cover
     import msgpack  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     msgpack = None  # type: ignore[assignment]
+try:
+    import cbor2  # type: ignore[import-not-found]
+except ImportError:
+    cbor2 = None
 try:  # pragma: no cover
     import yaml  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
@@ -60,7 +64,9 @@ if TYPE_CHECKING:  # pragma: no cover
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
     SerializerPairT = Tuple[SerializerT, DeserializerT]
-    SerializerSetterValueT = Union[Literal["json", "pickle", "bson", "msgpack", "yaml", "cloudpickle"], SerializerPairT]
+    SerializerSetterValueT = Union[
+        Literal["json", "pickle", "bson", "msgpack", "yaml", "cbor", "cloudpickle"], SerializerPairT
+    ]
 
 __all__ = ("RedisFuncCache",)
 
@@ -130,6 +136,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                   - ``"pickle"``: Use :func:`pickle.dumps` and :func:`pickle.loads`
                   - ``"bson"``: Use :func:`bson.decode` and :func:`bson.encode`. Only available when ``pymongo`` is installed.
                   - ``"msgpack"``: Use :func:`msgpack.packb` and :func:`msgpack.unpackb`. Only available when :mod:`msgpack` is installed.
+                  - ``"cbor"``: Use :func:`cbor.dumps` and :func:`cbor.loads`. Only available when :mod:`cbor2` is installed.
                   - ``"yaml"``: Use ``yaml.dump`` and ``yaml.load``. Only available when ``yaml`` is installed.
                   - ``"cloudpickle"``: Use :func:`cloudpickle.dumps` and :func:`pickle.loads`. Only available when :mod:`cloudpickle` is installed.
 
@@ -184,6 +191,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
         _tmp_dict["msgpack"] = (
             lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
+        )
+    if cbor2:
+        _tmp_dict["cbor"] = (
+            lambda x: cbor2.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
+            lambda x: cbor2.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
     if yaml:
         _tmp_dict["yaml"] = (
