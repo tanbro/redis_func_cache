@@ -10,7 +10,6 @@ import redis.asyncio.client
 import redis.asyncio.cluster
 import redis.client
 import redis.cluster
-import redis.commands.core
 
 CallableTV = TypeVar("CallableTV", bound=Callable)
 

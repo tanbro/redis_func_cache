@@ -56,7 +56,7 @@ else:
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .policies.abstract import AbstractPolicy
-from .typing import CallableTV, RedisClientTV, is_async_redis_client
+from .types import CallableTV, RedisClientTV, is_async_redis_client
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
@@ -199,8 +199,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         )
     if yaml:
         _tmp_dict["yaml"] = (
-            lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess]
-            lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess]
+            lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
+            lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
         )
     if cloudpickle:
         _tmp_dict["cloudpickle"] = (
