@@ -4,11 +4,30 @@ import sys
 from base64 import b64encode
 from textwrap import dedent
 from typing import TYPE_CHECKING, Callable
+from warnings import warn
 
 if sys.version_info < (3, 9):  # pragma: no cover
     import importlib_resources
 else:  # pragma: no cover
     import importlib.resources as importlib_resources
+
+try:
+    from pygments.filter import simplefilter
+    from pygments.lexers import get_lexer_by_name
+    from pygments.token import Comment, String
+except ImportError:
+    LUA_PYGMENTS_FILTER_TYPES = None
+else:
+    LUA_PYGMENTS_FILTER_TYPES = (
+        String.Doc,
+        Comment,
+        Comment.Hashbang,
+        Comment.Multiline,
+        Comment.Preproc,
+        Comment.PreprocFile,
+        Comment.Single,
+        Comment.Special,
+    )
 
 if TYPE_CHECKING:  # pragma: no cover
     from hashlib import _Hash
@@ -77,38 +96,20 @@ def clean_lua_script(source: str) -> str:
         This function utilizes the :mod:`pygments` library to remove comments and empty lines from the Lua script.
         If :mod:`pygments` is not installed, the source code will be returned unchanged.
     """
-    try:
-        from pygments.filter import simplefilter
-        from pygments.lexers import get_lexer_by_name
-        from pygments.token import Comment, String
-    except ImportError:
-        return source
-    else:
-        filter_types = (
-            String.Doc,
-            Comment,
-            Comment.Hashbang,
-            Comment.Multiline,
-            Comment.Preproc,
-            Comment.PreprocFile,
-            Comment.Single,
-            Comment.Special,
-        )
+    if LUA_PYGMENTS_FILTER_TYPES:
 
-        @simplefilter
+        @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
         def filter(self, lexer, stream, options):
-            yield from ((ttype, value) for ttype, value in stream if ttype not in filter_types)
+            yield from ((ttype, value) for ttype, value in stream if ttype not in LUA_PYGMENTS_FILTER_TYPES)
 
-        lexer = get_lexer_by_name("lua")
+        lexer = get_lexer_by_name("lua")  # pyright: ignore[reportPossiblyUnboundVariable]
+        if lexer is None:
+            return source
         lexer.add_filter(filter())  # pyright: ignore[reportCallIssue]
+        code = "".join(tok_str for _, tok_str in lexer.get_tokens(source))
+        # remote empty lines
+        return "".join(s for line in code.splitlines() if (s := line.strip()))
 
-        code = ""
-        for tok_type, tok_str in lexer.get_tokens(source):
-            code += tok_str
-
-        result = ""
-        for line in code.splitlines():
-            if line_stripped := line.strip():
-                result += line_stripped + "\n"
-
-        return result
+    else:
+        warn("pygments is not installed, return source code as is", ImportWarning)
+        return source
