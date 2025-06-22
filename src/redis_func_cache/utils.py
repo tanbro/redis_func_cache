@@ -108,7 +108,7 @@ def clean_lua_script(source: str) -> str:
         lexer.add_filter(filter())  # pyright: ignore[reportCallIssue]
         code = "".join(tok_str for _, tok_str in lexer.get_tokens(source))
         # remote empty lines
-        return "".join(s for line in code.splitlines() if (s := line.strip()))
+        return "\n".join(s for line in code.splitlines() if (s := line.strip()))
 
     else:
         warn("pygments is not installed, return source code as is", ImportWarning)
