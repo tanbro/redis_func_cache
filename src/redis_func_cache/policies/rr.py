@@ -9,9 +9,9 @@ __all__ = ("RrPolicy", "RrMultiplePolicy", "RrClusterPolicy", "RrClusterMultiple
 
 class RrPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
-    .. inheritance-diagram:: RrPolicy
+    Random replacement (RR) eviction policy, single key pair.
 
-    All decorated functions share the same key pair, use random replacement eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "rr"
@@ -19,9 +19,9 @@ class RrPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
 
 class RrMultiplePolicy(RrScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
-    .. inheritance-diagram:: RrMultiplePolicy
+    Random replacement (RR) eviction policy, multiple key pairs.
 
-    Each decorated function of the policy has its own key pair, use random replacement eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "rr-m"
@@ -29,9 +29,9 @@ class RrMultiplePolicy(RrScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
 
 class RrClusterPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
-    .. inheritance-diagram:: RrClusterPolicy
+    Random replacement (RR) eviction policy with Redis cluster support, single key pair.
 
-    All decorated functions share the same key pair, with cluster support, use random replacement eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "rr-c"
@@ -39,9 +39,9 @@ class RrClusterPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolic
 
 class RrClusterMultiplePolicy(RrScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
-    .. inheritance-diagram:: RrClusterMultiplePolicy
+    Random replacement (RR) eviction policy with Redis cluster support, multiple key pairs.
 
-    Each decorated function of the policy has its own key pair with cluster support, use random replacement eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "rr-cm"

@@ -9,9 +9,9 @@ __all__ = ("LfuPolicy", "LfuMultiplePolicy", "LfuClusterPolicy", "LfuClusterMult
 
 class LfuPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
-    .. inheritance-diagram:: LfuPolicy
+    LFU eviction policy, single key pair.
 
-    All decorated functions share the same key pair, use least frequently used eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "lfu"
@@ -19,9 +19,9 @@ class LfuPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
 
 class LfuMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
-    .. inheritance-diagram:: LfuMultiplePolicy
+    LFU eviction policy, multiple key pairs.
 
-    Each function is cached in a standalone sorted-set/hash-map pair of redis, use least frequently used eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "lfu-m"
@@ -29,9 +29,9 @@ class LfuMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy)
 
 class LfuClusterPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
-    .. inheritance-diagram:: LfuClusterPolicy
+    LFU eviction policy with Redis cluster support, single key pair.
 
-    All functions are cached in a single sorted-set/hash-map pair of redis with cluster support, use least frequently used eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "lfu-c"
@@ -39,9 +39,9 @@ class LfuClusterPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePol
 
 class LfuClusterMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
-    .. inheritance-diagram:: LfuClusterMultiplePolicy
+    LFU eviction policy with Redis cluster support, multiple key pairs.
 
-    Each function is cached in a single sorted-set/hash-map pair of redis with cluster support, use least frequently used eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "lfu-cm"

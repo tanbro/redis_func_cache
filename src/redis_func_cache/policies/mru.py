@@ -11,24 +11,40 @@ class _MruPolicyExtArgsMixin:
 
 
 class MruPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
-    """All functions are cached in a single sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
+    """
+    MRU eviction policy, single key pair.
+
+    All decorated functions share the same Redis key pair.
+    """
 
     __key__ = "mru"
 
 
 class MruMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
-    """Each function is cached in its own sorted-set/hash-map pair of redis, with Most Recently Used eviction policy."""
+    """
+    MRU eviction policy, multiple key pairs.
+
+    Each decorated function has its own Redis key pair.
+    """
 
     __key__ = "mru-m"
 
 
 class MruClusterPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
-    """All functions are cached in a single sorted-set/hash-map pair of redis with cluster support, with Most Recently Used eviction policy."""
+    """
+    MRU eviction policy with Redis cluster support, single key pair.
+
+    All decorated functions share the same Redis key pair.
+    """
 
     __key__ = "mru-c"
 
 
 class MruClusterMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
-    """Each function is cached in its own sorted-set/hash-map pair of redis with cluster support, with Most Recently Used eviction policy."""
+    """
+    MRU eviction policy with Redis cluster support, multiple key pairs.
+
+    Each decorated function has its own Redis key pair.
+    """
 
     __key__ = "mru-cm"

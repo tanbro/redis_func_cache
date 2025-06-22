@@ -72,7 +72,23 @@ __all__ = ("RedisFuncCache",)
 
 
 class RedisFuncCache(Generic[RedisClientTV]):
-    """A function cache class backed by Redis."""
+    """A function cache class backed by Redis.
+
+    This class provides a decorator-based caching mechanism for functions, storing their results in Redis.
+    It supports both synchronous and asynchronous Redis clients, customizable cache policies, and flexible serialization options.
+
+    ::
+
+        >>> from redis_func_cache import LruTPolicy, RedisFuncCache
+        >>> cache = RedisFuncCache("my_cache", LruTPolicy, redis_client)
+        >>> @cache
+        ... def my_func(a, b):
+        ...     return a + b
+
+    - The `serializer` parameter can be a string or a pair of callables.
+    - If a callable is passed as the `redis_client`, it will be invoked every time the redis client is accessed.
+    - The cache supports both synchronous and asynchronous Redis clients, but the decorated function must match the redis client's async/sync nature.
+    """
 
     def __init__(
         self,

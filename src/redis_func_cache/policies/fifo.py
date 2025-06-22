@@ -18,9 +18,9 @@ __all__ = (
 
 class FifoPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
-    .. inheritance-diagram:: FifoPolicy
+    FIFO eviction policy, single key pair.
 
-    All decorated functions share the same key pair, use First In First Out eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "fifo"
@@ -28,9 +28,9 @@ class FifoPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
 
 class FifoMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
-    .. inheritance-diagram:: FifoMultiplePolicy
+    FIFO eviction policy, multiple key pairs.
 
-    Each decorated function has its own key pair, use First In First Out eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "fifo-m"
@@ -38,9 +38,9 @@ class FifoMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseMultiplePolic
 
 class FifoClusterPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
-    .. inheritance-diagram:: FifoClusterPolicy
+    FIFO eviction policy with Redis cluster support, single key pair.
 
-    All decorated functions share the same key pair, with cluster support, use First In First Out eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "fifo-c"
@@ -48,9 +48,9 @@ class FifoClusterPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterSingleP
 
 class FifoClusterMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
-    .. inheritance-diagram:: FifoClusterMultiplePolicy
+    FIFO eviction policy with Redis cluster support, multiple key pairs.
 
-    Each decorated function has its own key pair, with cluster support, use First In First Out eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "fifo-cm"
@@ -58,9 +58,9 @@ class FifoClusterMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseCluste
 
 class FifoTPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
-    .. inheritance-diagram:: FifoTPolicy
+    FIFO eviction policy (timestamp variant), single key pair.
 
-    All decorated functions share the same key pair, use First In First Out eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "fifo_t"
@@ -68,9 +68,9 @@ class FifoTPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
 
 class FifoTMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
-    .. inheritance-diagram:: FifoTMultiplePolicy
+    FIFO eviction policy (timestamp variant), multiple key pairs.
 
-    Each decorated function has its own key pair, use First In First Out eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "fifo_t-m"
@@ -78,9 +78,9 @@ class FifoTMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseMultiplePol
 
 class FifoTClusterPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
-    .. inheritance-diagram:: FifoTClusterPolicy
+    FIFO eviction policy (timestamp variant) with Redis cluster support, single key pair.
 
-    All decorated functions share the same key pair, with cluster support, use First In First Out eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "fifo_t-c"
@@ -88,9 +88,9 @@ class FifoTClusterPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterSingl
 
 class FifoTClusterMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
-    .. inheritance-diagram:: FifoTClusterMultiplePolicy
+    FIFO eviction policy (timestamp variant) with Redis cluster support, multiple key pairs.
 
-    Each decorated function has its own key pair, with cluster support, use First In First Out eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "fifo_t-cm"

@@ -25,12 +25,11 @@ __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", 
 
 class BaseSinglePolicy(AbstractPolicy):
     """
-    .. inheritance-diagram:: BaseSinglePolicy
+    Base policy for a single sorted-set or hash-map key pair.
 
-    Base policy class for a single sorted-set or hash-map key pair.
-    All decorated functions of this policy share the same key pair.
+    All decorated functions using this policy share the same Redis key pair.
 
-    This class should not be used directly.
+    Not intended for direct use.
     """
 
     __key__: str
@@ -38,12 +37,18 @@ class BaseSinglePolicy(AbstractPolicy):
     @override
     def __init__(self, cache: CallableProxyType[RedisFuncCache]):
         super().__init__(cache)
-        self._keys: Optional[tuple[str, str]] = None
+        self._keys: Optional[Tuple[str, str]] = None
 
     @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[str, str]:
+        """
+        Return the static Redis key pair for this cache policy.
+
+        Returns:
+            Tuple of (sorted set key, hash map key).
+        """
         if self._keys is None:
             k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}"
             self._keys = f"{k}:0", f"{k}:1"
@@ -51,6 +56,12 @@ class BaseSinglePolicy(AbstractPolicy):
 
     @override
     def purge(self) -> int:
+        """
+        Delete the cache's Redis keys synchronously.
+
+        Returns:
+            Number of keys deleted.
+        """
         client = self.cache.client
         if not is_sync_redis_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
@@ -58,6 +69,12 @@ class BaseSinglePolicy(AbstractPolicy):
 
     @override
     async def apurge(self) -> int:
+        """
+        Delete the cache's Redis keys asynchronously.
+
+        Returns:
+            Number of keys deleted.
+        """
         client = self.cache.client
         if not is_async_redis_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
@@ -65,6 +82,12 @@ class BaseSinglePolicy(AbstractPolicy):
 
     @override
     def get_size(self) -> int:
+        """
+        Get the number of items in the cache synchronously.
+
+        Returns:
+            Number of items in the cache.
+        """
         client = self.cache.client
         if not is_sync_redis_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
@@ -72,6 +95,12 @@ class BaseSinglePolicy(AbstractPolicy):
 
     @override
     async def aget_size(self) -> int:
+        """
+        Get the number of items in the cache asynchronously.
+
+        Returns:
+            Number of items in the cache.
+        """
         client = self.cache.client
         if not is_async_redis_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
@@ -81,18 +110,23 @@ class BaseSinglePolicy(AbstractPolicy):
 
 class BaseClusterSinglePolicy(BaseSinglePolicy):
     """
-    .. inheritance-diagram:: BaseClusterSinglePolicy
+    Base policy for a single sorted-set or hash-map key pair with Redis cluster support.
 
-    Base policy class for a single sorted-set or hash-map key pair, with cluster support.
-    All decorated functions of this policy share the same key pair.
+    All decorated functions using this policy share the same Redis key pair.
 
-    This class should not be used directly.
+    Not intended for direct use.
     """
 
     @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[str, str]:
+        """
+        Return the static Redis key pair for this cache policy, using cluster hash tags.
+
+        Returns:
+            Tuple of (sorted set key, hash map key).
+        """
         if self._keys is None:
             k = f"{self.cache.prefix}{{{self.cache.name}:{self.__key__}}}"
             self._keys = f"{k}:0", f"{k}:1"
@@ -101,18 +135,26 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
 
 class BaseMultiplePolicy(AbstractPolicy):
     """
-    .. inheritance-diagram:: BaseMultiplePolicy
+    Base policy for multiple sorted-set or hash-map key pairs.
 
-    Base policy class for multiple sorted-set or hash-map key pairs.
-    Each decorated function of this policy has its own key pair.
+    Each decorated function using this policy has its own Redis key pair.
 
-    This class should not be used directly.
+    Not intended for direct use.
     """
 
     @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[str, str]:
+        """
+        Calculate a unique Redis key pair for the given function.
+
+        Args:
+            f: The decorated function.
+
+        Returns:
+            Tuple of (sorted set key, hash map key).
+        """
         if not callable(f):
             raise TypeError("Can not calculate hash for a non-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"
@@ -124,6 +166,12 @@ class BaseMultiplePolicy(AbstractPolicy):
 
     @override
     def purge(self) -> int:
+        """
+        Delete all Redis keys for this policy synchronously.
+
+        Returns:
+            Number of keys deleted.
+        """
         client = self.cache.client
         if not is_sync_redis_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
@@ -134,6 +182,12 @@ class BaseMultiplePolicy(AbstractPolicy):
 
     @override
     async def apurge(self) -> int:
+        """
+        Delete all Redis keys for this policy asynchronously.
+
+        Returns:
+            Number of keys deleted.
+        """
         client = self.cache.client
         if not is_async_redis_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
@@ -145,18 +199,26 @@ class BaseMultiplePolicy(AbstractPolicy):
 
 class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     """
-    .. inheritance-diagram:: BaseClusterMultiplePolicy
+    Base policy for multiple sorted-set or hash-map key pairs with Redis cluster support.
 
-    Base policy class for multiple sorted-set or hash-map key pairs, with cluster support.
-    Each decorated function of this policy has its own key pair.
+    Each decorated function using this policy has its own Redis key pair.
 
-    This class should not be used directly.
+    Not intended for direct use.
     """
 
     @override
     def calc_keys(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
     ) -> Tuple[str, str]:
+        """
+        Calculate a unique Redis key pair for the given function, using cluster hash tags.
+
+        Args:
+            f: The decorated function.
+
+        Returns:
+            Tuple of (sorted set key, hash map key).
+        """
         if not callable(f):
             raise TypeError("Can not calculate hash for a non-callable object")
         fullname = f"{f.__module__}:{f.__qualname__}"

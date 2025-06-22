@@ -18,9 +18,9 @@ __all__ = (
 
 class LruPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
-    .. inheritance-diagram:: LruPolicy
+    LRU eviction policy, single key pair.
 
-    All decorated functions share the same key pair, use Least Recently Used eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "lru"
@@ -28,9 +28,9 @@ class LruPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
 
 class LruMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
-    .. inheritance-diagram:: LruMultiplePolicy
+    LRU eviction policy, multiple key pairs.
 
-    Each decorated function of the policy has its own key pair, use Least Recently Used eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "lru-m"
@@ -38,9 +38,9 @@ class LruMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy)
 
 class LruClusterPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
-    .. inheritance-diagram:: LruClusterPolicy
+    LRU eviction policy with Redis cluster support, single key pair.
 
-    All decorated functions share the same key pair, with cluster support, use Least Recently Used eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "lru-c"
@@ -48,9 +48,9 @@ class LruClusterPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePol
 
 class LruClusterMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
-    inheritance-diagram:: LruClusterMultiplePolicy
+    LRU eviction policy with Redis cluster support, multiple key pairs.
 
-    Each decorated function of the policy has its own key pair, with cluster support, use Least Recently Used eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "lru-cm"
@@ -58,9 +58,9 @@ class LruClusterMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterM
 
 class LruTPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
-    .. inheritance-diagram:: LruTPolicy
+    LRU-T (timestamp-based pseudo LRU) eviction policy, single key pair.
 
-    All decorated functions share the same key pair, use time based pseudo Least Recently Used eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "lru_t"
@@ -68,9 +68,9 @@ class LruTPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
 
 class LruTMultiplePolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
-    .. inheritance-diagram:: LruTMultiplePolicy
+    LRU-T (timestamp-based pseudo LRU) eviction policy, multiple key pairs.
 
-    Each decorated function of the policy has its own key pair, use time based pseudo Least Recently Used eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "lru_t-m"
@@ -78,9 +78,9 @@ class LruTMultiplePolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseMultiplePolic
 
 class LruTClusterPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
-    .. inheritance-diagram:: LruTClusterPolicy
+    LRU-T (timestamp-based pseudo LRU) eviction policy with Redis cluster support, single key pair.
 
-    All decorated functions share the same key pair, with cluster support, use time based pseudo Least Recently Used eviction policy.
+    All decorated functions share the same Redis key pair.
     """
 
     __key__ = "lru_t-c"
@@ -88,9 +88,9 @@ class LruTClusterPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseClusterSingleP
 
 class LruTClusterMultiplePolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
-    .. inheritance-diagram:: LruTClusterMultiplePolicy
+    LRU-T (timestamp-based pseudo LRU) eviction policy with Redis cluster support, multiple key pairs.
 
-    Each decorated function of the policy has its own key pair, with cluster support, use time based pseudo Least Recently Used eviction policy.
+    Each decorated function has its own Redis key pair.
     """
 
     __key__ = "lru_t-cm"
