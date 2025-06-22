@@ -11,7 +11,15 @@ from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
 from ..utils import get_callable_bytecode
 
 if TYPE_CHECKING:  # pragma: no cover
-    from hashlib import _Hash
+    from typing import Protocol
+
+    from _typeshed import ReadableBuffer
+
+    class Hash(Protocol):
+        def update(self, data: ReadableBuffer, /) -> None: ...
+        def digest(self) -> bytes: ...
+        def hexdigest(self) -> str: ...
+        def copy(self) -> "Hash": ...
 
     from redis.typing import KeyT
 
@@ -40,7 +48,7 @@ class HashConfig:
     """function to serialize function name, source code, and arguments"""
     algorithm: str
     """name for hashing algorithm"""
-    decoder: Optional[Callable[[_Hash], KeyT]] = None
+    decoder: Optional[Callable[[Hash], KeyT]] = None
     """function to convert hash digest to member of a sorted/unsorted set and also field name of a hash map in redis.
 
     Default is :data:`None`, means no convert and use the digested bytes directly.
@@ -137,7 +145,9 @@ class JsonMd5Base64HashMixin(AbstractHashMixin):
     """
 
     __hash_config__ = HashConfig(
-        algorithm="md5", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: b64decode(x.digest())
+        algorithm="md5",
+        serializer=lambda x: json.dumps(x).encode(),
+        decoder=lambda x: b64decode(x.digest().decode().rstrip("=")),
     )
 
 
@@ -177,7 +187,9 @@ class JsonSha1Base64HashMixin(AbstractHashMixin):
     """
 
     __hash_config__ = HashConfig(
-        algorithm="sha1", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: b64decode(x.digest())
+        algorithm="sha1",
+        serializer=lambda x: json.dumps(x).encode(),
+        decoder=lambda x: b64decode(x.digest().decode().rstrip("=")),
     )
 
 
@@ -214,7 +226,9 @@ class PickleMd5Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleMd5Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=lambda x: b64decode(x.digest()))
+    __hash_config__ = HashConfig(
+        algorithm="md5", serializer=pickle.dumps, decoder=lambda x: b64decode(x.digest()).decode().rstrip("=")
+    )
 
 
 class PickleSha1HashMixin(AbstractHashMixin):
@@ -250,4 +264,6 @@ class PickleSha1Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleSha1Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: b64decode(x.digest()))
+    __hash_config__ = HashConfig(
+        algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: b64decode(x.digest()).decode().rstrip("=")
+    )

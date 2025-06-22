@@ -60,7 +60,7 @@ def get_callable_bytecode(obj: Callable) -> bytes:
         obj: The function to retrieve bytecode from.
 
     Returns:
-        The bytecode of the function, or `b""` the function has no `__code__` attribute.
+        The bytecode of the function, or `b""` if the function has no `__code__` attribute.
     """
     try:
         return obj.__code__.co_code
