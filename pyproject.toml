@@ -121,8 +121,7 @@ pytest = ["python-dotenv", "pytest", "pytest-cov", { include-group = "all" }]
 where = ["src"]
 
 [tool.setuptools.package-data]
-redis_func_cache = ["redis_func_cache/py.typed"]
-"redis_func_cache.lua" = ["redis_func_cache/lua/*.lua"]
+redis_func_cache = ["redis_func_cache/py.typed", "redis_func_cache/lua/*.lua"]
 
 [tool.setuptools_scm]
 write_to = "src/redis_func_cache/_version.py"
