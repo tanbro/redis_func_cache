@@ -78,6 +78,9 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 - Multiple caching policies: LRU, FIFO, LFU, RR.
 - Serialization formats: JSON, Pickle, MsgPack, YAML, BSON, CBOR.
 
+> ℹ️ **Caution:**\
+> The FIFO serial policies need Redis 7.2.0 or higher, because of the optional `WITHSCORE` argument of `ZRANK` command.
+
 ## Installation
 
 - install from PyPI:

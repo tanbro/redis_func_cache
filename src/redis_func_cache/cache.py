@@ -56,7 +56,7 @@ else:
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .policies.abstract import AbstractPolicy
-from .types import CallableTV, RedisClientTV, is_async_redis_client
+from .typing import CallableTV, RedisClientTV, is_async_redis_client
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
@@ -106,8 +106,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 Access the client via the :attr:`client` property.
 
-                Note:
-                    If a function is provided, it will be executed **every time** the :attr:`.client` property is accessed.
+                Caution:
+                    If a :term:`callable` object is passed is provided, it will be executed **EVERY TIME** the :attr:`.client` property is accessed.
 
             maxsize: The maximum size of the cache.
 
@@ -179,36 +179,36 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
 
-    _tmp_dict = {}
-    _tmp_dict["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
-    _tmp_dict["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
+    _tmp_serializers = dict()
+    _tmp_serializers["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
+    _tmp_serializers["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
     if bson:
-        _tmp_dict["bson"] = (
+        _tmp_serializers["bson"] = (
             lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
         )
     if msgpack:
-        _tmp_dict["msgpack"] = (
+        _tmp_serializers["msgpack"] = (
             lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
     if cbor2:
-        _tmp_dict["cbor"] = (
+        _tmp_serializers["cbor"] = (
             lambda x: cbor2.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: cbor2.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
     if yaml:
-        _tmp_dict["yaml"] = (
+        _tmp_serializers["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
             lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
         )
     if cloudpickle:
-        _tmp_dict["cloudpickle"] = (
+        _tmp_serializers["cloudpickle"] = (
             lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    __serializers__: Mapping[str, SerializerPairT] = _tmp_dict
-    del _tmp_dict
+    __serializers__: Mapping[str, SerializerPairT] = _tmp_serializers
+    del _tmp_serializers
 
     @property
     def name(self) -> str:
@@ -268,7 +268,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
     @serializer.setter
     def serializer(self, value: SerializerSetterValueT):
         if isinstance(value, str):
-            self._serializer, self._deserializer = self.__serializers__[value]
+            try:
+                self._serializer, self._deserializer = self.__serializers__[value]
+            except KeyError:
+                raise ValueError(f"Unknown serializer: {value}")
         elif (
             isinstance(value, Sequence)
             and not isinstance(value, (bytes, bytearray, str))
@@ -297,8 +300,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         Caution:
             If a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor,
-            it will be invoked **each time** this property is accessed, and its return value
-            will be used as the property value.
+            it will be invoked **EVERY TIME** this property is accessed, and its return value will be used as the property value.
         """
         if self._redis_instance:
             return self._redis_instance
@@ -421,7 +423,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
     ):
-        """Async version of :meth:`get`"""
+        """Async version of :meth:`put`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         await script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, encoded_options), ext_args))
@@ -447,8 +449,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
             user_function: The user function to execute.
             user_args: Positional arguments to pass to the user function.
             user_kwds: Keyword arguments to pass to the user function.
-            deserialize_func: Custom serializer passed from :meth:`decorate`.
-            func_deserialize: Custom deserializer passed from :meth:`decorate`.
+            serialize_func: Custom serializer passed from :meth:`decorate`.
+            deserialize_func: Custom deserializer passed from :meth:`decorate`.
             options: Additional options passed from :meth:`decorate`'s `**kwargs`.
 
         Returns:

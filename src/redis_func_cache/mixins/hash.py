@@ -4,6 +4,7 @@ import hashlib
 import json
 import pickle
 from abc import ABC
+from base64 import b64decode
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
 
@@ -136,7 +137,7 @@ class JsonMd5Base64HashMixin(AbstractHashMixin):
     """
 
     __hash_config__ = HashConfig(
-        algorithm="md5", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
+        algorithm="md5", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: b64decode(x.digest())
     )
 
 
@@ -176,7 +177,7 @@ class JsonSha1Base64HashMixin(AbstractHashMixin):
     """
 
     __hash_config__ = HashConfig(
-        algorithm="sha1", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
+        algorithm="sha1", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: b64decode(x.digest())
     )
 
 
@@ -197,8 +198,7 @@ class PickleMd5HashMixin(AbstractHashMixin):
 class PickleMd5HexHashMixin(AbstractHashMixin):
     """
     Serializes the function name, source code, and arguments using the :mod:`pickle` module,
-    then calculates the MD5 hash value,
-    and finally returns the hexadecimal representation of the digest.
+    then calculates the MD5 hash value, and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: PickleMd5HexHashMixin
     """
@@ -209,13 +209,12 @@ class PickleMd5HexHashMixin(AbstractHashMixin):
 class PickleMd5Base64HashMixin(AbstractHashMixin):
     """
     Serializes the function name, source code, and arguments using the :mod:`pickle` module,
-    then calculates the MD5 hash value,
-    and finally returns the base64 encoded digest.
+    then calculates the MD5 hash value, and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: PickleMd5Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=lambda x: b64decode(x.digest()))
 
 
 class PickleSha1HashMixin(AbstractHashMixin):
@@ -251,4 +250,4 @@ class PickleSha1Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleSha1Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: b64decode(x.digest()))

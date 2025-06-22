@@ -13,7 +13,7 @@ else:  # pragma: no cover
     from typing import override
 
 from ..cache import RedisFuncCache
-from ..types import is_async_redis_client, is_sync_redis_client
+from ..typing import is_async_redis_client, is_sync_redis_client
 from ..utils import b64digest, get_callable_bytecode
 from .abstract import AbstractPolicy
 

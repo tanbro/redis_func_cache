@@ -18,7 +18,7 @@ services:
         target: /workspace
     working_dir: /workspace
     environment:
-      PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/web/simple}
+      PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.cloud.tencent.com/pypi/simple}
       REDIS_URL: ${REDIS_URL:-redis://127.0.0.1:6379}
       REDIS_CLUSTER_NODES: ${REDIS_CLUSTER_NODES:-127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382}
     entrypoint: bash
