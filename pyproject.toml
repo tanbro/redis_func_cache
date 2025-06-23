@@ -15,7 +15,7 @@ keywords = ["redis", "cache", "decorator"]
 license = { text = "BSD-3-Clause" }
 
 classifiers = [
-  "License :: OSI Approved :: BSD License",
+  # "License :: OSI Approved :: BSD License",
   # "Development Status :: 1 - Planning",
   # "Development Status :: 2 - Pre-Alpha",
   # "Development Status :: 3 - Alpha",
@@ -63,21 +63,6 @@ all = [
 
 
 [dependency-groups]
-hiredis = ["redis[hiredis]"]
-pygments = ["Pygments>=2.9"]
-bson = ["pymongo>=3.9"]
-msgpack = ["msgpack>=1.0"]
-yaml = ["PyYAML>=5.4"]
-cloudpickle = ["cloudpickle>=3.0"]
-all = [
-  { include-group = "hiredis" },
-  { include-group = "pygments" },
-  { include-group = "bson" },
-  { include-group = "msgpack" },
-  { include-group = "yaml" },
-  { include-group = "cloudpickle" },
-]
-
 dev = [
   { include-group = "static-type-check" },
   { include-group = "test" },
@@ -106,16 +91,12 @@ docs = [
   "sphinx-inline-tabs",
   "sphinx_tippy",
   "sphinx-version-warning",
-  { include-group = "all" },
 ]
 coverage = ["coverage"]
 test = [
   "python-dotenv",
-  { include-group = "all" },
   { include-group = "coverage" },
 ]
-pytest = ["python-dotenv", "pytest", "pytest-cov", { include-group = "all" }]
-
 
 [tool.setuptools.packages.find]
 where = ["src"]

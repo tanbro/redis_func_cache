@@ -22,9 +22,6 @@
 
 - 📝 **Misc**
   - Minor adjustments to documentation and configuration files.
-  - Switched test dependency to `pytest` for a more modern testing workflow.
-  - Redis client factories changed from lambdas to named functions for better type checking and extensibility.
-  - In `utils.py`, branches for missing `pygments` are now marked with `# pragma: no cover` to improve coverage reporting.
 
 ## v0.3
 
