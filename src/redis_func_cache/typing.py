@@ -9,7 +9,12 @@ else:  # pragma: no cover
     from typing import TypeGuard
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import Protocol
+    from typing import Protocol, Self
+
+    if sys.version_info < (3, 11):  # pragma: no cover
+        from typing_extensions import Self
+    else:
+        from typing import Self
 
     from _typeshed import ReadableBuffer
 
@@ -43,7 +48,7 @@ if TYPE_CHECKING:  # pragma: no cover
         def update(self, data: ReadableBuffer, /) -> None: ...
         def digest(self) -> bytes: ...
         def hexdigest(self) -> str: ...
-        def copy(self) -> "Hash": ...
+        def copy(self) -> Self: ...
 
 
 def is_async_redis_client(client: RedisClientT) -> TypeGuard[RedisAsyncClientT]:

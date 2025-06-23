@@ -33,7 +33,7 @@ if maxsize > 0 and not redis.call('ZRANK', zset_key, hash) then
 end
 
 local time = redis.call('TIME')
-redis.call('ZADD', zset_key, time[1] + time[2] / 100000, hash)
+redis.call('ZADD', zset_key, time[1] + time[2] * 1e-6, hash)
 redis.call('HSET', hmap_key, hash, return_value)
 
 return c

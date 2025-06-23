@@ -32,19 +32,17 @@ Here is a simple example:
    ```python
    import asyncio
    from time import time
-
-   from redis.asyncio import Redis
-
+   import redis.asyncio
    from redis_func_cache import LruTPolicy, RedisFuncCache
 
    # Create a redis client
-   redis_client = Redis.from_url("redis://")
+   async_redis_client = redis.asyncio.Redis.from_url("redis://")
 
    # Create an LRU cache, connecting to Redis using the previously created redis client
-   lru_cache = RedisFuncCache(__name__, LruTPolicy, redis_client)
+   async_lru_cache = RedisFuncCache(__name__, LruTPolicy, async_redis_client)
 
 
-   @lru_cache  # Decorate a function to cache its result
+   @async_lru_cache  # Decorate a function to cache its result
    async def a_slow_func():
        await asyncio.sleep(10)  # Sleep to simulate a slow operation
        return "OK"
@@ -77,9 +75,6 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 - [Redis][] **cluster** integration.
 - Multiple caching policies: LRU, FIFO, LFU, RR.
 - Serialization formats: JSON, Pickle, MsgPack, YAML, BSON, CBOR.
-
-> ℹ️ **Caution:**\
-> The FIFO serial policies require Redis 7.2.0 or higher, because of the optional `WITHSCORE` argument of the `ZRANK` command.
 
 ## Installation
 
