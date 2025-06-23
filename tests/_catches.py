@@ -1,5 +1,5 @@
 from os import getenv
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 from warnings import warn
 
 from redis import Redis
@@ -34,50 +34,57 @@ except ImportError as err:
 else:
     load_dotenv()
 
+
+def redis_factory(**kwargs):
+    return Redis.from_url(REDIS_URL)
+
+
+def async_redis_factory(**kwargs):
+    return AsyncRedis.from_url(REDIS_URL)
+
+
 MAXSIZE = 8
 
 REDIS_URL = getenv("REDIS_URL", "redis://")
-REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
-ASYNC_REDIS_FACTORY = lambda: AsyncRedis.from_url(REDIS_URL)  # noqa: E731
 REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES")
 
 
 CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuPolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTPolicy, client=redis_factory, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruPolicy, client=redis_factory, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruPolicy, client=redis_factory, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrPolicy, client=redis_factory, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoPolicy, client=redis_factory, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuPolicy, client=redis_factory, maxsize=MAXSIZE),
 }
 
 MULTI_CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, client=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTMultiplePolicy, client=redis_factory, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruMultiplePolicy, client=redis_factory, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruMultiplePolicy, client=redis_factory, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrMultiplePolicy, client=redis_factory, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, client=redis_factory, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, client=redis_factory, maxsize=MAXSIZE),
 }
 
 
 ASYNC_CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTPolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruPolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruPolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrPolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoPolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuPolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTPolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruPolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruPolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrPolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoPolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuPolicy, client=async_redis_factory, maxsize=MAXSIZE),
 }
 
 
 ASYNC_MULTI_CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTMultiplePolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruMultiplePolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruMultiplePolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrMultiplePolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, client=async_redis_factory, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, client=async_redis_factory, maxsize=MAXSIZE),
 }
 
 CLUSTER_NODES: List[ClusterNode] = []

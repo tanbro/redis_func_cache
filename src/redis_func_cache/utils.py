@@ -105,7 +105,7 @@ def clean_lua_script(source: str) -> str:
             yield from ((ttype, value) for ttype, value in stream if ttype not in LUA_PYGMENTS_FILTER_TYPES)
 
         lexer = get_lexer_by_name("lua")  # pyright: ignore[reportPossiblyUnboundVariable]
-        if lexer is None:
+        if lexer is None:  # pragma: no cover
             warn("Lua lexer not found in pygments, return source code as is", RuntimeWarning)
             return source
         lexer.add_filter(filter())  # pyright: ignore[reportCallIssue]
@@ -113,6 +113,6 @@ def clean_lua_script(source: str) -> str:
         # remote empty lines
         return "\n".join(s for line in code.splitlines() if (s := line.strip()))
 
-    else:
+    else:  # pragma: no cover
         warn("pygments is not installed, return source code as is", ImportWarning)
         return source

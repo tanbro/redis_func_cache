@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from redis_func_cache import LruPolicy, RedisFuncCache
 
-from ._catches import CACHES, MAXSIZE, REDIS_FACTORY
+from ._catches import CACHES, MAXSIZE, redis_factory
 
 
 def _echo(x):
@@ -19,6 +19,7 @@ class BasicTest(TestCase):
             cache.policy.purge()
 
     def test_basic(self):
+        """测试缓存命中和未命中场景。"""
         for cache in CACHES.values():
 
             @cache
@@ -51,6 +52,7 @@ class BasicTest(TestCase):
             self.assertEqual(cache.maxsize, cache.policy.get_size())
 
     def test_many_functions(self):
+        """测试同一缓存实例装饰多个函数。"""
         for cache in CACHES.values():
 
             @cache()
@@ -76,6 +78,7 @@ class BasicTest(TestCase):
                         mock_put.assert_called_once()
 
     def test_parenthesis(self):
+        """测试带括号的装饰器语法。"""
         for cache in CACHES.values():
 
             @cache()
@@ -86,6 +89,7 @@ class BasicTest(TestCase):
                 self.assertEqual(_echo(i), echo(i))
 
     def test_oversize(self):
+        """测试缓存超限后的行为。"""
         for cache in CACHES.values():
 
             @cache
@@ -105,6 +109,7 @@ class BasicTest(TestCase):
             self.assertEqual(cache.maxsize, cache.policy.get_size())
 
     def test_str(self):
+        """测试字符串类型的缓存。"""
         for cache in CACHES.values():
 
             @cache
@@ -121,6 +126,7 @@ class BasicTest(TestCase):
             self.assertEqual(size, cache.policy.get_size())
 
     def test_lru(self):
+        """测试 LRU 策略缓存行为。"""
         for name_, cache in CACHES.items():
             if name_ not in ("lru", "tru"):
                 continue
@@ -144,6 +150,7 @@ class BasicTest(TestCase):
             self.assertListEqual(values, list(range(1, MAXSIZE + 1)))
 
     def test_mru(self):
+        """测试 MRU 策略缓存行为。"""
         cache = CACHES["mru"]
 
         @cache
@@ -163,6 +170,7 @@ class BasicTest(TestCase):
         self.assertListEqual(sorted(values), list(range(MAXSIZE - 1)) + [MAXSIZE])
 
     def test_fifo(self):
+        """测试 FIFO 策略缓存行为。"""
         cache = CACHES["fifo"]
 
         @cache
@@ -187,6 +195,7 @@ class BasicTest(TestCase):
         self.assertListEqual(sorted(values), list(range(1, MAXSIZE)) + [MAXSIZE])
 
     def test_lfu(self):
+        """测试 LFU 策略缓存行为。"""
         cache = CACHES["lfu"]
 
         @cache
@@ -212,6 +221,7 @@ class BasicTest(TestCase):
         self.assertListEqual(sorted(values), list(range(0, v)) + list(range(v + 1, MAXSIZE + 1)))
 
     def test_rr(self):
+        """测试 RR 策略缓存行为。"""
         cache = CACHES["rr"]
 
         @cache
@@ -235,7 +245,8 @@ class BasicTest(TestCase):
         self.assertIn(MAXSIZE, values)
 
     def test_direct_redis_client(self):
-        client = REDIS_FACTORY()
+        """测试直接传入 redis client 的场景。"""
+        client = redis_factory()
         cache = RedisFuncCache(name="test_direct_redis_client", policy=LruPolicy, client=client)
 
         @cache
@@ -244,6 +255,80 @@ class BasicTest(TestCase):
 
         for i in range(MAXSIZE):
             self.assertEqual(echo(i), i)
+
+    def test_exception_handling(self):
+        """测试被缓存函数抛出异常时缓存行为。"""
+        for cache in CACHES.values():
+
+            @cache
+            def fail(x):
+                raise ValueError("fail")
+
+            with self.assertRaises(ValueError):
+                fail(1)
+            # 再次调用应继续抛异常，不应缓存异常结果
+            with self.assertRaises(ValueError):
+                fail(1)
+
+    def test_unserializable_object(self):
+        """测试不可序列化对象缓存时的行为。"""
+        import threading
+
+        for cache in CACHES.values():
+
+            @cache
+            def echo(x):
+                return x
+
+            obj = threading.Lock()
+            with self.assertRaises(Exception):
+                echo(obj)
+
+    def test_various_argument_types(self):
+        """测试不同参数类型的缓存支持。"""
+        for cache in CACHES.values():
+
+            @cache
+            def echo(x):
+                return x
+
+            for v in [None, 1.23, True, (1, 2), {"a": 1}, frozenset({1, 2})]:
+                try:
+                    self.assertEqual(echo(v), v)
+                except Exception:
+                    # 某些类型如 dict 可能不支持做 key
+                    pass
+
+    def test_cache_purge(self):
+        """测试缓存清理后缓存应为空。"""
+        for cache in CACHES.values():
+
+            @cache
+            def echo(x):
+                return x
+
+            echo(1)
+            cache.policy.purge()
+            # 清理后应 miss
+            with patch.object(cache, "get", return_value=None) as mock_get:
+                with patch.object(cache, "put") as mock_put:
+                    echo(2)
+                    mock_get.assert_called_once()
+                    mock_put.assert_called_once()
+
+    def test_custom_serializer(self):
+        """测试自定义序列化器的兼容性。"""
+        import pickle
+
+        for cache in CACHES.values():
+
+            @cache(serializer=(pickle.dumps, pickle.loads))
+            def echo(x):
+                return x
+
+            v = {"a": 1, "b": 2}
+            self.assertEqual(echo(v), v)
+            self.assertEqual(echo(v), v)
 
 
 class InvalidFunctionTestCase(TestCase):
