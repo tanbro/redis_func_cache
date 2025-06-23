@@ -1,5 +1,5 @@
 from os import getenv
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List
 from warnings import warn
 
 from redis import Redis

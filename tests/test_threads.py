@@ -71,15 +71,19 @@ class BasicTest(TestCase):
     def test_concurrent_exception(self):
         """多线程下被缓存函数抛异常时，所有线程都能收到异常。"""
         for cache in CACHES.values():
+
             def fail(x):
                 raise ValueError("fail")
+
             _fail = cache.decorate(fail)
             errors = []
+
             def f():
                 try:
                     _fail(1)
                 except Exception as e:
                     errors.append(e)
+
             threads = [Thread(target=f) for _ in range(5)]
             for t in threads:
                 t.start()

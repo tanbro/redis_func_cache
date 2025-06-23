@@ -4,13 +4,27 @@
 
 - ✨ **New Features:**
   - Added `bson` and `yaml` serializer/deserializer support for the `RedisFuncCache` class.
+  - Added comprehensive unit tests for exception handling, unserializable objects, various argument types, cache purge, custom serializers, and high concurrency scenarios (multi-thread/thread pool/concurrent exception handling).
 
 - 💔 **Breaking Changes:**
   - The `serializer` optional parameter in the `RedisFuncCache`'s `decorate` and `__call__` methods has been replaced. It now accepts a tuple of `(serializer, deserializer)` or simply the name of the serializer function.
 
+- 🛠 **Improvements:**
+  - Updated and optimized several Lua scripts to improve performance, reliability, and compatibility with Redis.
+  - Refactored test code for better readability and maintainability.
+  - Improved code style and type annotations across the codebase.
+  - Improved Redis Lua script cleaning logic: now handles the absence of `pygments` or Lua lexer more gracefully, and marks these branches as uncovered for coverage tools.
+
 - 📦 **Packaging:**
   - Added `bson`, `yaml` as optional dependencies, and `all` for all serializers.
   - Added `types-all`, `types-PyYAML`, and `types-Pygments` as optional dependencies for typing hints.
+  - Build and dependency management migrated to [uv](https://docs.astral.sh/uv/).
+
+- 📝 **Misc**
+  - Minor adjustments to documentation and configuration files.
+  - Switched test dependency to `pytest` for a more modern testing workflow.
+  - Redis client factories changed from lambdas to named functions for better type checking and extensibility.
+  - In `utils.py`, branches for missing `pygments` are now marked with `# pragma: no cover` to improve coverage reporting.
 
 ## v0.3
 

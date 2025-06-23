@@ -17,7 +17,7 @@ try:  # pragma: no cover
     from pygments.lexers import get_lexer_by_name
     from pygments.token import Comment, String
 except ImportError:
-    pygments = None
+    pygments = None  # type: ignore[assignment]
     LUA_PYGMENTS_FILTER_TYPES = None
 else:
     LUA_PYGMENTS_FILTER_TYPES = (
