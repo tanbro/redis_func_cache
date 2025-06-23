@@ -8,20 +8,12 @@ from base64 import b64decode
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
 
-from ..utils import get_callable_bytecode
+from ..utils import b64digest, get_callable_bytecode
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import Protocol
-
-    from _typeshed import ReadableBuffer
-
-    class Hash(Protocol):
-        def update(self, data: ReadableBuffer, /) -> None: ...
-        def digest(self) -> bytes: ...
-        def hexdigest(self) -> str: ...
-        def copy(self) -> "Hash": ...
-
     from redis.typing import KeyT
+
+    from ..typing import Hash
 
 __all__ = (
     "AbstractHashMixin",
@@ -226,9 +218,7 @@ class PickleMd5Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleMd5Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="md5", serializer=pickle.dumps, decoder=lambda x: b64decode(x.digest()).decode().rstrip("=")
-    )
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=b64digest)
 
 
 class PickleSha1HashMixin(AbstractHashMixin):
@@ -264,6 +254,4 @@ class PickleSha1Base64HashMixin(AbstractHashMixin):
     .. inheritance-diagram:: PickleSha1Base64HashMixin
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: b64decode(x.digest()).decode().rstrip("=")
-    )
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=b64digest)

@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 import sys
-from typing import Callable, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, TypeVar, Union
 
 if sys.version_info < (3, 10):  # pragma: no cover
     from typing_extensions import TypeGuard
 else:  # pragma: no cover
     from typing import TypeGuard
+
+if TYPE_CHECKING:  # pragma: no cover
+    from typing import Protocol
+
+    from _typeshed import ReadableBuffer
 
 import redis.asyncio.client
 import redis.asyncio.cluster
@@ -29,6 +36,14 @@ RedisClientT = Union[
     redis.client.Redis, redis.asyncio.client.Redis, redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster
 ]
 RedisClientTV = TypeVar("RedisClientTV", bound=RedisClientT)
+
+if TYPE_CHECKING:  # pragma: no cover
+
+    class Hash(Protocol):
+        def update(self, data: ReadableBuffer, /) -> None: ...
+        def digest(self) -> bytes: ...
+        def hexdigest(self) -> str: ...
+        def copy(self) -> "Hash": ...
 
 
 def is_async_redis_client(client: RedisClientT) -> TypeGuard[RedisAsyncClientT]:

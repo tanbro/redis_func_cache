@@ -14,7 +14,7 @@ local val = redis.call('HGET', hmap_key, hash)
 
 if rnk and val then
     local time = redis.call('TIME')
-    redis.call('ZADD', zset_key, time[1] + time[2] / 100000, hash)
+    redis.call('ZADD', zset_key, time[1] + time[2] / 1000000, hash)
     return val
 elseif rnk then
     redis.call('ZREM', zset_key, hash)

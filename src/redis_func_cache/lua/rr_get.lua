@@ -9,7 +9,7 @@ if tonumber(ttl) > 0 then
     redis.call('EXPIRE', hmap_key, ttl)
 end
 
-local is_member = redis.call('SISMEMBER', set_key, hash)
+local is_member = (redis.call('SISMEMBER', set_key, hash) ~= 0)
 local val = redis.call('HGET', hmap_key, hash)
 
 if is_member and val then

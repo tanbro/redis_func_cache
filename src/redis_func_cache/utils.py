@@ -11,11 +11,13 @@ if sys.version_info < (3, 9):  # pragma: no cover
 else:  # pragma: no cover
     import importlib.resources as importlib_resources
 
-try:
+try:  # pragma: no cover
+    import pygments
     from pygments.filter import simplefilter
     from pygments.lexers import get_lexer_by_name
     from pygments.token import Comment, String
 except ImportError:
+    pygments = None
     LUA_PYGMENTS_FILTER_TYPES = None
 else:
     LUA_PYGMENTS_FILTER_TYPES = (
@@ -30,13 +32,13 @@ else:
     )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from hashlib import _Hash
+    from .typing import Hash
 
 
 __all__ = ("b64digest", "get_callable_bytecode", "read_lua_file", "clean_lua_script")
 
 
-def b64digest(x: _Hash) -> bytes:
+def b64digest(x: Hash) -> bytes:
     """Convert hash digest to base64 string.
 
     Args:
@@ -96,7 +98,7 @@ def clean_lua_script(source: str) -> str:
         This function utilizes the :mod:`pygments` library to remove comments and empty lines from the Lua script.
         If :mod:`pygments` is not installed, the source code will be returned unchanged.
     """
-    if LUA_PYGMENTS_FILTER_TYPES:
+    if pygments:
 
         @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
         def filter(self, lexer, stream, options):
@@ -104,6 +106,7 @@ def clean_lua_script(source: str) -> str:
 
         lexer = get_lexer_by_name("lua")  # pyright: ignore[reportPossiblyUnboundVariable]
         if lexer is None:
+            warn("Lua lexer not found in pygments, return source code as is", RuntimeWarning)
             return source
         lexer.add_filter(filter())  # pyright: ignore[reportCallIssue]
         code = "".join(tok_str for _, tok_str in lexer.get_tokens(source))
