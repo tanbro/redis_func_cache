@@ -11,19 +11,19 @@ if tonumber(ttl) > 0 then
     redis.call('EXPIRE', hmap_key, ttl)
 end
 
-local is_member = (redis.call('SISMEMBER', set_key, hash) ~= 0)
 local c = 0
-if maxsize > 0 and not is_member then
-    local n = redis.call('SCARD', set_key) - maxsize
-    while n >= 0 do
-        local popped = redis.call('SPOP', set_key)
-        redis.call('HDEL', hmap_key, popped)
-        n = n - 1
-        c = c + 1
+if redis.call('SISMEMBER', set_key, hash) == 0 then
+    if maxsize > 0 then
+        local n = redis.call('SCARD', set_key) - maxsize
+        while n >= 0 do
+            local popped = redis.call('SPOP', set_key)
+            redis.call('HDEL', hmap_key, popped)
+            n = n - 1
+            c = c + 1
+        end
     end
+    redis.call('SADD', set_key, hash)
+    redis.call('HSET', hmap_key, hash, return_value)
 end
-
-redis.call('SADD', set_key, hash)
-redis.call('HSET', hmap_key, hash, return_value)
 
 return c
