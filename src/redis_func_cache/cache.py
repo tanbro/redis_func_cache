@@ -13,7 +13,6 @@ from typing import (
     Coroutine,
     Generic,
     Iterable,
-    Literal,
     Mapping,
     Optional,
     Sequence,
@@ -56,7 +55,7 @@ else:
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .policies.abstract import AbstractPolicy
-from .typing import CallableTV, RedisClientTV, is_async_redis_client
+from .typing import CallableTV, RedisClientTV, SerializerName, is_async_redis_client
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
@@ -64,9 +63,7 @@ if TYPE_CHECKING:  # pragma: no cover
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
     SerializerPairT = Tuple[SerializerT, DeserializerT]
-    SerializerSetterValueT = Union[
-        Literal["json", "pickle", "bson", "msgpack", "yaml", "cbor", "cloudpickle"], SerializerPairT
-    ]
+    SerializerSetterValueT = Union[SerializerName, SerializerPairT]
 
 __all__ = ("RedisFuncCache",)
 
@@ -195,7 +192,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
 
-    _tmp_serializers = dict()
+    _tmp_serializers = {}
     _tmp_serializers["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
     _tmp_serializers["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
     if bson:

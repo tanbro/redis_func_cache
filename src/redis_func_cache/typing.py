@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Callable, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, Literal, TypeVar, Union
 
 if sys.version_info < (3, 10):  # pragma: no cover
     from typing_extensions import TypeGuard
@@ -41,6 +41,10 @@ RedisClientT = Union[
     redis.client.Redis, redis.asyncio.client.Redis, redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster
 ]
 RedisClientTV = TypeVar("RedisClientTV", bound=RedisClientT)
+
+
+SerializerName = Literal["json", "pickle", "bson", "msgpack", "yaml", "cbor", "cloudpickle"]
+
 
 if TYPE_CHECKING:  # pragma: no cover
 
