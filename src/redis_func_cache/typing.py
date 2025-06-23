@@ -9,7 +9,7 @@ else:  # pragma: no cover
     from typing import TypeGuard
 
 if TYPE_CHECKING:  # pragma: no cover
-    from typing import Protocol, Self
+    from typing import Protocol
 
     if sys.version_info < (3, 11):  # pragma: no cover
         from typing_extensions import Self
