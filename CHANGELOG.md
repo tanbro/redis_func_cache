@@ -1,6 +1,8 @@
 # Changelog
 
-## Developing
+## v0.4
+
+> 📅 2025-06-24
 
 - ✨ **New Features:**
   - Added `bson` and `yaml` serializer/deserializer support for the `RedisFuncCache` class.
