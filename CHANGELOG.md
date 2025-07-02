@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5
+
+> 📅 developing
+
+- ✨ **New Features:**
+  - Added arguments excluding support for the `RedisFuncCache` class, which makes it possible to cache functions with arguments that cannot be serialized.
+
 ## v0.4
 
 > 📅 2025-06-24
