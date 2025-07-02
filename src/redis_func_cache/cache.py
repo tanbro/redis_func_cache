@@ -441,10 +441,19 @@ class RedisFuncCache(Generic[RedisClientTV]):
         ext_args = ext_args or ()
         await script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, encoded_options), ext_args))
 
-    def _before_get(self, user_function, user_args, user_kwds):
-        keys = self.policy.calc_keys(user_function, user_args, user_kwds)
-        hash_value = self.policy.calc_hash(user_function, user_args, user_kwds)
-        ext_args = self.policy.calc_ext_args(user_function, user_args, user_kwds) or ()
+    def _before_get(
+        self,
+        user_function,
+        user_args,
+        user_kwds,
+        exclude_positional_args: Optional[Sequence[int]] = None,
+        exclude_keyword_args: Optional[Sequence[str]] = None,
+    ):
+        args = [x for i, x in enumerate(user_args) if i not in (exclude_positional_args or [])]
+        kwds = {k: v for k, v in user_kwds.items() if k not in (exclude_keyword_args or {})}
+        keys = self.policy.calc_keys(user_function, args, kwds)
+        hash_value = self.policy.calc_hash(user_function, args, kwds)
+        ext_args = self.policy.calc_ext_args(user_function, args, kwds) or ()
         return keys, hash_value, ext_args
 
     def exec(
@@ -454,6 +463,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_kwds: Mapping[str, Any],
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
+        exclude_positional_args: Optional[Sequence[int]] = None,
+        exclude_keyword_args: Optional[Sequence[str]] = None,
         **options,
     ):
         """Execute the given user function with the provided arguments.
@@ -476,7 +487,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise RuntimeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
-        keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
+        keys, hash_value, ext_args = self._before_get(
+            user_function, user_args, user_kwds, exclude_positional_args, exclude_keyword_args
+        )
         cached_return_value = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached_return_value is not None:
             return self.deserialize(cached_return_value, deserialize_func)
@@ -492,6 +505,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_kwds: Mapping[str, Any],
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
+        exclude_positional_args: Optional[Sequence[int]] = None,
+        exclude_keyword_args: Optional[Sequence[str]] = None,
         **options,
     ):
         """Asynchronous version of :meth:`.exec`"""
@@ -501,7 +516,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
             and isinstance(script_1, redis.commands.core.AsyncScript)
         ):
             raise RuntimeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
-        keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds)
+        keys, hash_value, ext_args = self._before_get(
+            user_function, user_args, user_kwds, exclude_positional_args, exclude_keyword_args
+        )
         cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
             return self.deserialize(cached, deserialize_func)
@@ -515,7 +532,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function: Optional[CallableTV] = None,
         /,
         serializer: Optional[SerializerSetterValueT] = None,
-        **keywords,
+        exclude_positional_args: Optional[Sequence[int]] = None,
+        exclude_keyword_args: Optional[Sequence[str]] = None,
+        **options,
     ) -> CallableTV:
         """Decorate the given function with caching.
 
@@ -524,9 +543,21 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             serializer: serialize/deserialize name or function pair for return value of what decorated.
 
-                If defined, it overrides the first element of :attr:`serializer`.
+                It accepts either:
+                - A string key mapping to predefined serializers (like "yaml" or "json")
+                - A tuple of (`serialize_func`, `deserialize_func`) functions
 
-            **keywords: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
+                If assigned, it overwrite the :attr:`serializer` property of the cache instance on the decorated function.
+
+            exclude_positional_args: A list of positional argument indices to exclude from cache key generation.
+
+                These arguments will be filtered out before cache operations.
+
+            exclude_keyword_args: A list of keyword argument names to exclude from cache key generation.
+
+                These parameters will be filtered out before cache operations.
+
+            **options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
         This method is equivalent to :attr:`__call__`.
 
@@ -585,25 +616,43 @@ class RedisFuncCache(Generic[RedisClientTV]):
         elif serializer is not None:
             serialize_func, deserialize_func = serializer
 
-        def decorator(f: CallableTV):
-            @wraps(f)
-            def wrapper(*args, **kwargs):
-                return self.exec(f, args, kwargs, serialize_func, deserialize_func, **keywords)
+        def decorator(user_func: CallableTV):
+            @wraps(user_func)
+            def wrapper(*user_args, **user_kwargs):
+                return self.exec(
+                    user_func,
+                    user_args,
+                    user_kwargs,
+                    serialize_func,
+                    deserialize_func,
+                    exclude_positional_args,
+                    exclude_keyword_args,
+                    **options,
+                )
 
-            @wraps(f)
-            async def awrapper(*args, **kwargs):
-                return await self.aexec(f, args, kwargs, serialize_func, deserialize_func, **keywords)
+            @wraps(user_func)
+            async def awrapper(*user_args, **user_kwargs):
+                return await self.aexec(
+                    user_func,
+                    user_args,
+                    user_kwargs,
+                    serialize_func,
+                    deserialize_func,
+                    exclude_positional_args,
+                    exclude_keyword_args,
+                    **options,
+                )
 
-            if not callable(f):
+            if not callable(user_func):
                 raise TypeError("Can not decorate a non-callable object.")
             if self.asynchronous:
-                if not iscoroutinefunction(f):
+                if not iscoroutinefunction(user_func):
                     raise TypeError(
                         "The decorated function or method must be a coroutine when using an asynchronous redis client."
                     )
                 return cast(CallableTV, awrapper)
             else:
-                if iscoroutinefunction(f):
+                if iscoroutinefunction(user_func):
                     raise TypeError(
                         "The decorated function or method cannot be a coroutine when using a asynchronous redis client."
                     )

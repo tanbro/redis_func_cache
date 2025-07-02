@@ -356,3 +356,33 @@ class InvalidFunctionTestCase(TestCase):
             for _ in range(cache.maxsize * 2 + 1):
                 v = uuid4().hex
                 self.assertEqual(v, f(v))
+
+
+class ExcludeArgsTestCase(TestCase):
+    def setUp(self):
+        for cache in CACHES.values():
+            cache.policy.purge()
+
+    def test_exclude_positional_args(self):
+        def user_func(func, value):
+            return func(value)
+
+        unpickable_func = lambda x: x  # noqa: E731
+
+        for cache in CACHES.values():
+            f = cache(user_func, exclude_positional_args=[0])
+            for _ in range(cache.maxsize * 2 + 1):
+                v = uuid4().hex
+                self.assertEqual(f(unpickable_func, v), v)
+
+    def test_exclude_keyword_args(self):
+        def user_func(func, value):
+            return func(value)
+
+        unpickable_func = lambda x: x  # noqa: E731
+
+        for cache in CACHES.values():
+            f = cache(user_func, exclude_keyword_args=["func"])
+            for _ in range(cache.maxsize * 2 + 1):
+                v = uuid4().hex
+                self.assertEqual(f(func=unpickable_func, value=v), v)
