@@ -515,7 +515,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function: Optional[CallableTV] = None,
         /,
         serializer: Optional[SerializerSetterValueT] = None,
-        **keywords,
+        ignore_positional_args: Optional[Sequence[int]] = None,
+        ignore_keyword_args: Optional[Sequence[str]] = None,
+        **options,
     ) -> CallableTV:
         """Decorate the given function with caching.
 
@@ -524,9 +526,22 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             serializer: serialize/deserialize name or function pair for return value of what decorated.
 
-                If defined, it overrides the first element of :attr:`serializer`.
+                It accepts either:
+                - A string key mapping to predefined serializers (like "yaml" or "json")
+                - A tuple of (`serialize_func`, `deserialize_func`) functions
 
-            **keywords: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
+                If defined, it overrides the :attr:`serializer` property of the cache instance.
+
+
+            ignore_positional_args: A list of positional argument indices to exclude from cache key generation.
+
+                These arguments will be filtered out before cache operations.
+
+            ignore_keyword_args: A list of keyword argument names to exclude from cache key generation.
+
+                These parameters will be filtered out before cache operations.
+
+            **options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
         This method is equivalent to :attr:`__call__`.
 
@@ -585,25 +600,44 @@ class RedisFuncCache(Generic[RedisClientTV]):
         elif serializer is not None:
             serialize_func, deserialize_func = serializer
 
-        def decorator(f: CallableTV):
-            @wraps(f)
-            def wrapper(*args, **kwargs):
-                return self.exec(f, args, kwargs, serialize_func, deserialize_func, **keywords)
+        if ignore_positional_args is None:
+            ignore_positional_args = []
+        if ignore_keyword_args is None:
+            ignore_keyword_args = []
 
-            @wraps(f)
-            async def awrapper(*args, **kwargs):
-                return await self.aexec(f, args, kwargs, serialize_func, deserialize_func, **keywords)
+        def decorator(user_func: CallableTV):
+            @wraps(user_func)
+            def wrapper(*user_args, **user_kwargs):
+                return self.exec(
+                    user_func,
+                    [x for i, x in enumerate(user_args) if i not in ignore_positional_args],
+                    {k: v for k, v in user_kwargs.items() if k not in ignore_keyword_args},
+                    serialize_func,
+                    deserialize_func,
+                    **options,
+                )
 
-            if not callable(f):
+            @wraps(user_func)
+            async def awrapper(*user_args, **user_kwargs):
+                return await self.aexec(
+                    user_func,
+                    [x for i, x in enumerate(user_args) if i not in ignore_positional_args],
+                    {k: v for k, v in user_kwargs.items() if k not in ignore_keyword_args},
+                    serialize_func,
+                    deserialize_func,
+                    **options,
+                )
+
+            if not callable(user_func):
                 raise TypeError("Can not decorate a non-callable object.")
             if self.asynchronous:
-                if not iscoroutinefunction(f):
+                if not iscoroutinefunction(user_func):
                     raise TypeError(
                         "The decorated function or method must be a coroutine when using an asynchronous redis client."
                     )
                 return cast(CallableTV, awrapper)
             else:
-                if iscoroutinefunction(f):
+                if iscoroutinefunction(user_func):
                     raise TypeError(
                         "The decorated function or method cannot be a coroutine when using a asynchronous redis client."
                     )
