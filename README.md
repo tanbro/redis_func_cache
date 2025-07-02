@@ -721,6 +721,37 @@ def some_func(*args, **kwargs):
 > The purpose of the hash algorithm is to ensure the isolation of cached return values for different function invocations.
 > Therefore, you can generate unique key names using any method, not just hashes.
 
+### Working with Un-Serializable Arguments
+
+As mentioned in the documentation, the [`RedisFuncCache`][] class does not support functions with un-serializable arguments.
+However, you can work around this issue by:
+
+- Splitting the function into two parts: one with fully serializable arguments (apply the cache decorator to this part), and another that may contain un-serializable arguments (this part calls the first one).
+
+- Using `exclude_keyword_args` or `exclude_positional_args` to exclude un-serializable arguments from key and hash calculations.
+
+This approach is particularly useful for functions such as a database query.
+
+For example, the `pool` argument in the following function is not serializable:
+
+```python
+def get_book(pool: ConnectionPool, book_id: int):
+    connection = pool.get_connection()
+    return connection.execute("SELECT * FROM books WHERE book_id = %s", book_id)
+```
+
+However, we can exclude the `pool` argument from the key and hash calculations, so the function can be cached:
+
+```python
+@cache(exclude_keyword_args=["pool"])
+def get_book(pool: ConnectionPool, book_id: int):
+    ...
+```
+
+Important:
+    - When using the `exclude_keyword_args` parameter, ensure that the argument is passed using keyword way.
+    - When using the `exclude_positional_args` parameter, ensure that the argument is passed using positional way.
+
 ## Known Issues
 
 - Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries.
