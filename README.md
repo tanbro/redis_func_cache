@@ -861,6 +861,165 @@ We suggest installing [pre-commit][] hooks:
 pre-commit install
 ```
 
+### Module structure
+
+```mermaid
+graph TD
+    A[RedisFuncCache] --> B[AbstractPolicy]
+    A --> C[Serializer]
+    A --> D[Script Execution]
+    B --> E[BaseSinglePolicy]
+    B --> F[BaseMultiplePolicy]
+    E --> G[FifoPolicy]
+    E --> H[LfuPolicy]
+    E --> I[LruPolicy]
+    E --> J[RrPolicy]
+    G --> K[FifoScriptsMixin]
+    H --> L[LfuScriptsMixin]
+    I --> M[LruScriptsMixin]
+    J --> N[RrScriptsMixin]
+    K --> O[lua/fifo_get.lua]
+    K --> P[lua/fifo_put.lua]
+    M --> Q[lua/lru_get.lua]
+    M --> R[lua/lru_put.lua]
+    A --> S[utils.py]
+    S --> T[b64digest]
+    S --> U[get_callable_bytecode]
+```
+
+### Class Diagrams
+
+Core class:
+
+```mermaid
+classDiagram
+    class RedisFuncCache {
+        -client: RedisClientTV
+        -policy: AbstractPolicy
+        -serializer: SerializerPairT
+        +__init__(name, policy, client, serializer)
+        +__call__(func)
+        +decorate(func)
+        +exec(user_function, user_args, user_kwds)
+        +aexec(user_function, user_args, user_kwds)
+    }
+
+    class AbstractPolicy {
+        <<abstract>>
+        __key__: str
+        __scripts__: Tuple[str, str]
+        +__init__(cache)
+        +calc_keys(f, args, kwds) -> Tuple[str, str]
+        +calc_hash(f, args, kwds) -> KeyT
+        +purge() -> int
+        +apurge() -> int
+    }
+
+    class BaseSinglePolicy {
+        _keys: Optional[Tuple[str, str]]
+        +__init__(cache)
+        +calc_keys(f, args, kwds) -> Tuple[str, str]
+        +purge()
+        +apurge()
+    }
+
+    class BaseMultiplePolicy {
+        +calc_keys(f, args, kwds) -> Tuple[str, str]
+    }
+
+    RedisFuncCache --> AbstractPolicy : uses
+    AbstractPolicy <|-- BaseSinglePolicy
+    AbstractPolicy <|-- BaseMultiplePolicy
+```
+
+Strategy pattern and mixins:
+
+```mermaid
+classDiagram
+    class LruPolicy {
+        __key__ = "lru"
+    }
+
+    class LruScriptsMixin {
+        __scripts__ = "lru_get.lua", "lru_put.lua"
+    }
+
+    class PickleMd5HashMixin {
+        __hash_config__ = ...
+    }
+
+    BaseSinglePolicy <|-- LruPolicy
+    LruScriptsMixin -- LruPolicy
+    PickleMd5HashMixin -- LruPolicy
+
+    class FifoPolicy {
+        __key__ = "fifo"
+    }
+
+    class FifoScriptsMixin {
+        __scripts__ = "fifo_get.lua", "fifo_put.lua"
+    }
+
+    BaseSinglePolicy <|-- FifoPolicy
+    FifoScriptsMixin -- FifoPolicy
+```
+
+Cluster and multiple-keys support
+
+```mermaid
+classDiagram
+    class BaseClusterSinglePolicy {
+        +calc_keys(f, args, kwds) -> Tuple[str, str]
+    }
+
+    class BaseClusterMultiplePolicy {
+        +calc_keys(f, args, kwds) -> Tuple[str, str]
+    }
+
+    BaseSinglePolicy <|-- BaseClusterSinglePolicy
+    BaseMultiplePolicy <|-- BaseClusterMultiplePolicy
+
+    class LruClusterPolicy {
+        __key__ = "lru-cluster"
+    }
+
+    BaseClusterSinglePolicy <|-- LruClusterPolicy
+```
+
+Decorator and proxy:
+
+```mermaid
+classDiagram
+    class RedisFuncCache {
+        +__call__(user_function) -> CallableTV
+        +decorate(user_function) -> CallableTV
+    }
+
+    class Wrapper {
+        +wrapper(*user_args, **user_kwargs)
+        +awrapper(*user_args, **user_kwargs)
+    }
+
+    RedisFuncCache --> Wrapper
+```
+
+Weak reference:
+
+```mermaid
+classDiagram
+    class AbstractPolicy {
+        -_cache: CallableProxyType[RedisFuncCache]
+        +cache: RedisFuncCache
+    }
+
+    class RedisFuncCache {
+        -_policy_instance: AbstractPolicy
+    }
+
+    RedisFuncCache --> AbstractPolicy : creates
+    AbstractPolicy --> CallableProxyType : weak reference
+```
+
 > ℹ️ **Note:** \
 > Ensure that you have a stable internet connection during the installation process to avoid interruptions.
 
