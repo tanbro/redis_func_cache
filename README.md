@@ -861,6 +861,9 @@ We suggest installing [pre-commit][] hooks:
 pre-commit install
 ```
 
+> ℹ️ **Note:** \
+> Ensure that you have a stable internet connection during the installation process to avoid interruptions.
+
 ### Module structure
 
 ```mermaid
@@ -1019,9 +1022,6 @@ classDiagram
     RedisFuncCache --> AbstractPolicy : creates
     AbstractPolicy --> CallableProxyType : weak reference
 ```
-
-> ℹ️ **Note:** \
-> Ensure that you have a stable internet connection during the installation process to avoid interruptions.
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
