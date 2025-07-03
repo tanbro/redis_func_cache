@@ -738,7 +738,7 @@ For example, the `pool` argument in the following function is not serializable:
 def get_book(pool: ConnectionPool, book_id: int):
     connection = pool.get_connection()
     book = connection.execute("SELECT * FROM books WHERE book_id = %s", book_id).fetchone()
-    return json.dumps(book.to_dict())
+    return book.to_dict()
 ```
 
 However, we can exclude the `pool` argument from the key and hash calculations, so the function can be cached:
