@@ -1,7 +1,7 @@
 """Least Recently Used cache policies."""
 
 from ..mixins.hash import PickleMd5HashMixin
-from ..mixins.policies import LruScriptsMixin, LruTScriptsMixin
+from ..mixins.scripts import LruScriptsMixin, LruTScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
 __all__ = (

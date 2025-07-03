@@ -1,7 +1,7 @@
 """Random replacement cache policy."""
 
 from ..mixins.hash import PickleMd5HashMixin
-from ..mixins.policies import RrScriptsMixin
+from ..mixins.scripts import RrScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
 __all__ = ("RrPolicy", "RrMultiplePolicy", "RrClusterPolicy", "RrClusterMultiplePolicy")

@@ -1,4 +1,4 @@
-"""Some mixins for policies."""
+"""Some mixins with lua scripts defined for policies."""
 
 __all__ = (
     "FifoScriptsMixin",

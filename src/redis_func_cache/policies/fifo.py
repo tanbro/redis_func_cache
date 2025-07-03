@@ -1,7 +1,7 @@
 """FIFO policies"""
 
 from ..mixins.hash import PickleMd5HashMixin
-from ..mixins.policies import FifoScriptsMixin, FifoTScriptsMixin
+from ..mixins.scripts import FifoScriptsMixin, FifoTScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
 __all__ = (

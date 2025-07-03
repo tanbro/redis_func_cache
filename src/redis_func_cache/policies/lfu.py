@@ -1,7 +1,7 @@
 """LFU policy."""
 
 from ..mixins.hash import PickleMd5HashMixin
-from ..mixins.policies import LfuScriptsMixin
+from ..mixins.scripts import LfuScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
 __all__ = ("LfuPolicy", "LfuMultiplePolicy", "LfuClusterPolicy", "LfuClusterMultiplePolicy")
