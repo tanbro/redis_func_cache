@@ -24,7 +24,7 @@ Here is a simple example:
 1. Then install the library in your Python environment:
 
    ```bash
-   pip install -U redis_func_cache
+   pip install redis_func_cache
    ```
 
 1. Finally, run the following Python code:
@@ -81,7 +81,7 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 - Install from PyPI:
 
     ```bash
-    pip install -U redis_func_cache
+    pip install redis_func_cache
     ```
 
 - Install from source:
@@ -151,6 +151,9 @@ flowchart TD
 ### First example
 
 Using an *LRU* cache to decorate a recursive Fibonacci function:
+
+> 💡 **Tip**: \
+> `RedisFuncCache` is not effective for recursive functions, use standard library's `functools.lru_cache` for production instead.
 
 ```python
 from redis import Redis
