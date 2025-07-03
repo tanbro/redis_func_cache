@@ -443,14 +443,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     def _before_get(
         self,
-        user_function,
-        user_args,
-        user_kwds,
+        user_function: Callable,
+        user_args: Sequence,
+        user_kwds: Mapping[str, Any],
         exclude_args_indices: Optional[Sequence[int]] = None,
         exclude_args_names: Optional[Sequence[str]] = None,
     ):
-        args = [x for i, x in enumerate(user_args) if i not in (exclude_args_indices or [])]
-        kwds = {k: v for k, v in user_kwds.items() if k not in (exclude_args_names or {})}
+        args = (
+            [x for i, x in enumerate(user_args) if i not in exclude_args_indices] if exclude_args_indices else user_args
+        )
+        kwds = {k: v for k, v in user_kwds.items() if k not in exclude_args_names} if exclude_args_names else user_kwds
         keys = self.policy.calc_keys(user_function, args, kwds)
         hash_value = self.policy.calc_hash(user_function, args, kwds)
         ext_args = self.policy.calc_ext_args(user_function, args, kwds) or ()
@@ -486,7 +488,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
-            raise RuntimeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
+            raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
         keys, hash_value, ext_args = self._before_get(
             user_function, user_args, user_kwds, exclude_args_indices, exclude_args_names
         )
@@ -515,7 +517,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             isinstance(script_0, redis.commands.core.AsyncScript)
             and isinstance(script_1, redis.commands.core.AsyncScript)
         ):
-            raise RuntimeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
+            raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
         keys, hash_value, ext_args = self._before_get(
             user_function, user_args, user_kwds, exclude_args_indices, exclude_args_names
         )

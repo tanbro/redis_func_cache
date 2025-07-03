@@ -367,22 +367,22 @@ class ExcludeArgsTestCase(TestCase):
         def user_func(func, value):
             return func(value)
 
-        unpickable_func = lambda x: x  # noqa: E731
+        unpicklable = lambda x: x  # noqa: E731
 
         for cache in CACHES.values():
-            f = cache(user_func, exclude_positional_args=[0])
+            f = cache(user_func, exclude_args_indices=[0])
             for _ in range(cache.maxsize * 2 + 1):
                 v = uuid4().hex
-                self.assertEqual(f(unpickable_func, v), v)
+                self.assertEqual(f(unpicklable, v), v)
 
     def test_exclude_keyword_args(self):
         def user_func(func, value):
             return func(value)
 
-        unpickable_func = lambda x: x  # noqa: E731
+        unpicklable = lambda x: x  # noqa: E731
 
         for cache in CACHES.values():
-            f = cache(user_func, exclude_keyword_args=["func"])
+            f = cache(user_func, exclude_args_names=["func"])
             for _ in range(cache.maxsize * 2 + 1):
                 v = uuid4().hex
-                self.assertEqual(f(func=unpickable_func, value=v), v)
+                self.assertEqual(f(func=unpicklable, value=v), v)
