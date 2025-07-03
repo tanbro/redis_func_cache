@@ -728,7 +728,7 @@ However, you can work around this issue by:
 
 - Splitting the function into two parts: one with fully serializable arguments (apply the cache decorator to this part), and another that may contain un-serializable arguments (this part calls the first one).
 
-- Using `exclude_keyword_args` or `exclude_positional_args` to exclude un-serializable arguments from key and hash calculations.
+- Using `exclude_args_names` or `exclude_args_indices` to exclude un-serializable arguments from key and hash calculations.
 
 This approach is particularly useful for functions such as a database query.
 
@@ -737,20 +737,21 @@ For example, the `pool` argument in the following function is not serializable:
 ```python
 def get_book(pool: ConnectionPool, book_id: int):
     connection = pool.get_connection()
-    return connection.execute("SELECT * FROM books WHERE book_id = %s", book_id)
+    book = connection.execute("SELECT * FROM books WHERE book_id = %s", book_id).fetchone()
+    return json.dumps(book.to_dict())
 ```
 
 However, we can exclude the `pool` argument from the key and hash calculations, so the function can be cached:
 
 ```python
-@cache(exclude_keyword_args=["pool"])
+@cache(exclude_args_names=["pool"])
 def get_book(pool: ConnectionPool, book_id: int):
     ...
 ```
 
 Important:
-    - When using the `exclude_keyword_args` parameter, ensure that the argument is passed using keyword way.
-    - When using the `exclude_positional_args` parameter, ensure that the argument is passed using positional way.
+    - When using the `exclude_args_names` parameter, ensure that the argument is passed in a keyword way.
+    - When using the `exclude_args_indices` parameter, ensure that the argument is passed in a positional way.
 
 ## Known Issues
 

@@ -446,11 +446,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function,
         user_args,
         user_kwds,
-        exclude_positional_args: Optional[Sequence[int]] = None,
-        exclude_keyword_args: Optional[Sequence[str]] = None,
+        exclude_args_indices: Optional[Sequence[int]] = None,
+        exclude_args_names: Optional[Sequence[str]] = None,
     ):
-        args = [x for i, x in enumerate(user_args) if i not in (exclude_positional_args or [])]
-        kwds = {k: v for k, v in user_kwds.items() if k not in (exclude_keyword_args or {})}
+        args = [x for i, x in enumerate(user_args) if i not in (exclude_args_indices or [])]
+        kwds = {k: v for k, v in user_kwds.items() if k not in (exclude_args_names or {})}
         keys = self.policy.calc_keys(user_function, args, kwds)
         hash_value = self.policy.calc_hash(user_function, args, kwds)
         ext_args = self.policy.calc_ext_args(user_function, args, kwds) or ()
@@ -463,8 +463,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_kwds: Mapping[str, Any],
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
-        exclude_positional_args: Optional[Sequence[int]] = None,
-        exclude_keyword_args: Optional[Sequence[str]] = None,
+        exclude_args_indices: Optional[Sequence[int]] = None,
+        exclude_args_names: Optional[Sequence[str]] = None,
         **options,
     ):
         """Execute the given user function with the provided arguments.
@@ -488,7 +488,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise RuntimeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
         keys, hash_value, ext_args = self._before_get(
-            user_function, user_args, user_kwds, exclude_positional_args, exclude_keyword_args
+            user_function, user_args, user_kwds, exclude_args_indices, exclude_args_names
         )
         cached_return_value = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached_return_value is not None:
@@ -505,8 +505,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_kwds: Mapping[str, Any],
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
-        exclude_positional_args: Optional[Sequence[int]] = None,
-        exclude_keyword_args: Optional[Sequence[str]] = None,
+        exclude_args_indices: Optional[Sequence[int]] = None,
+        exclude_args_names: Optional[Sequence[str]] = None,
         **options,
     ):
         """Asynchronous version of :meth:`.exec`"""
@@ -517,7 +517,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         ):
             raise RuntimeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
         keys, hash_value, ext_args = self._before_get(
-            user_function, user_args, user_kwds, exclude_positional_args, exclude_keyword_args
+            user_function, user_args, user_kwds, exclude_args_indices, exclude_args_names
         )
         cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
@@ -532,8 +532,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function: Optional[CallableTV] = None,
         /,
         serializer: Optional[SerializerSetterValueT] = None,
-        exclude_positional_args: Optional[Sequence[int]] = None,
-        exclude_keyword_args: Optional[Sequence[str]] = None,
+        exclude_args_indices: Optional[Sequence[int]] = None,
+        exclude_args_names: Optional[Sequence[str]] = None,
         **options,
     ) -> CallableTV:
         """Decorate the given function with caching.
@@ -549,11 +549,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 If assigned, it overwrite the :attr:`serializer` property of the cache instance on the decorated function.
 
-            exclude_positional_args: A list of positional argument indices to exclude from cache key generation.
+            exclude_args_indices: A list of positional argument indices to exclude from cache key generation.
 
                 These arguments will be filtered out before cache operations.
 
-            exclude_keyword_args: A list of keyword argument names to exclude from cache key generation.
+            exclude_args_names: A list of keyword argument names to exclude from cache key generation.
 
                 These parameters will be filtered out before cache operations.
 
@@ -625,8 +625,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     user_kwargs,
                     serialize_func,
                     deserialize_func,
-                    exclude_positional_args,
-                    exclude_keyword_args,
+                    exclude_args_indices,
+                    exclude_args_names,
                     **options,
                 )
 
@@ -638,8 +638,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     user_kwargs,
                     serialize_func,
                     deserialize_func,
-                    exclude_positional_args,
-                    exclude_keyword_args,
+                    exclude_args_indices,
+                    exclude_args_names,
                     **options,
                 )
 
