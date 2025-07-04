@@ -544,7 +544,7 @@ import redis
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import PickleMd5HashMixin
-from redis_func_cache.mixins.policies import LruScriptsMixin
+from redis_func_cache.mixins.scripts import LruScriptsMixin
 
 if TYPE_CHECKING:
     from redis.typing import KeyT
@@ -655,7 +655,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import JsonSha1HexHashMixin
-from redis_func_cache.mixins.policies import LruScriptsMixin
+from redis_func_cache.mixins.scripts import LruScriptsMixin
 
 
 class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
@@ -680,7 +680,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import AbstractHashMixin
-from redis_func_cache.mixins.policies import LruScriptsMixin
+from redis_func_cache.mixins.scripts import LruScriptsMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
