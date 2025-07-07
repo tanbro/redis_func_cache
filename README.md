@@ -24,7 +24,7 @@ Here is a simple example:
 1. Then install the library in your Python environment:
 
    ```bash
-   pip install -U redis_func_cache
+   pip install redis_func_cache
    ```
 
 1. Finally, run the following Python code:
@@ -81,7 +81,7 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 - Install from PyPI:
 
     ```bash
-    pip install -U redis_func_cache
+    pip install redis_func_cache
     ```
 
 - Install from source:
@@ -151,6 +151,9 @@ flowchart TD
 ### First example
 
 Using an *LRU* cache to decorate a recursive Fibonacci function:
+
+> 💡 **Tip**: \
+> `RedisFuncCache` is not effective for recursive functions, use standard library's `functools.lru_cache` for production instead.
 
 ```python
 from redis import Redis
@@ -541,7 +544,7 @@ import redis
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import PickleMd5HashMixin
-from redis_func_cache.mixins.policies import LruScriptsMixin
+from redis_func_cache.mixins.scripts import LruScriptsMixin
 
 if TYPE_CHECKING:
     from redis.typing import KeyT
@@ -652,7 +655,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import JsonSha1HexHashMixin
-from redis_func_cache.mixins.policies import LruScriptsMixin
+from redis_func_cache.mixins.scripts import LruScriptsMixin
 
 
 class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
@@ -677,7 +680,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.abstract import AbstractPolicy
 from redis_func_cache.mixins.hash import AbstractHashMixin
-from redis_func_cache.mixins.policies import LruScriptsMixin
+from redis_func_cache.mixins.scripts import LruScriptsMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
