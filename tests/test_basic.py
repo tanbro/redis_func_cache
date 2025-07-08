@@ -1,3 +1,4 @@
+import json
 from random import randint, random
 from typing import cast
 from unittest import TestCase
@@ -386,3 +387,33 @@ class ExcludeArgsTestCase(TestCase):
             for _ in range(cache.maxsize * 2 + 1):
                 v = uuid4().hex
                 self.assertEqual(f(func=unpicklable, value=v), v)
+
+    def test_exclude_with_various_parameters(self):
+        def user_func(a, b, *args, **kwargs):
+            return args, kwargs
+
+        for cache in CACHES.values():
+            f = cache(user_func, excludes_positional=[0], excludes=["b"])
+            # 使用可序列化的参数
+            result1 = f(object(), object(), 1, 2, 3, x=4, y=5)
+            self.assertEqual(result1, ((1, 2, 3), {"x": 4, "y": 5}))
+            # 第二次调用验证缓存命中
+            result2 = f(object(), object(), 1, 2, 3, x=4, y=5)
+            self.assertEqual(result2, json.loads(json.dumps(result1)))
+            # 验证缓存大小
+            self.assertEqual(cache.policy.get_size(), 1)
+
+    def test_exclude_with_mixed_parameters(self):
+        def user_func(a, /, b, *, c, **kwargs):
+            return kwargs
+
+        for cache in CACHES.values():
+            f = cache(user_func, excludes_positional=[0], excludes=["b", "c"])
+            # 使用可序列化的参数
+            result1 = f(object(), b=object(), c=object(), d=4, e=5)
+            self.assertDictEqual(result1, {"d": 4, "e": 5})
+            # 第二次调用验证缓存命中
+            result2 = f(object(), object(), c=object(), d=4, e=5)
+            self.assertDictEqual(result1, result2)
+            # 验证缓存大小
+            self.assertEqual(cache.policy.get_size(), 1)
