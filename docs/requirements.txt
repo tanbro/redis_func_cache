@@ -2,7 +2,7 @@ importlib_metadata;python_version<"3.8"
 
 Sphinx>=7
 myst-parser
-furo
+sphinx-book-theme
 
 sphinxcontrib-mermaid
 

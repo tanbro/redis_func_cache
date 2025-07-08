@@ -52,13 +52,15 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "furo"
+html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
 html_theme_options = {
-    "source_repository": "https://github.com/tanbro/redis_func_cache",
-    "source_branch": "main",
-    "source_directory": "docs/",
-    "top_of_page_button": "edit",
+    "path_to_docs": "docs/",
+    "repository_url": "https://github.com/tanbro/redis_func_cache",
+    "repository_branch": "main",
+    "use_download_button": True,
+    "use_fullscreen_button": True,
+    "use_repository_button": True,
 }
 
 # -- Options for autodoc ----------------------------------------------------
