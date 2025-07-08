@@ -3,14 +3,16 @@ from __future__ import annotations
 import json
 import pickle
 import weakref
+from collections import OrderedDict
 from functools import wraps
-from inspect import iscoroutinefunction
+from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Coroutine,
+    Dict,
     Generic,
     Iterable,
     Mapping,
@@ -192,36 +194,35 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
 
-    _tmp_serializers = {}
-    _tmp_serializers["json"] = (lambda x: json.dumps(x).encode(), lambda x: json.loads(x))
-    _tmp_serializers["pickle"] = (lambda x: pickle.dumps(x), lambda x: pickle.loads(x))
+    __serializers__: Dict[str, SerializerPairT] = {
+        "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
+        "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
+    }
     if bson:
-        _tmp_serializers["bson"] = (
+        __serializers__["bson"] = (
             lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
         )
     if msgpack:
-        _tmp_serializers["msgpack"] = (
+        __serializers__["msgpack"] = (  # pyright: ignore[reportArgumentType]
             lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
     if cbor2:
-        _tmp_serializers["cbor"] = (
+        __serializers__["cbor"] = (
             lambda x: cbor2.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: cbor2.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
     if yaml:
-        _tmp_serializers["yaml"] = (
+        __serializers__["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
             lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
         )
     if cloudpickle:
-        _tmp_serializers["cloudpickle"] = (
+        __serializers__["cloudpickle"] = (
             lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    __serializers__: Mapping[str, SerializerPairT] = _tmp_serializers
-    del _tmp_serializers
 
     @property
     def name(self) -> str:
@@ -441,18 +442,37 @@ class RedisFuncCache(Generic[RedisClientTV]):
         ext_args = ext_args or ()
         await script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, encoded_options), ext_args))
 
+    def _make_bound(
+        self,
+        user_func: Callable,
+        user_args: Tuple[Any, ...],
+        user_kwds: Dict[str, Any],
+        excludes: Sequence[str] | None = None,
+        excludes_positional: Sequence[int] | None = None,
+    ) -> Optional[BoundArguments]:
+        if not excludes and not excludes_positional:
+            return None
+        sig = signature(user_func)
+        bound = sig.bind(*user_args, **user_kwds)
+        if excludes_positional:
+            bound.arguments = OrderedDict(
+                (k, v) for i, (k, v) in enumerate(bound.arguments.items()) if i not in excludes_positional
+            )
+        if excludes:
+            bound.arguments = OrderedDict((k, v) for k, v in bound.arguments.items() if k not in excludes)
+        return bound
+
     def _before_get(
         self,
         user_function: Callable,
-        user_args: Sequence,
-        user_kwds: Mapping[str, Any],
-        exclude_args_indices: Optional[Sequence[int]] = None,
-        exclude_args_names: Optional[Sequence[str]] = None,
+        user_args: Tuple[Any, ...],
+        user_kwds: Dict[str, Any],
+        bound: Optional[BoundArguments] = None,
     ):
-        args = (
-            [x for i, x in enumerate(user_args) if i not in exclude_args_indices] if exclude_args_indices else user_args
-        )
-        kwds = {k: v for k, v in user_kwds.items() if k not in exclude_args_names} if exclude_args_names else user_kwds
+        if bound is None:
+            args, kwds = user_args, user_kwds
+        else:
+            args, kwds = bound.args, bound.kwargs
         keys = self.policy.calc_keys(user_function, args, kwds)
         hash_value = self.policy.calc_hash(user_function, args, kwds)
         ext_args = self.policy.calc_ext_args(user_function, args, kwds) or ()
@@ -461,12 +481,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def exec(
         self,
         user_function: Callable,
-        user_args: Sequence,
-        user_kwds: Mapping[str, Any],
+        user_args: Tuple[Any, ...],
+        user_kwds: Dict[str, Any],
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
-        exclude_args_indices: Optional[Sequence[int]] = None,
-        exclude_args_names: Optional[Sequence[str]] = None,
+        bound: Optional[BoundArguments] = None,
         **options,
     ):
         """Execute the given user function with the provided arguments.
@@ -477,6 +496,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
             user_kwds: Keyword arguments to pass to the user function.
             serialize_func: Custom serializer passed from :meth:`decorate`.
             deserialize_func: Custom deserializer passed from :meth:`decorate`.
+
+            bound: Filtered bound arguments which will be used by the policy of the cache.
+
+                - If it is provided, the policy will only use the filtered arguments to calculate the cache key and hash value.
+                - If it is not provided, the policy will use all arguments to calculate the cache key and hash value.
+
             options: Additional options passed from :meth:`decorate`'s `**kwargs`.
 
         Returns:
@@ -489,26 +514,23 @@ class RedisFuncCache(Generic[RedisClientTV]):
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
-        keys, hash_value, ext_args = self._before_get(
-            user_function, user_args, user_kwds, exclude_args_indices, exclude_args_names
-        )
+        keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds, bound)
         cached_return_value = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached_return_value is not None:
             return self.deserialize(cached_return_value, deserialize_func)
-        user_return_value = user_function(*user_args, **user_kwds)
-        user_retval_serialized = self.serialize(user_return_value, serialize_func)
+        user_retval = user_function(*user_args, **user_kwds)
+        user_retval_serialized = self.serialize(user_retval, serialize_func)
         self.put(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
-        return user_return_value
+        return user_retval
 
     async def aexec(
         self,
         user_function: Callable[..., Coroutine],
-        user_args: Sequence,
-        user_kwds: Mapping[str, Any],
+        user_args: Tuple[Any, ...],
+        user_kwds: Dict[str, Any],
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
-        exclude_args_indices: Optional[Sequence[int]] = None,
-        exclude_args_names: Optional[Sequence[str]] = None,
+        bound: Optional[BoundArguments] = None,
         **options,
     ):
         """Asynchronous version of :meth:`.exec`"""
@@ -518,24 +540,23 @@ class RedisFuncCache(Generic[RedisClientTV]):
             and isinstance(script_1, redis.commands.core.AsyncScript)
         ):
             raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
-        keys, hash_value, ext_args = self._before_get(
-            user_function, user_args, user_kwds, exclude_args_indices, exclude_args_names
-        )
+        keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds, bound)
         cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
             return self.deserialize(cached, deserialize_func)
-        user_return_value = await user_function(*user_args, **user_kwds)
-        user_retval_serialized = self.serialize(user_return_value, serialize_func)
+        user_retval = await user_function(*user_args, **user_kwds)
+        user_retval_serialized = self.serialize(user_retval, serialize_func)
         await self.aput(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
-        return user_return_value
+        return user_retval
 
     def decorate(
         self,
         user_function: Optional[CallableTV] = None,
         /,
+        *,
         serializer: Optional[SerializerSetterValueT] = None,
-        exclude_args_indices: Optional[Sequence[int]] = None,
-        exclude_args_names: Optional[Sequence[str]] = None,
+        excludes: Optional[Sequence[str]] = None,
+        excludes_positional: Optional[Sequence[int]] = None,
         **options,
     ) -> CallableTV:
         """Decorate the given function with caching.
@@ -551,13 +572,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 If assigned, it overwrite the :attr:`serializer` property of the cache instance on the decorated function.
 
-            exclude_args_indices: A list of positional argument indices to exclude from cache key generation.
+            excludes: Optional sequence of parameter names specifying keyword arguments to exclude from cache key generation.
 
-                These arguments will be filtered out before cache operations.
+                Example: `excludes=["token"]`
 
-            exclude_args_names: A list of keyword argument names to exclude from cache key generation.
+            excludes_positional: Optional sequence of indices specifying positional arguments to exclude from cache key generation.
 
-                These parameters will be filtered out before cache operations.
+                Example: `excludes_positional=[0]`
 
             **options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
@@ -621,27 +642,27 @@ class RedisFuncCache(Generic[RedisClientTV]):
         def decorator(user_func: CallableTV):
             @wraps(user_func)
             def wrapper(*user_args, **user_kwargs):
+                bound = self._make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
                 return self.exec(
                     user_func,
                     user_args,
                     user_kwargs,
                     serialize_func,
                     deserialize_func,
-                    exclude_args_indices,
-                    exclude_args_names,
+                    bound,
                     **options,
                 )
 
             @wraps(user_func)
             async def awrapper(*user_args, **user_kwargs):
+                bound = self._make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
                 return await self.aexec(
                     user_func,
                     user_args,
                     user_kwargs,
                     serialize_func,
                     deserialize_func,
-                    exclude_args_indices,
-                    exclude_args_names,
+                    bound,
                     **options,
                 )
 

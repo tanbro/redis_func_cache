@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 from weakref import CallableProxyType
 
 if sys.version_info < (3, 12):  # pragma: no cover
@@ -43,7 +43,10 @@ class BaseSinglePolicy(AbstractPolicy):
 
     @override
     def calc_keys(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self,
+        f: Optional[Callable] = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwds: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
         """
         Return the static Redis key pair for this cache policy.
@@ -121,7 +124,10 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
 
     @override
     def calc_keys(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self,
+        f: Optional[Callable] = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwds: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
         """
         Return the static Redis key pair for this cache policy, using cluster hash tags.
@@ -146,7 +152,10 @@ class BaseMultiplePolicy(AbstractPolicy):
 
     @override
     def calc_keys(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self,
+        f: Optional[Callable] = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwds: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
         """
         Calculate a unique Redis key pair for the given function.
@@ -210,7 +219,10 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
 
     @override
     def calc_keys(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self,
+        f: Optional[Callable] = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwds: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
         """
         Calculate a unique Redis key pair for the given function, using cluster hash tags.

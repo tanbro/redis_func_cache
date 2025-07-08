@@ -6,7 +6,7 @@ import pickle
 from abc import ABC
 from base64 import b64decode
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
 from ..utils import b64digest, get_callable_bytecode
 
@@ -67,7 +67,10 @@ class AbstractHashMixin(ABC):
     __hash_config__: HashConfig
 
     def calc_hash(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self,
+        f: Optional[Callable] = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwds: Optional[Dict[str, Any]] = None,
     ) -> KeyT:
         """Mixin method to overwrite :meth:`redis_func_cache.policies.abstract.AbstractPolicy.calc_hash`
 
@@ -89,16 +92,16 @@ class AbstractHashMixin(ABC):
         if not callable(f):
             raise TypeError("Can not calculate hash for a non-callable object")
         conf = self.__hash_config__
-        h = hashlib.new(conf.algorithm)
-        h.update(f"{f.__module__}:{f.__qualname__}".encode())
-        h.update(get_callable_bytecode(f))
+        hash = hashlib.new(conf.algorithm)
+        hash.update(f"{f.__module__}:{f.__qualname__}".encode())
+        hash.update(get_callable_bytecode(f))
         if args is not None:
-            h.update(conf.serializer(args))
+            hash.update(conf.serializer(args))
         if kwds is not None:
-            h.update(conf.serializer(kwds))
+            hash.update(conf.serializer(kwds))
         if conf.decoder is None:
-            return h.digest()
-        return conf.decoder(h)
+            return hash.digest()
+        return conf.decoder(hash)
 
 
 class JsonMd5HashMixin(AbstractHashMixin):

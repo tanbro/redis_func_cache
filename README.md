@@ -731,7 +731,7 @@ However, you can work around this issue by:
 
 - Splitting the function into two parts: one with fully serializable arguments (apply the cache decorator to this part), and another that may contain un-serializable arguments (this part calls the first one).
 
-- Using `exclude_args_names` or `exclude_args_indices` to exclude un-serializable arguments from key and hash calculations.
+- Using `excludes` and/or `excludes_positional` to exclude un-serializable arguments from key and hash calculations.
 
 This approach is particularly useful for functions such as a database query.
 
@@ -740,25 +740,28 @@ For example, the `pool` argument in the following function is not serializable:
 ```python
 def get_book(pool: ConnectionPool, book_id: int):
     connection = pool.get_connection()
-    book = connection.execute("SELECT * FROM books WHERE book_id = %s", book_id).fetchone()
+    book = (
+        connection
+        .execute(
+            "SELECT * FROM books WHERE book_id = %s",
+            int(book_id)
+        )
+        .fetchone()
+    )
     return book.to_dict()
 ```
 
 However, we can exclude the `pool` argument from the key and hash calculations, so the function can be cached:
 
 ```python
-@cache(exclude_args_names=["pool"])
+@cache(excludes=["pool"])
 def get_book(pool: ConnectionPool, book_id: int):
     ...
 ```
 
-Important:
-    - When using the `exclude_args_names` parameter, ensure that the argument is passed in a keyword way.
-    - When using the `exclude_args_indices` parameter, ensure that the argument is passed in a positional way.
-
 ## Known Issues
 
-- Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries.
+- Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries, but we can work around this issue by excluding the argument from the key and hash calculations with `excludes` and/or `excludes_positional` parameters.
 
   - For a common method defined inside a class, the class must be serializable; otherwise, the first `self` argument cannot be serialized.
   - For a class method (decorated by `@classmethod`), the class type itself, i.e., the first `cls` argument, must be serializable.

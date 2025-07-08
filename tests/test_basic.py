@@ -370,7 +370,7 @@ class ExcludeArgsTestCase(TestCase):
         unpicklable = lambda x: x  # noqa: E731
 
         for cache in CACHES.values():
-            f = cache(user_func, exclude_args_indices=[0])
+            f = cache(user_func, excludes_positional=[0])
             for _ in range(cache.maxsize * 2 + 1):
                 v = uuid4().hex
                 self.assertEqual(f(unpicklable, v), v)
@@ -382,7 +382,7 @@ class ExcludeArgsTestCase(TestCase):
         unpicklable = lambda x: x  # noqa: E731
 
         for cache in CACHES.values():
-            f = cache(user_func, exclude_args_names=["func"])
+            f = cache(user_func, excludes=["func"])
             for _ in range(cache.maxsize * 2 + 1):
                 v = uuid4().hex
                 self.assertEqual(f(func=unpicklable, value=v), v)

@@ -67,6 +67,7 @@ dev = [
   { include-group = "static-type-check" },
   { include-group = "test" },
   { include-group = "docs" },
+  { include-group = "ipykernel" },
 ]
 
 static-type-check = ["mypy", { include-group = "typing" }]
@@ -96,6 +97,11 @@ coverage = ["coverage"]
 test = [
   "python-dotenv",
   { include-group = "coverage" },
+]
+
+ipykernel = [
+  "ipykernel",
+  "pip",
 ]
 
 [tool.setuptools.packages.find]

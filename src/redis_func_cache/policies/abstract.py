@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import weakref
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Mapping, Optional, Sequence, Tuple, Union
 
 from redis.commands.core import AsyncScript, Script
 
@@ -53,7 +53,10 @@ class AbstractPolicy(ABC):
 
     @abstractmethod
     def calc_keys(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self,
+        f: Optional[Callable] = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwds: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
         """
         Calculate the Redis key pair for caching.
@@ -70,7 +73,10 @@ class AbstractPolicy(ABC):
 
     @abstractmethod
     def calc_hash(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
+        self,
+        f: Optional[Callable] = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwds: Optional[Dict[str, Any]] = None,
     ) -> KeyT:
         """
         Calculate a unique hash for the function and its arguments.
