@@ -677,7 +677,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             else:
                 if iscoroutinefunction(user_func):
                     raise TypeError(
-                        "The decorated function or method cannot be a coroutine when using a asynchronous redis client."
+                        "The decorated function or method cannot be a coroutine when using a synchronous redis client."
                     )
                 return cast(CallableTV, wrapper)
 
