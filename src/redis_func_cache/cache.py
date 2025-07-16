@@ -456,7 +456,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         bound = sig.bind(*user_args, **user_kwds)
         if excludes_positional:
             bound.arguments = OrderedDict(
-                (k, v) for i, (k, v) in enumerate(bound.arguments.items()) if i not in excludes_positional
+                item for i, item in enumerate(bound.arguments.items()) if i not in excludes_positional
             )
         if excludes:
             bound.arguments = OrderedDict((k, v) for k, v in bound.arguments.items() if k not in excludes)
