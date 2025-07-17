@@ -639,7 +639,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         elif serializer is not None:
             serialize_func, deserialize_func = serializer
 
-        def decorator(user_func: CallableTV):
+        def decorator(user_func: CallableTV) -> CallableTV:
             @wraps(user_func)
             def wrapper(*user_args, **user_kwargs):
                 bound = self._make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
