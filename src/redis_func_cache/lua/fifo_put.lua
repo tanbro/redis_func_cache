@@ -16,6 +16,7 @@ local maxsize = tonumber(ARGV[1])
 local ttl = ARGV[2]
 local hash = ARGV[3]
 local return_value = ARGV[4]
+local field_ttl = ARGV[5]
 
 -- Set TTL if specified
 if tonumber(ttl) > 0 then
@@ -45,6 +46,10 @@ if not redis.call('ZRANK', zset_key, hash) then
         redis.call('ZADD', zset_key, 1 + highest_with_score[2], hash)
     end
     redis.call('HSET', hmap_key, hash, return_value)
+    -- Set Hash's Field TTL if specified
+    if tonumber(field_ttl) > 0 then
+        redis.call('HEXPIRE', hmap_key, ttl, FIELDS "1", hash)
+    end
 end
 
 return c

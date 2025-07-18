@@ -406,6 +406,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         value: EncodableT,
         maxsize: int,
         ttl: int,
+        field_ttl: int = 0,
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
     ):
@@ -423,7 +424,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        script(keys=key_pair, args=chain((maxsize, ttl, hash_value, value, encoded_options), ext_args))
+        script(keys=key_pair, args=chain((maxsize, ttl, hash_value, value, field_ttl, encoded_options), ext_args))
 
     @classmethod
     async def aput(
@@ -434,13 +435,14 @@ class RedisFuncCache(Generic[RedisClientTV]):
         value: EncodableT,
         maxsize: int,
         ttl: int,
+        field_ttl: int = 0,
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
     ):
         """Async version of :meth:`put`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        await script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, encoded_options), ext_args))
+        await script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, field_ttl, encoded_options), ext_args))
 
     def _make_bound(
         self,
@@ -486,6 +488,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
         bound: Optional[BoundArguments] = None,
+        field_ttl: Optional[int] = None,
         **options,
     ):
         """Execute the given user function with the provided arguments.
@@ -520,7 +523,17 @@ class RedisFuncCache(Generic[RedisClientTV]):
             return self.deserialize(cached_return_value, deserialize_func)
         user_retval = user_function(*user_args, **user_kwds)
         user_retval_serialized = self.serialize(user_retval, serialize_func)
-        self.put(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
+        self.put(
+            script_1,
+            keys,
+            hash_value,
+            user_retval_serialized,
+            self.maxsize,
+            self.ttl,
+            0 if field_ttl is None else field_ttl,
+            options,
+            ext_args,
+        )
         return user_retval
 
     async def aexec(
@@ -531,6 +544,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
         bound: Optional[BoundArguments] = None,
+        field_ttl: Optional[int] = None,
         **options,
     ):
         """Asynchronous version of :meth:`.exec`"""
@@ -546,7 +560,17 @@ class RedisFuncCache(Generic[RedisClientTV]):
             return self.deserialize(cached, deserialize_func)
         user_retval = await user_function(*user_args, **user_kwds)
         user_retval_serialized = self.serialize(user_retval, serialize_func)
-        await self.aput(script_1, keys, hash_value, user_retval_serialized, self.maxsize, self.ttl, options, ext_args)
+        await self.aput(
+            script_1,
+            keys,
+            hash_value,
+            user_retval_serialized,
+            self.maxsize,
+            self.ttl,
+            0 if field_ttl is None else field_ttl,
+            options,
+            ext_args,
+        )
         return user_retval
 
     def decorate(
@@ -555,6 +579,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         /,
         *,
         serializer: Optional[SerializerSetterValueT] = None,
+        ttl: Optional[int] = None,
         excludes: Optional[Sequence[str]] = None,
         excludes_positional: Optional[Sequence[int]] = None,
         **options,
@@ -571,6 +596,18 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 - A tuple of (`serialize_func`, `deserialize_func`) functions
 
                 If assigned, it overwrite the :attr:`serializer` property of the cache instance on the decorated function.
+
+        ttl: The time-to-live (in seconds) for the cached result.
+
+            Note:
+                This parameter specifies the expiration time for a single invocation result, not for the entire cache.
+
+            Caution:
+                The expiration is based on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration).
+                Therefore, expiration only applies to the hash field and does not decrease the total item count in the cache when a field expires.
+
+            Warning:
+                Only available in Redis Open Source version above 7.4
 
             excludes: Optional sequence of parameter names specifying keyword arguments to exclude from cache key generation.
 
@@ -650,6 +687,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     serialize_func,
                     deserialize_func,
                     bound,
+                    ttl,
                     **options,
                 )
 
@@ -663,6 +701,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     serialize_func,
                     deserialize_func,
                     bound,
+                    ttl,
                     **options,
                 )
 
