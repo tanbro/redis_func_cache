@@ -791,6 +791,23 @@ def get_book(pool: ConnectionPool, book_id: int):
     ...
 ```
 
+### Disable Cache Temporarily
+
+To disable caching temporarily, you can use the `disable` context manager:
+
+```python
+@cache(excludes=["pool"])
+def get_book(pool: ConnectionPool, book_id: int):
+    ...
+
+book1 = get_book(pool, book_id=1)
+# book1 will be cached
+
+with cache.disable():
+    book2 = get_book(pool, book_id=2)
+    # book2 will not be cached here
+```
+
 ## Thread Safety and Concurrency Security
 
 The library guarantees thread safety and concurrency security through the following design principles:
