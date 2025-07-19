@@ -255,6 +255,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @maxsize.setter
     def maxsize(self, value: int):
+        if not value > 0:
+            raise ValueError("maxsize must be a greater than 0")
         self._maxsize = int(value)
 
     @property
@@ -264,6 +266,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @ttl.setter
     def ttl(self, value: int):
+        if not value > 0:
+            raise ValueError("ttl must be a greater than 0")
         self._ttl = int(value)
 
     @property
@@ -416,7 +420,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
             script: Redis Lua script to be evaluated, which shall store the return value in the cache.
             key_pair: The key name pair of the Redis set and hash-map data structure used by the cache.
             hash_value: The member of the Redis key and also the field name of the Redis hash map.
+            value: The value to be stored in the hash map.
             ttl: Time-to-live of the cache in seconds.
+            field_ttl: Time-to-live of the field name of the Redis hash map.
             options: Reserved for future use.
             ext_args: Extra arguments passed to the Lua script.
 

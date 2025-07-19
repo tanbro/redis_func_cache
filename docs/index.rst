@@ -23,8 +23,7 @@ redis_func_cache
    :target: https://pypi.org/project/redis_func_cache/
 
 .. rubric::
-   ``redis_func_cache`` is a Python library for caching function results in `Redis <https://redis.io/>`_,
-   similar to the caching functionality provided by the standard library's `functools <https://docs.python.org/library/functools.html>`_ module.
+   ``redis_func_cache`` is a Python library for caching function results in `Redis <https://redis.io/>`_, similar to the caching functionality provided by the standard library's `functools <https://docs.python.org/library/functools.html>`_ module.
 
 ========== ========= =========
 Release    Version   Built at
