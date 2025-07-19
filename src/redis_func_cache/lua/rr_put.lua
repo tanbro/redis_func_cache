@@ -40,7 +40,7 @@ if redis.call('SISMEMBER', set_key, hash) == 0 then
     redis.call('HSET', hmap_key, hash, return_value)
     -- Set Hash's Field TTL if specified
     if tonumber(field_ttl) > 0 then
-        redis.call('HEXPIRE', hmap_key, ttl, FIELDS "1", hash)
+        redis.call('HEXPIRE', hmap_key, field_ttl, 'FIELDS', 1, hash)
     end
 end
 
