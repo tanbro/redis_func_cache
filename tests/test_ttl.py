@@ -1,7 +1,7 @@
 import time
-from random import randint
 from unittest import TestCase
 from unittest.mock import patch
+from uuid import uuid4
 
 from ._catches import CACHES
 
@@ -32,9 +32,9 @@ class TTLTest(TestCase):
                 return x
 
             # 调用函数以设置缓存
-            val1 = randint(1, 100)
-            val2 = randint(1, 100)
-            val3 = randint(1, 100)
+            val1 = uuid4().hex
+            val2 = uuid4().hex
+            val3 = uuid4().hex
             echo1(val1)
             echo2(val2)
             echo3(val3)

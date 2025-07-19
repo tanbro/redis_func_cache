@@ -1,6 +1,6 @@
-from random import randint
 from unittest import TestCase
 from unittest.mock import patch
+from uuid import uuid4
 
 from ._catches import CACHES
 
@@ -8,7 +8,6 @@ from ._catches import CACHES
 class ContextTest(TestCase):
     def setUp(self):
         """初始化测试环境，清除所有缓存。"""
-        super().setUp()
         for cache in CACHES.values():
             cache.policy.purge()
 
@@ -16,11 +15,11 @@ class ContextTest(TestCase):
         """测试在 disable_cache 上下文中缓存是否被禁用。"""
         for cache in CACHES.values():
 
-            @cache.decorate()
+            @cache
             def echo(x):
                 return x
 
-            val = randint(1, 100)
+            val = uuid4().hex
             # 正常调用，缓存应生效
             self.assertEqual(echo(val), val)
             with patch.object(cache, "put") as mock_put:
