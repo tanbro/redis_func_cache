@@ -791,6 +791,28 @@ def get_book(pool: ConnectionPool, book_id: int):
     ...
 ```
 
+## Thread Safety and Concurrency Security
+
+The library guarantees thread safety and concurrency security through the following design principles:
+
+1. Redis Concurrency
+
+   - The underlying redis-py client is not thread-safe. Each thread should use a separate client instance or a connection pool (`redis.ConnectionPool`) to avoid resource contention.
+   - It is recommended to use a factory pattern with thread-safe locking for client instantiation, preventing race conditions during connection creation. A pre-configured connection pool helps manage Redis connections efficiently and prevents exhaustion under high concurrency.
+   - All Redis operations (e.g., get, put) are executed via Lua scripts to ensure atomicity, preventing race conditions during concurrent access.
+
+2. Function Execution Concurrency
+
+   Both synchronous and asynchronous functions decorated by RedisFuncCache are executed as-is. Therefore, each function is responsible for its own thread safety.
+   The only concurrency risk lies in Redis I/O and operations. The cache will use a synchronous Redis client for synchronous functions and an asynchronous Redis client for asynchronous functions.
+   As described above, you should provide an appropriate Redis client or factory to the cache in concurrent scenarios.
+
+3. Contextual State Isolation
+
+   The ContextVar-based `disable()` context manager ensures thread and coroutine isolation. Each thread or async task maintains its own independent state (such as cache disable flags), preventing cross-context interference.
+
+This design enables safe operation in both multi-threaded and asynchronous environments while maintaining high-performance Redis I/O throughput. For best results, use the library with Redis 6.0 or newer to take advantage of native Lua script atomicity and advanced connection management features.
+
 ## Known Issues
 
 - Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries, but we can work around this issue by excluding the argument from the key and hash calculations with `excludes` and/or `excludes_positional` parameters.

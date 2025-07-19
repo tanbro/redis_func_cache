@@ -4,6 +4,8 @@ import json
 import pickle
 import weakref
 from collections import OrderedDict
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
@@ -193,6 +195,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         else:
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
+        self._disabled: ContextVar[bool] = ContextVar("disabled", default=False)
 
     __serializers__: Dict[str, SerializerPairT] = {
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
@@ -521,6 +524,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
             This method first calls :meth:`get` to attempt retrieving a cached result before executing the ``user_function``.
             If no cached result is found, it executes the ``user_function``, then calls :meth:`put` to store the result in the cache.
         """
+        if self._disabled.get():
+            return user_function(*user_args, **user_kwds)
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
@@ -555,6 +560,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         **options,
     ) -> Any:
         """Asynchronous version of :meth:`.exec`"""
+        if self._disabled.get():
+            return await user_function(*user_args, **user_kwds)
         script_0, script_1 = self.policy.lua_scripts
         if not (
             isinstance(script_0, redis.commands.core.AsyncScript)
@@ -733,3 +740,24 @@ class RedisFuncCache(Generic[RedisClientTV]):
         return cast(CallableTV, decorator(user_function))
 
     __call__ = decorate
+
+    @contextmanager
+    def disable(self):
+        """A context manager who disables the cache temporarily.
+
+        Example:
+
+          ::
+
+                @cache
+                def func(): ...
+
+
+                with cache.disable():
+                    result = func()  # will be executed without cache ability
+        """
+        token = self._disabled.set(True)
+        try:
+            yield
+        finally:
+            self._disabled.reset(token)
