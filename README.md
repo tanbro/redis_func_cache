@@ -368,20 +368,52 @@ Policies that support both clusters and store cache in multiple [Redis][] key pa
 
 The [`RedisFuncCache`][] instance has two arguments to control the maximum size and expiration time of the cache:
 
-- `maxsize`: the maximum number of items that the cache can hold.
+- `maxsize`: The maximum number of items the cache can hold.
 
     When the cache reaches its `maxsize`, adding a new item will cause an existing cached item to be removed according to the eviction policy.
 
     > ℹ️ **Note:**\
     > For "multiple" policies, each decorated function has its own standalone data structure, so the value represents the maximum size of each individual data structure.
 
+    This argument can be set when creating a cache instance:
+
+    ```python
+    cache = RedisFuncCache("my-cache-5", LruTPolicy, redis_client, maxsize=100)
+    ```
+
 - `ttl`: The expiration time (in seconds) for the cache data structure.
 
-    The cache's [Redis][] data structure will expire and be released after the specified time.
-    Each time the cache is accessed, the expiration time will be reset.
+    The entire [Redis][] data structure for the cache will expire and be removed after the specified time.
+    Each time the cache is accessed, its expiration time is refreshed. Thus, the cache will only be removed if it is not accessed within the specified period.
 
     > ℹ️ **Note:**\
-    > For "multiple" policies, each decorated function has its own standalone data structure, so the `ttl` value represents the expiration time of each individual data structure. The expiration time will be reset each time the cache is accessed individually.
+    > For "multiple" policies, each decorated function has its own separate data structure, so the `ttl` value applies to each individual structure. The expiration time is refreshed independently whenever each cache is accessed.
+
+    You can set this argument when creating a cache instance:
+
+    ```python
+    cache = RedisFuncCache("my-cache-5", LruTPolicy, redis_client, ttl=300)
+    ```
+
+- per-invocation TTL: The expiration time (in seconds) for each cached item, not the entire cache.
+
+  You can set this argument when decorating a function:
+
+  ```python
+  @cache(ttl=300)
+  def my_func(x):
+      ...
+  ```
+
+  This means that each cached return value for a specific invocation of `my_func` will expire after 300 seconds.
+  The argument's default value is `None`, which means that the cache item will never expire.
+
+  > ⁉️ **Caution:**\
+  > This expiration relies on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). Expiration only applies to the hash field (the cached return value), and does **not** reduce the total number of items in the cache when a field expires.
+  > Typically, the cached return value in the HASH portion is automatically released after expiration. However, the corresponding hash key in the ZSET portion is **not** removed automatically. Instead, it is only "lazily" cleaned up when accessed, or removed by the eviction policy when a new value is added. During this period, the ZSET portion continues to occupy memory, and the reported number of cache items does not decrease.
+
+  > ⚠️ **Warning:**\
+  > This feature requires [Redis][] Open Source version 7.4 or later.
 
 ### Complex return types
 

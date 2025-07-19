@@ -6,6 +6,7 @@
 
 - ✨ **New Features:**
   - Added arguments excluding support for the `RedisFuncCache` class, which makes it possible to cache functions with arguments that cannot be serialized.
+  - Added support for per-invocation TTL.
 
 - 💔 **Breaking Changes:**
   - Rename `redis_func_cache.mixins.policies` to `redis_func_cache.mixins.scripts`.

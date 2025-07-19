@@ -444,8 +444,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         ext_args = ext_args or ()
         await script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, field_ttl, encoded_options), ext_args))
 
-    def _make_bound(
-        self,
+    @classmethod
+    def make_bound(
+        cls,
         user_func: Callable,
         user_args: Tuple[Any, ...],
         user_kwds: Dict[str, Any],
@@ -464,13 +465,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
             bound.arguments = OrderedDict((k, v) for k, v in bound.arguments.items() if k not in excludes)
         return bound
 
-    def _before_get(
+    def prepare(
         self,
         user_function: Callable,
         user_args: Tuple[Any, ...],
         user_kwds: Dict[str, Any],
         bound: Optional[BoundArguments] = None,
-    ):
+    ) -> Tuple[Tuple[KeyT, KeyT], KeyT, Iterable[EncodableT]]:
         if bound is None:
             args, kwds = user_args, user_kwds
         else:
@@ -488,9 +489,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
         bound: Optional[BoundArguments] = None,
-        field_ttl: Optional[int] = None,
+        field_ttl: int = 0,
         **options,
-    ):
+    ) -> Any:
         """Execute the given user function with the provided arguments.
 
         Args:
@@ -517,7 +518,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
-        keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds, bound)
+        keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         cached_return_value = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached_return_value is not None:
             return self.deserialize(cached_return_value, deserialize_func)
@@ -544,9 +545,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
         bound: Optional[BoundArguments] = None,
-        field_ttl: Optional[int] = None,
+        field_ttl: int = 0,
         **options,
-    ):
+    ) -> Any:
         """Asynchronous version of :meth:`.exec`"""
         script_0, script_1 = self.policy.lua_scripts
         if not (
@@ -554,7 +555,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             and isinstance(script_1, redis.commands.core.AsyncScript)
         ):
             raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
-        keys, hash_value, ext_args = self._before_get(user_function, user_args, user_kwds, bound)
+        keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
         if cached is not None:
             return self.deserialize(cached, deserialize_func)
@@ -675,11 +676,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
             serialize_func, deserialize_func = self.__serializers__[serializer]
         elif serializer is not None:
             serialize_func, deserialize_func = serializer
+        field_ttl = 0 if ttl is None else int(ttl)
 
         def decorator(user_func: CallableTV) -> CallableTV:
             @wraps(user_func)
             def wrapper(*user_args, **user_kwargs):
-                bound = self._make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
+                bound = self.make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
                 return self.exec(
                     user_func,
                     user_args,
@@ -687,13 +689,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     serialize_func,
                     deserialize_func,
                     bound,
-                    ttl,
+                    field_ttl,
                     **options,
                 )
 
             @wraps(user_func)
             async def awrapper(*user_args, **user_kwargs):
-                bound = self._make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
+                bound = self.make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
                 return await self.aexec(
                     user_func,
                     user_args,
@@ -701,7 +703,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     serialize_func,
                     deserialize_func,
                     bound,
-                    ttl,
+                    field_ttl,
                     **options,
                 )
 
