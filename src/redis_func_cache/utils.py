@@ -114,5 +114,4 @@ def clean_lua_script(source: str) -> str:
         return "\n".join(s for line in code.splitlines() if (s := line.strip()))
 
     else:  # pragma: no cover
-        warn("pygments is not installed, return source code as is", ImportWarning)
         return source
