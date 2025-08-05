@@ -146,9 +146,9 @@ flowchart TD
     K --> L[Return User Function Result]
 ```
 
-## Basic Usage
+## Usage
 
-### First example
+### A simple example
 
 Using an *LRU* cache to decorate a recursive Fibonacci function:
 
@@ -258,6 +258,7 @@ So far, the following cache eviction policies are available:
 - [`LruPolicy`][]: least recently used
 - [`MruPolicy`][]: most recently used
 - [`RrPolicy`][]: random remove
+- ...
 
 > ℹ️ **Info:**\
 > Explore the source code in the directory `src/redis_func_cache/policies` for more details.
@@ -767,7 +768,7 @@ However, you can work around this issue by:
 
 This approach is particularly useful for functions such as a database query.
 
-For example, the `pool` argument in the following function is not serializable:
+For example, the `pool` argument in the following function is not serializable and can not be cached:
 
 ```python
 def get_book(pool: ConnectionPool, book_id: int):
@@ -793,7 +794,7 @@ def get_book(pool: ConnectionPool, book_id: int):
 
 ### Disable Cache Temporarily
 
-To disable caching temporarily, you can use the `disable` context manager:
+To disable caching temporarily, you can use the `disabled()` context manager:
 
 ```python
 @cache(excludes=["pool"])
@@ -803,12 +804,12 @@ def get_book(pool: ConnectionPool, book_id: int):
 book1 = get_book(pool, book_id=1)
 # book1 will be cached
 
-with cache.disable():
+with cache.disabled():
     book2 = get_book(pool, book_id=2)
-    # book2 will not be cached here
+    # Here, book2 will not be read from database instead of cache
 ```
 
-## Thread Safety and Concurrency Security
+## Concurrency
 
 The library guarantees thread safety and concurrency security through the following design principles:
 
@@ -818,15 +819,31 @@ The library guarantees thread safety and concurrency security through the follow
    - It is recommended to use a factory pattern with thread-safe locking for client instantiation, preventing race conditions during connection creation. A pre-configured connection pool helps manage Redis connections efficiently and prevents exhaustion under high concurrency.
    - All Redis operations (e.g., get, put) are executed via Lua scripts to ensure atomicity, preventing race conditions during concurrent access.
 
-2. Function Execution Concurrency
+   Here is an example using `redis.ConnectionPool` to avoid conflicts when the cache accesses Redis:
+
+   ```python
+   import redis
+   from redis_func_cache import RedisFuncCache, LruPolicy
+
+   redis_pool = redis.ConnectionPool(...)  # Use a pool, not a single client
+   redis_factory = lambda: redis.from_pool(redis_pool)  # Use factory, not a static client
+
+   cache = RedisFuncCache(__name__, LruPolicy, redis_factory)
+
+   @cache
+   def your_concurrent_func(...):
+       ..
+   ```
+
+1. Function Execution Concurrency
 
    Both synchronous and asynchronous functions decorated by RedisFuncCache are executed as-is. Therefore, each function is responsible for its own thread safety.
    The only concurrency risk lies in Redis I/O and operations. The cache will use a synchronous Redis client for synchronous functions and an asynchronous Redis client for asynchronous functions.
    As described above, you should provide an appropriate Redis client or factory to the cache in concurrent scenarios.
 
-3. Contextual State Isolation
+1. Contextual State Isolation
 
-   The ContextVar-based `disable()` context manager ensures thread and coroutine isolation. Each thread or async task maintains its own independent state (such as cache disable flags), preventing cross-context interference.
+   The [ContextVar](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar) based `disabled()` context manager ensures thread and coroutine isolation. Each thread or async task maintains its own independent state, preventing cross-context interference.
 
 This design enables safe operation in both multi-threaded and asynchronous environments while maintaining high-performance Redis I/O throughput. For best results, use the library with Redis 6.0 or newer to take advantage of native Lua script atomicity and advanced connection management features.
 
@@ -835,11 +852,11 @@ This design enables safe operation in both multi-threaded and asynchronous envir
 - Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries, but we can work around this issue by excluding the argument from the key and hash calculations with `excludes` and/or `excludes_positional` parameters.
 
   - For a common method defined inside a class, the class must be serializable; otherwise, the first `self` argument cannot be serialized.
-  - For a class method (decorated by `@classmethod`), the class type itself, i.e., the first `cls` argument, must be serializable.
+  - For a class method (decorated by [`@classmethod`](https://docs.python.org/3/library/functions.html#classmethod)), the class type itself, i.e., the first `cls` argument, must be serializable.
 
 - Compatibility with other [decorator][]s is not guaranteed.
 
-- The built-in policies in `redis_func_cache.policies` use [`pickle`][] to serialize function arguments, then calculate the cache key by hashing the serialized data with `md5`. [`pickle`][] is chosen because only the hash bytes are stored in Redis, not the serialized data itself, so this is safe. However, [`pickle`][] causes incompatibility between different Python versions. If your application needs to be compatible across Python versions, you should define your own hash policy using a version-compatible serialization method, for example:
+- The built-in policies in `redis_func_cache.policies` use [`pickle`][] to serialize function arguments, then calculate the cache key by hashing the serialized data with `md5`. [`pickle`][] is chosen because only the hash bytes are stored in Redis, not the serialized data itself, so this is safe. However, [`pickle`][] causes **incompatibility between different Python versions**. If your application needs to be compatible across Python versions, you should use a [json][] based hash mixer, or define your own hash policy using a version-compatible serialization method, for example:
 
     ```python
     from redis_func_cache import RedisFuncCache
@@ -853,7 +870,7 @@ This design enables safe operation in both multi-threaded and asynchronous envir
     my_cache = RedisFuncCache(__name__, policy=MyLfuPolicy, client=redis_client_factory)
     ```
 
-    As shown above, unlike [`pickle`][], [json][] can be used across different Python versions.
+    As shown above, the `JsonMd5HashMixin` uses [json][], which can be used across different Python versions, rather than [`pickle`][].
 
 - The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. Its maximum value is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
 
@@ -862,11 +879,23 @@ This design enables safe operation in both multi-threaded and asynchronous envir
 - Generator functions are not supported.
 
 - If there are multiple [`RedisFuncCache`][] instances with the same name, they may share the same cache data.
-  This may lead to serious errors, so we should avoid using the same name for different instances.
+  This may lead to serious errors, so we should avoid using the same `name` argument for different cache instances.
 
-- The Redis keys generated by *Multiple* policies include a hash derived from Python bytecode, making them incompatible across Python versions. Additionally, the decorator cannot be used with native or built-in functions due to same limitations.
+- The Redis keys generated by *Multiple* policies include a hash derived from Python bytecode, making them **incompatible across Python versions**.
+
+  However, you can define a custom mixin that inherits from `AbstractHashMixin`, in which you can implement your own hash function to support compatibility across Python versions.
+
+  Additionally, the decorator **cannot be used with native or built-in functions** due to same limitation.
 
 ## Test
+
+1. Start a Redis server
+1. Set up `REDIS_URL` environment variable (Default to `redis://` if not defined) to point to the Redis server.
+1. Run the tests:
+
+   ```bash
+   python -m unittest
+   ```
 
 A Docker Compose file for unit testing is provided in the `docker` directory to simplify the process. You can run it by executing:
 
