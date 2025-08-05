@@ -19,6 +19,10 @@ try:  # pragma: no cover
 except ImportError:
     pygments = None  # type: ignore[assignment]
     LUA_PYGMENTS_FILTER_TYPES = None
+    warn(
+        "Pygments could reduce the size of the cache's LUA script. To install it: pip install redis_func_cache[pygments]",
+        ImportWarning,
+    )
 else:
     LUA_PYGMENTS_FILTER_TYPES = (
         String.Doc,
@@ -99,19 +103,21 @@ def clean_lua_script(source: str) -> str:
         If :mod:`pygments` is not installed, the source code will be returned unchanged.
     """
     if pygments:
-
-        @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
-        def filter(self, lexer, stream, options):
-            yield from ((ttype, value) for ttype, value in stream if ttype not in LUA_PYGMENTS_FILTER_TYPES)
-
         lexer = get_lexer_by_name("lua")  # pyright: ignore[reportPossiblyUnboundVariable]
         if lexer is None:  # pragma: no cover
             warn("Lua lexer not found in pygments, return source code as is", RuntimeWarning)
             return source
-        lexer.add_filter(filter())  # pyright: ignore[reportCallIssue]
+        lexer.add_filter(_filter())  # pyright: ignore[reportCallIssue]
         code = "".join(tok_str for _, tok_str in lexer.get_tokens(source))
         # remote empty lines
         return "\n".join(s for line in code.splitlines() if (s := line.strip()))
 
     else:  # pragma: no cover
         return source
+
+
+if pygments:
+
+    @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
+    def _filter(self, lexer, stream, options):
+        yield from ((ttype, value) for ttype, value in stream if ttype not in LUA_PYGMENTS_FILTER_TYPES)
