@@ -27,7 +27,7 @@ class ContextTest(TestCase):
                 mock_put.assert_not_called()
 
             # 在 disable_cache 上下文中调用，缓存应失效
-            with cache.disable():
+            with cache.disabled():
                 # 直接调用函数，不经过缓存
                 with patch.object(cache, "get") as mock_get:
                     with patch.object(cache, "put") as mock_put:

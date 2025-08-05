@@ -28,7 +28,7 @@ class AsyncContextTTLTest(IsolatedAsyncioTestCase):
                 mock_put.assert_not_called()
 
             # 再次调用，缓存应失效，触发写入
-            with cache.disable():
+            with cache.disabled():
                 with patch.object(cache, "aget", side_effect=AsyncMock(return_value=None)) as mock_get:
                     with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
                         result = await echo(val)

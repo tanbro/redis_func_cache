@@ -742,7 +742,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     __call__ = decorate
 
     @contextmanager
-    def disable(self):
+    def disabled(self):
         """A context manager who disables the cache temporarily.
 
         Example:
@@ -753,7 +753,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 def func(): ...
 
 
-                with cache.disable():
+                with cache.disabled():
                     result = func()  # will be executed without cache ability
         """
         token = self._disabled.set(True)
