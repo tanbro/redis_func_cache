@@ -11,6 +11,10 @@ class AsyncContextTTLTest(IsolatedAsyncioTestCase):
         coros = (cache.policy.apurge() for cache in ASYNC_CACHES.values())
         await asyncio.gather(*coros)
 
+    async def asyncTearDown(self):
+        # 正确关闭所有异步Redis客户端连接，防止"Event loop is closed"错误
+        await asyncio.gather(*(cache.client.close() for cache in ASYNC_CACHES.values()))
+
     async def test_async_ttl_contextual(self):
         for cache in ASYNC_CACHES.values():
 

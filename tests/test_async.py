@@ -3,7 +3,7 @@ from random import randint
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from ._catches import ASYNC_CACHES, ASYNC_MULTI_CACHES, CACHES
+from ._catches import ASYNC_CACHES, ASYNC_MULTI_CACHES, CACHES, close_async_redis_client
 
 
 def _echo(x):
@@ -14,6 +14,10 @@ class AsyncTest(IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         coros = (cache.policy.apurge() for cache in ASYNC_CACHES.values())
         await asyncio.gather(*coros)
+
+    async def asyncTearDown(self):
+        # 清理异步Redis客户端连接
+        await close_async_redis_client()
 
     async def test_simple(self):
         for cache in ASYNC_CACHES.values():
@@ -35,6 +39,10 @@ class AsyncMultiTest(IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         coros = (cache.policy.apurge() for cache in ASYNC_MULTI_CACHES.values())
         await asyncio.gather(*coros)
+
+    async def asyncTearDown(self):
+        # 清理异步Redis客户端连接
+        await close_async_redis_client()
 
     async def test_simple(self):
         for cache in ASYNC_MULTI_CACHES.values():
