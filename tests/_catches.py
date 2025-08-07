@@ -1,10 +1,11 @@
+import asyncio
+import atexit
 from os import getenv
-from typing import Callable, Dict, List, Optional
+from typing import Optional
 from warnings import warn
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
-from redis.cluster import ClusterNode, RedisCluster
 
 from redis_func_cache import (
     FifoClusterMultiplePolicy,
@@ -21,11 +22,11 @@ from redis_func_cache import (
     RrClusterMultiplePolicy,
     RrPolicy,
 )
-from redis_func_cache.policies.fifo import FifoClusterPolicy, FifoMultiplePolicy
-from redis_func_cache.policies.lfu import LfuClusterPolicy, LfuMultiplePolicy
-from redis_func_cache.policies.lru import LruClusterPolicy, LruMultiplePolicy, LruTClusterPolicy, LruTMultiplePolicy
-from redis_func_cache.policies.mru import MruClusterPolicy, MruMultiplePolicy
-from redis_func_cache.policies.rr import RrClusterPolicy, RrMultiplePolicy
+from redis_func_cache.policies.fifo import FifoMultiplePolicy
+from redis_func_cache.policies.lfu import LfuMultiplePolicy
+from redis_func_cache.policies.lru import LruMultiplePolicy, LruTMultiplePolicy
+from redis_func_cache.policies.mru import MruMultiplePolicy
+from redis_func_cache.policies.rr import RrMultiplePolicy
 
 try:
     from dotenv import load_dotenv
@@ -116,34 +117,36 @@ async def close_all_async_resources():
     # 关闭所有异步缓存实例中的客户端连接
     for cache in ASYNC_CACHES.values():
         if hasattr(cache.client, "close"):
-            await cache.client.close()
+            try:
+                await cache.client.close()
+            except RuntimeError:
+                # 如果事件循环已关闭，忽略错误
+                pass
 
     for cache in ASYNC_MULTI_CACHES.values():
         if hasattr(cache.client, "close"):
-            await cache.client.close()
+            try:
+                await cache.client.close()
+            except RuntimeError:
+                # 如果事件循环已关闭，忽略错误
+                pass
 
 
-CLUSTER_NODES: List[ClusterNode] = []
-CLUSTER_CACHES: Dict[str, RedisFuncCache] = {}
-if REDIS_CLUSTER_NODES:
-    CLUSTER_NODES = [
-        ClusterNode(cluster.split(":")[-2], int(cluster.split(":")[-1])) for cluster in REDIS_CLUSTER_NODES.split()
-    ]
-    REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # type: ignore[abstract]  # noqa: E731
+def _cleanup_async_resources():
+    """在程序退出时清理异步资源"""
+    try:
+        # 获取当前事件循环
+        loop = asyncio.get_event_loop()
+        # 如果事件循环还在运行，则执行清理
+        if loop.is_running():
+            loop.create_task(close_all_async_resources())
+        else:
+            # 否则直接运行直到完成
+            loop.run_until_complete(close_all_async_resources())
+    except RuntimeError:
+        # 如果没有事件循环或者事件循环已关闭，忽略错误
+        pass
 
-    CLUSTER_CACHES = {
-        "tlru": RedisFuncCache(__name__, LruTClusterPolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "lru": RedisFuncCache(__name__, LruClusterPolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "mru": RedisFuncCache(__name__, MruClusterPolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "rr": RedisFuncCache(__name__, RrClusterPolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "fifo": RedisFuncCache(__name__, FifoClusterPolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "lfu": RedisFuncCache(__name__, LfuClusterPolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-    }
-    CLUSTER_MULTI_CACHES = {
-        "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy, client=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-    }
+
+# 在程序退出时注册清理函数
+atexit.register(_cleanup_async_resources)
