@@ -1,4 +1,4 @@
-src = ["src"]
+src = ["src", "tests"]
 extend-exclude = ["docs"]
 line-length = 120
 
