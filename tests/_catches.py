@@ -99,13 +99,29 @@ ASYNC_CACHES = {
 
 
 ASYNC_MULTI_CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy, client=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
 }
+
+
+async def close_all_async_resources():
+    """关闭所有异步资源，防止出现 'Event loop is closed' 错误"""
+    # 关闭全局异步Redis客户端
+    await close_async_redis_client()
+
+    # 关闭所有异步缓存实例中的客户端连接
+    for cache in ASYNC_CACHES.values():
+        if hasattr(cache.client, "close"):
+            await cache.client.close()
+
+    for cache in ASYNC_MULTI_CACHES.values():
+        if hasattr(cache.client, "close"):
+            await cache.client.close()
+
 
 CLUSTER_NODES: List[ClusterNode] = []
 CLUSTER_CACHES: Dict[str, RedisFuncCache] = {}

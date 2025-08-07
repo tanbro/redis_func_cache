@@ -3,7 +3,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-from ._catches import ASYNC_CACHES
+from ._catches import ASYNC_CACHES, close_all_async_resources
 
 
 class AsyncContextTTLTest(IsolatedAsyncioTestCase):
@@ -47,3 +47,20 @@ class AsyncContextTTLTest(IsolatedAsyncioTestCase):
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
                     self.assertEqual(result, val)
+
+
+# 模块级别的清理函数，在所有测试运行完毕后调用
+def tearDownModule():
+    """在模块中的所有测试运行完毕后清理异步资源"""
+    try:
+        # 获取当前事件循环
+        loop = asyncio.get_event_loop()
+        # 如果事件循环还在运行，则执行清理
+        if loop.is_running():
+            loop.create_task(close_all_async_resources())
+        else:
+            # 否则直接运行直到完成
+            loop.run_until_complete(close_all_async_resources())
+    except RuntimeError:
+        # 如果没有事件循环或者事件循环已关闭，忽略错误
+        pass
