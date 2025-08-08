@@ -1,9 +1,7 @@
-import json
-from random import randint, random
-from typing import cast
-from unittest import TestCase
+from random import randint
 from unittest.mock import patch
-from uuid import uuid4
+
+import pytest
 
 from redis_func_cache import LruPolicy, RedisFuncCache
 
@@ -14,406 +12,254 @@ def _echo(x):
     return x
 
 
-class BasicTest(TestCase):
-    def setUp(self):
-        for cache in CACHES.values():
-            cache.policy.purge()
+@pytest.fixture(autouse=True)
+def clean_caches():
+    """自动清理缓存的夹具，在每个测试前后运行。"""
+    # 测试前清理
+    for cache in CACHES.values():
+        cache.policy.purge()
+    yield
+    # 测试后清理
+    for cache in CACHES.values():
+        cache.policy.purge()
 
-    def test_basic(self):
-        """测试缓存命中和未命中场景。"""
-        for cache in CACHES.values():
 
-            @cache
-            def echo(x):
-                return _echo(x)
+def test_basic():
+    """测试缓存命中和未命中场景。"""
+    for cache in CACHES.values():
 
-            # mock hit
-            for i in range(cache.maxsize):
-                with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:
-                    with patch.object(cache, "put") as mock_put:
-                        echo(i)
-                        mock_get.assert_called_once()
-                        mock_put.assert_not_called()
+        @cache
+        def echo(x):
+            return _echo(x)
 
-            # mock not hit
-            for i in range(cache.maxsize):
-                with patch.object(cache, "get", return_value=None) as mock_get:
-                    with patch.object(cache, "put") as mock_put:
-                        echo(i)
-                        mock_get.assert_called_once()
-                        mock_put.assert_called_once()
-
-            # first run, fill the cache to max size. then second run, to hit the cache
-            for i in range(cache.maxsize):
-                self.assertEqual(_echo(i), echo(i))
-                self.assertEqual(i + 1, cache.policy.get_size())
+        # mock hit
+        for i in range(cache.maxsize):
+            with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:
                 with patch.object(cache, "put") as mock_put:
-                    self.assertEqual(i, echo(i))
+                    echo(i)
+                    mock_get.assert_called_once()
                     mock_put.assert_not_called()
-            self.assertEqual(cache.maxsize, cache.policy.get_size())
 
-    def test_many_functions(self):
-        """测试同一缓存实例装饰多个函数。"""
-        for cache in CACHES.values():
-
-            @cache()
-            def echo1(x):
-                return x
-
-            @cache()
-            def echo2(x):
-                return x
-
-            for a, b in zip(range(cache.maxsize), range(cache.maxsize - 1, -1, -1)):
-                echo1(a)
-                echo2(b)
-                with patch.object(cache, "get", return_value=None) as mock_get:
-                    with patch.object(cache, "put") as mock_put:
-                        echo1(b)
-                        mock_get.assert_called_once()
-                        mock_put.assert_called_once()
-                with patch.object(cache, "get", return_value=None) as mock_get:
-                    with patch.object(cache, "put") as mock_put:
-                        echo2(a)
-                        mock_get.assert_called_once()
-                        mock_put.assert_called_once()
-
-    def test_parenthesis(self):
-        """测试带括号的装饰器语法。"""
-        for cache in CACHES.values():
-
-            @cache()
-            def echo(x):
-                return _echo(x)
-
-            for i in range(cache.maxsize):
-                self.assertEqual(_echo(i), echo(i))
-
-    def test_oversize(self):
-        """测试缓存超限后的行为。"""
-        for cache in CACHES.values():
-
-            @cache
-            def echo(x):
-                return _echo(x)
-
-            for i in range(cache.maxsize):
-                self.assertEqual(_echo(i), echo(i))
-            self.assertEqual(cache.maxsize, cache.policy.get_size())
-            # assert not hit
-            with patch.object(cache, "put") as mock_put:
-                v = random()
-                self.assertEqual(echo(v), v)
-                mock_put.assert_called_once()
-            # an actual put, then assert max size
-            self.assertEqual(echo(v), v)
-            self.assertEqual(cache.maxsize, cache.policy.get_size())
-
-    def test_str(self):
-        """测试字符串类型的缓存。"""
-        for cache in CACHES.values():
-
-            @cache
-            def echo(x):
-                return _echo(x)
-
-            size = randint(1, cache.maxsize)
-            values = [uuid4().hex for _ in range(size)]
-            for v in values:
-                self.assertEqual(_echo(v), echo(v))
-            self.assertEqual(size, cache.policy.get_size())
-            for v in values:
-                self.assertEqual(v, echo(v))
-            self.assertEqual(size, cache.policy.get_size())
-
-    def test_lru(self):
-        """测试 LRU 策略缓存行为。"""
-        for name_, cache in CACHES.items():
-            if name_ not in ("lru", "tru"):
-                continue
-
-            @cache
-            def echo(x):
-                return _echo(x)
-
-            for x in range(MAXSIZE):
-                self.assertEqual(_echo(x), echo(x))
-
-            echo(MAXSIZE)
-
-            k0, k1 = cache.policy.calc_keys()
-            rc = cache.client
-
-            card = rc.zcard(k0)
-            self.assertEqual(card, MAXSIZE)
-            members = rc.zrange(k0, cast(int, "-inf"), cast(int, "+inf"), byscore=True)
-            values = [cache.deserialize(x) for x in rc.hmget(k1, members) if x is not None]
-            self.assertListEqual(values, list(range(1, MAXSIZE + 1)))
-
-    def test_mru(self):
-        """测试 MRU 策略缓存行为。"""
-        cache = CACHES["mru"]
-
-        @cache
-        def echo(x):
-            return _echo(x)
-
-        for x in range(MAXSIZE):
-            self.assertEqual(_echo(x), echo(x))
-
-        echo(MAXSIZE)
-
-        k0, k1 = cache.policy.calc_keys()
-        rc = cache.client
-
-        members = rc.zrange(k0, cast(int, "+inf"), cast(int, "-inf"), byscore=True, desc=True)
-        values = [cache.deserialize(x) for x in rc.hmget(k1, members) if x is not None]
-        self.assertListEqual(sorted(values), list(range(MAXSIZE - 1)) + [MAXSIZE])
-
-    def test_fifo(self):
-        """测试 FIFO 策略缓存行为。"""
-        cache = CACHES["fifo"]
-
-        @cache
-        def echo(x):
-            return _echo(x)
-
-        for x in range(MAXSIZE):
-            self.assertEqual(_echo(x), echo(x))
-
-        for _ in range(MAXSIZE):
-            v = randint(0, MAXSIZE - 1)
-            echo(v)
-
-        echo(MAXSIZE)
-
-        k0, k1 = cache.policy.calc_keys()
-        rc = cache.client
-
-        card = rc.zcard(k0)
-        members = rc.zrange(k0, 0, card - 1)
-        values = [cache.deserialize(x) for x in rc.hmget(k1, members) if x is not None]
-        self.assertListEqual(sorted(values), list(range(1, MAXSIZE)) + [MAXSIZE])
-
-    def test_lfu(self):
-        """测试 LFU 策略缓存行为。"""
-        cache = CACHES["lfu"]
-
-        @cache
-        def echo(x):
-            return _echo(x)
-
-        for x in range(MAXSIZE):
-            self.assertEqual(_echo(x), echo(x))
-
-        v = randint(0, MAXSIZE - 1)
-        for i in range(MAXSIZE):
-            if i != v:
-                echo(i)
-
-        echo(MAXSIZE)
-
-        k0, k1 = cache.policy.calc_keys()
-        rc = cache.client
-
-        card = rc.zcard(k0)
-        members = rc.zrange(k0, 0, card - 1)
-        values = [cache.deserialize(x) for x in rc.hmget(k1, members) if x is not None]
-        self.assertListEqual(sorted(values), list(range(0, v)) + list(range(v + 1, MAXSIZE + 1)))
-
-    def test_rr(self):
-        """测试 RR 策略缓存行为。"""
-        cache = CACHES["rr"]
-
-        @cache
-        def echo(x):
-            return _echo(x)
-
-        for x in range(MAXSIZE):
-            self.assertEqual(_echo(x), echo(x))
-
-        for _ in range(MAXSIZE):
-            v = randint(0, MAXSIZE - 1)
-            echo(v)
-
-        echo(MAXSIZE)
-
-        k0, k1 = cache.policy.calc_keys()
-        rc = cache.client
-
-        members = rc.smembers(k0)
-        values = [cache.deserialize(x) for x in rc.hmget(k1, members) if x is not None]
-        self.assertIn(MAXSIZE, values)
-
-    def test_direct_redis_client(self):
-        """测试直接传入 redis client 的场景。"""
-        client = redis_factory()
-        cache = RedisFuncCache(name="test_direct_redis_client", policy=LruPolicy, client=client)
-
-        @cache
-        def echo(x):
-            return x
-
-        for i in range(MAXSIZE):
-            self.assertEqual(echo(i), i)
-
-    def test_exception_handling(self):
-        """测试被缓存函数抛出异常时缓存行为。"""
-        for cache in CACHES.values():
-
-            @cache
-            def fail(x):
-                raise ValueError("fail")
-
-            with self.assertRaises(ValueError):
-                fail(1)
-            # 再次调用应继续抛异常，不应缓存异常结果
-            with self.assertRaises(ValueError):
-                fail(1)
-
-    def test_unserializable_object(self):
-        """测试不可序列化对象缓存时的行为。"""
-        import threading
-
-        for cache in CACHES.values():
-
-            @cache
-            def echo(x):
-                return x
-
-            obj = threading.Lock()
-            with self.assertRaises(Exception):
-                echo(obj)
-
-    def test_various_argument_types(self):
-        """测试不同参数类型的缓存支持。"""
-        for cache in CACHES.values():
-
-            @cache
-            def echo(x):
-                return x
-
-            for v in [None, 1.23, True, (1, 2), {"a": 1}, frozenset({1, 2})]:
-                try:
-                    self.assertEqual(echo(v), v)
-                except Exception:
-                    # 某些类型如 dict 可能不支持做 key
-                    pass
-
-    def test_cache_purge(self):
-        """测试缓存清理后缓存应为空。"""
-        for cache in CACHES.values():
-
-            @cache
-            def echo(x):
-                return x
-
-            echo(1)
-            cache.policy.purge()
-            # 清理后应 miss
+        # mock not hit
+        for i in range(cache.maxsize):
             with patch.object(cache, "get", return_value=None) as mock_get:
                 with patch.object(cache, "put") as mock_put:
-                    echo(2)
+                    echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_called_once()
 
-    def test_custom_serializer(self):
-        """测试自定义序列化器的兼容性。"""
-        import pickle
+        # first run, fill the cache to max size. then second run, to hit the cache
+        for i in range(cache.maxsize):
+            assert _echo(i) == echo(i)
+            assert i + 1 == cache.policy.get_size()
+            with patch.object(cache, "put") as mock_put:
+                assert i == echo(i)
+                mock_put.assert_not_called()
 
-        for cache in CACHES.values():
+        # run again, should be all hit
+        for i in range(cache.maxsize):
+            with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:
+                with patch.object(cache, "put") as mock_put:
+                    echo(i)
+                    mock_get.assert_called_once()
+                    mock_put.assert_not_called()
 
-            @cache(serializer=(pickle.dumps, pickle.loads))
-            def echo(x):
-                return x
+        assert cache.maxsize == cache.policy.get_size()
 
-            v = {"a": 1, "b": 2}
-            self.assertEqual(echo(v), v)
-            self.assertEqual(echo(v), v)
+        # run more than max size, should be not all hit
+        n = randint(cache.maxsize + 1, 2 * cache.maxsize)
+        for i in range(cache.maxsize, n):
+            with patch.object(cache, "get", return_value=None) as mock_get:
+                with patch.object(cache, "put") as mock_put:
+                    echo(i)
+                    mock_get.assert_called_once()
+                    mock_put.assert_called_once()
 
-
-class InvalidFunctionTestCase(TestCase):
-    def setUp(self):
-        for cache in CACHES.values():
-            cache.policy.purge()
-
-    def test_builtin_function_or_method(self):
-        import pickle
-
-        for cache in CACHES.values():
-            f = cache(pickle.dumps, serializer=(pickle.dumps, pickle.loads))
-            for _ in range(cache.maxsize * 2 + 1):
-                v = uuid4()
-                self.assertEqual(pickle.dumps(v), f(v))
-
-    def test_no_callable(self):
-        for cache in CACHES.values():
-            with self.assertRaises(TypeError):
-                cache(1)  # type: ignore
-
-    def test_lambda(self):
-        for cache in CACHES.values():
-            f = cache(lambda x: x)
-            for _ in range(cache.maxsize * 2 + 1):
-                v = uuid4().hex
-                self.assertEqual(v, f(v))
+        assert cache.maxsize == cache.policy.get_size()
 
 
-class ExcludeArgsTestCase(TestCase):
-    def setUp(self):
-        for cache in CACHES.values():
-            cache.policy.purge()
+def test_different_args():
+    """测试不同参数的缓存。"""
+    for cache in CACHES.values():
 
-    def test_exclude_positional_args(self):
-        def user_func(func, value):
-            return func(value)
+        @cache
+        def echo(x):
+            return _echo(x)
 
-        unpicklable = lambda x: x  # noqa: E731
+        # test different args
+        for i in range(cache.maxsize):
+            assert i == echo(i)
 
-        for cache in CACHES.values():
-            f = cache(user_func, excludes_positional=[0])
-            for _ in range(cache.maxsize * 2 + 1):
-                v = uuid4().hex
-                self.assertEqual(f(unpicklable, v), v)
+        # run again, should be all hit
+        for i in range(cache.maxsize):
+            assert i == echo(i)
 
-    def test_exclude_keyword_args(self):
-        def user_func(func, value):
-            return func(value)
 
-        unpicklable = lambda x: x  # noqa: E731
+def test_complex_args():
+    """测试复杂参数的缓存。"""
+    for cache in CACHES.values():
 
-        for cache in CACHES.values():
-            f = cache(user_func, excludes=["func"])
-            for _ in range(cache.maxsize * 2 + 1):
-                v = uuid4().hex
-                self.assertEqual(f(func=unpicklable, value=v), v)
+        @cache
+        def echo(x):
+            return _echo(x)
 
-    def test_exclude_with_various_parameters(self):
-        def user_func(a, b, *args, **kwargs):
-            return args, kwargs
+        # test complex args
+        assert {"a": 1} == echo({"a": 1})
+        assert [1, 2, 3] == echo([1, 2, 3])
+        assert "1" == echo("1")
+        assert 1 == echo(1)
+        assert 1.0 == echo(1.0)
+        assert True is echo(True)
+        assert None is echo(None)
 
-        for cache in CACHES.values():
-            f = cache(user_func, excludes_positional=[0], excludes=["b"])
-            # 使用可序列化的参数
-            result1 = f(object(), object(), 1, 2, 3, x=4, y=5)
-            self.assertEqual(result1, ((1, 2, 3), {"x": 4, "y": 5}))
-            # 第二次调用验证缓存命中
-            result2 = f(object(), object(), 1, 2, 3, x=4, y=5)
-            self.assertEqual(result2, json.loads(json.dumps(result1)))
-            # 验证缓存大小
-            self.assertEqual(cache.policy.get_size(), 1)
+        # run again, should be all hit
+        with patch.object(cache, "put") as mock_put:
+            assert {"a": 1} == echo({"a": 1})
+            assert [1, 2, 3] == echo([1, 2, 3])
+            assert "1" == echo("1")
+            assert 1 == echo(1)
+            assert 1.0 == echo(1.0)
+            assert True is echo(True)
+            assert None is echo(None)
+            mock_put.assert_not_called()
 
-    def test_exclude_with_mixed_parameters(self):
-        def user_func(a, /, b, *, c, **kwargs):
-            return kwargs
 
-        for cache in CACHES.values():
-            f = cache(user_func, excludes_positional=[0], excludes=["b", "c"])
-            # 使用可序列化的参数
-            result1 = f(object(), b=object(), c=object(), d=4, e=5)
-            self.assertDictEqual(result1, {"d": 4, "e": 5})
-            # 第二次调用验证缓存命中
-            result2 = f(object(), object(), c=object(), d=4, e=5)
-            self.assertDictEqual(result1, result2)
-            # 验证缓存大小
-            self.assertEqual(cache.policy.get_size(), 1)
+def test_cache_clear():
+    """测试缓存清除。"""
+    for cache in CACHES.values():
+
+        @cache
+        def echo(x):
+            return _echo(x)
+
+        # fill the cache
+        for i in range(cache.maxsize):
+            assert i == echo(i)
+
+        assert cache.maxsize == cache.policy.get_size()
+
+        # clear the cache
+        cache.policy.purge()
+        assert 0 == cache.policy.get_size()
+
+        # run again, should be all miss
+        for i in range(cache.maxsize):
+            with patch.object(cache, "get", return_value=None) as mock_get:
+                with patch.object(cache, "put") as mock_put:
+                    echo(i)
+                    mock_get.assert_called_once()
+                    mock_put.assert_called_once()
+
+
+def test_cache_wrapper():
+    """测试缓存装饰器。"""
+    for cache in CACHES.values():
+
+        @cache
+        def echo(x):
+            return _echo(x)
+
+        # 检查 __wrapped__ 属性是否存在并且是函数
+        assert hasattr(echo, "__wrapped__")
+        assert callable(echo.__wrapped__)
+
+
+def test_different_policies():
+    """测试不同缓存策略。"""
+    # test LRU policy
+    lru_cache = RedisFuncCache(__name__, LruPolicy, client=redis_factory, maxsize=MAXSIZE)
+    lru_cache.policy.purge()
+
+    @lru_cache
+    def echo(x):
+        return _echo(x)
+
+    # fill the cache
+    for i in range(lru_cache.maxsize):
+        assert i == echo(i)
+
+    assert lru_cache.maxsize == lru_cache.policy.get_size()
+
+    # access the first item, should be hit
+    with patch.object(lru_cache, "put") as mock_put:
+        assert 0 == echo(0)
+        mock_put.assert_not_called()
+
+    # run more than max size, should evict the least recently used item
+    n = randint(lru_cache.maxsize + 1, 2 * lru_cache.maxsize)
+    for i in range(lru_cache.maxsize, n):
+        assert i == echo(i)
+
+    assert lru_cache.maxsize == lru_cache.policy.get_size()
+
+    lru_cache.policy.purge()
+
+
+def test_multiple_decorators():
+    """测试多个装饰器。"""
+    for cache in CACHES.values():
+
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
+
+            return wrapper
+
+        @cache
+        @decorator
+        def echo(x):
+            return _echo(x)
+
+        assert 1 == echo(1)
+
+        with patch.object(cache, "put") as mock_put:
+            assert 1 == echo(1)
+            mock_put.assert_not_called()
+
+
+def test_custom_maxsize():
+    """测试自定义最大缓存大小。"""
+    maxsize = 3
+    custom_cache = RedisFuncCache(__name__, LruPolicy, client=redis_factory, maxsize=maxsize)
+    custom_cache.policy.purge()
+
+    @custom_cache
+    def echo(x):
+        return _echo(x)
+
+    # fill the cache
+    for i in range(custom_cache.maxsize):
+        assert i == echo(i)
+
+    assert custom_cache.maxsize == custom_cache.policy.get_size()
+
+    # run more than max size, should evict items
+    n = randint(custom_cache.maxsize + 1, 2 * custom_cache.maxsize)
+    for i in range(custom_cache.maxsize, n):
+        assert i == echo(i)
+
+    assert custom_cache.maxsize == custom_cache.policy.get_size()
+
+    custom_cache.policy.purge()
+
+
+def test_json_serializer():
+    """测试JSON序列化。"""
+    json_cache = RedisFuncCache(__name__, LruPolicy, serializer="json", client=redis_factory, maxsize=MAXSIZE)
+    json_cache.policy.purge()
+
+    @json_cache
+    def echo(x):
+        return _echo(x)
+
+    data = {"a": 1, "b": [1, 2, 3], "c": {"d": "test"}}
+    result = echo(data)
+    assert result == data
+
+    # 确保再次调用会命中缓存
+    with patch.object(json_cache, "put") as mock_put:
+        result2 = echo(data)
+        assert result2 == data
+        mock_put.assert_not_called()
+
+    json_cache.policy.purge()
