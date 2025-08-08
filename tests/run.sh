@@ -18,7 +18,7 @@ do
     trap 'rm -rf $TMPDIR' EXIT
     ${PYTHON} -m venv $TMPDIR
     echo
-    $TMPDIR/bin/pip install --no-compile -e . -r tests/requirements.txt ruff mypy pytest pytest-asyncio pytest-cov types-redis types-PyYAML types-Pygments
+    $TMPDIR/bin/pip install --no-compile -e . -r tests/requirements.txt ruff mypy types-redis types-PyYAML types-Pygments
     echo
     echo "Lint check:"
     $TMPDIR/bin/ruff check
@@ -27,7 +27,7 @@ do
     $TMPDIR/bin/mypy
     echo
     echo "Unit test:"
-    $TMPDIR/bin/pytest --cov --cov-report=xml --junitxml=junit.xml
+    $TMPDIR/bin/pytest -x --cov --cov-report=xml --junitxml=junit.xml
     echo
     echo "*****************************************************************"
     echo "End of ${PYTHON} unit-test"
