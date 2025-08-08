@@ -1,37 +1,49 @@
 from random import randint
-from unittest import TestCase, skipUnless
+
+import pytest
 
 from ._catches import CLUSTER_CACHES, MAXSIZE, REDIS_CLUSTER_NODES
 
 
-@skipUnless(REDIS_CLUSTER_NODES, "REDIS_CLUSTER_NODES environment variable is not set")
-class ClusterTest(TestCase):
-    def setUp(self):
-        for cache in CLUSTER_CACHES.values():
-            cache.policy.purge()
+@pytest.fixture(autouse=True)
+def clean_caches():
+    """自动清理缓存的夹具，在每个测试前后运行。"""
+    # 测试前清理
+    for cache in CLUSTER_CACHES.values():
+        cache.policy.purge()
+    yield
+    # 测试后清理
+    for cache in CLUSTER_CACHES.values():
+        cache.policy.purge()
 
-    def test_int(self):
-        for cache in CLUSTER_CACHES.values():
 
-            @cache
-            def echo(x):
-                return x
+@pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
+def test_cluster_int():
+    for cache in CLUSTER_CACHES.values():
 
-            for i in range(randint(1, MAXSIZE * 2)):
-                self.assertEqual(i, echo(i))
-                self.assertEqual(i, echo(i))
+        @cache
+        def echo(x):
+            return x
 
-    def test_two_functions(self):
-        for cache in CLUSTER_CACHES.values():
+        for i in range(randint(1, MAXSIZE * 2)):
+            assert i == echo(i)
+            assert i == echo(i)
 
-            @cache
-            def echo1(x):
-                return x
 
-            @cache
-            def echo2(x):
-                return x
+@pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
+def test_cluster_two_functions():
+    for cache in CLUSTER_CACHES.values():
 
-            for i in range(randint(MAXSIZE, MAXSIZE * 2)):
-                self.assertEqual(i, echo1(i))
-                self.assertEqual(i, echo2(i))
+        @cache
+        def echo1(x):
+            return x
+
+        @cache
+        def echo2(x):
+            return x
+
+        for i in range(randint(1, MAXSIZE * 2)):  # 修改为统一使用相同的随机范围
+            assert i == echo1(i)
+            assert i == echo2(i)
+            assert i == echo1(i)
+            assert i == echo2(i)

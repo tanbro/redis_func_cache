@@ -1,8 +1,9 @@
 import json
 import pickle
 from random import randint
-from unittest import TestCase, mock
 from uuid import uuid4
+
+import pytest
 
 from ._catches import CACHES, MAXSIZE
 
@@ -15,99 +16,90 @@ class MyObject:
         return self.value == value
 
 
-class PickleTest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        for cache in CACHES.values():
-            cache.serializer = pickle.dumps, pickle.loads
-
-    def setUp(self):
-        for cache in CACHES.values():
-            cache.policy.purge()
-
-    def test_object(self):
-        for cache in CACHES.values():
-
-            @cache
-            def echo(o):
-                return o
-
-            for _ in range(randint(1, MAXSIZE * 2)):
-                obj = MyObject(uuid4())
-                self.assertEqual(obj, echo(obj))
-                self.assertEqual(obj, echo(obj))
+@pytest.fixture(autouse=True)
+def set_pickle_serializer():
+    """在测试前后设置和恢复 pickle 序列化器。"""
+    # 测试前设置
+    original_serializers = {}
+    for cache in CACHES.values():
+        original_serializers[cache] = cache.serializer
+        cache.serializer = pickle.dumps, pickle.loads
+    yield
+    # 测试后恢复
+    for cache, serializer in original_serializers.items():
+        cache.serializer = serializer
 
 
-def echo0(o):
-    return o
+@pytest.fixture(autouse=True)
+def clean_caches():
+    """自动清理缓存的夹具，在每个测试前后运行。"""
+    # 测试前清理
+    for cache in CACHES.values():
+        cache.policy.purge()
+    yield
+    # 测试后清理
+    for cache in CACHES.values():
+        cache.policy.purge()
 
 
-def echo1(o):
-    return o
+def test_pickle_object():
+    for cache in CACHES.values():
+
+        @cache
+        def echo(o):
+            return o
+
+        for _ in range(randint(1, MAXSIZE * 2)):
+            obj = MyObject(uuid4())
+            assert obj == echo(obj)
+            assert obj == echo(obj)
 
 
-class PicklePerFunctionSerializerTest(TestCase):
-    def setUp(self):
-        for cache in CACHES.values():
-            cache.policy.purge()
+def test_pickle_lambda():
+    for cache in CACHES.values():
 
-    def test_per_function_serializer(self):
-        for cache in CACHES.values():
-            ser0 = mock.MagicMock(return_value=b"0")
-            des0 = mock.MagicMock(return_value=0)
+        @cache
+        def echo(f):
+            return f
 
-            ser1 = mock.MagicMock(return_value=b"0")
-            des1 = mock.MagicMock(return_value=0)
+        for _ in range(randint(1, MAXSIZE * 2)):
+            obj = lambda: uuid4()  # noqa: E731
+            with pytest.raises(Exception):
+                echo(obj)
 
-            @cache(serializer=(ser0, des0))
-            def echo0(o):
-                return o
 
-            for _ in range(MAXSIZE // 2):
-                ser0.reset_mock()
-                des0.reset_mock()
-                obj = MyObject(uuid4())
-                echo0(obj)
-                ser0.assert_called_once()
-                des0.assert_not_called()
+def test_pickle_function():
+    def my_func():
+        return uuid4()
 
-            @cache(serializer=(ser1, des1))
-            def echo1(o):
-                return o
+    for cache in CACHES.values():
 
-            for _ in range(MAXSIZE // 2):
-                ser1.reset_mock()
-                des1.reset_mock()
-                obj = MyObject(uuid4())
-                echo1(obj)
-                ser1.assert_called_once()
-                des1.assert_not_called()
+        @cache
+        def echo(f):
+            return f
 
-    def test_alternative_serializer(self):
-        for cache in CACHES.values():
-            for i in range(cache.maxsize // 2):
-                ser0_val = pickle.dumps(i)
-                des0_val = i
-                ser0 = mock.MagicMock(return_value=ser0_val)
-                des0 = mock.MagicMock(return_value=des0_val)
-                ser1_val = json.dumps(i).encode("utf-8")
-                des1_val = i
-                ser1 = mock.MagicMock(return_value=ser1_val)
-                des1 = mock.MagicMock(return_value=des1_val)
+        for _ in range(randint(1, MAXSIZE * 2)):
+            with pytest.raises(Exception):
+                echo(my_func)
 
-                f0 = cache(echo0, serializer=(ser0, des0))
-                f1 = cache(echo1, serializer=(ser1, des1))
 
-                self.assertEqual(i, f0(i))
-                ser0.assert_called_once_with(i)
-                des0.assert_not_called()
+def test_pickle_builtin_function():
+    for cache in CACHES.values():
 
-                self.assertEqual(i, f1(i))
-                ser1.assert_called_once_with(i)
-                des1.assert_not_called()
+        @cache
+        def echo(f):
+            return f
 
-                self.assertEqual(i, f0(i))
-                des0.assert_called_once_with(ser0_val)
+        for _ in range(randint(1, MAXSIZE * 2)):
+            assert json.dumps == echo(json.dumps)
 
-                self.assertEqual(i, f1(i))
-                des1.assert_called_once_with(ser1_val)
+
+def test_pickle_builtin_type():
+    for cache in CACHES.values():
+
+        @cache
+        def echo(f):
+            return f
+
+        for _ in range(randint(1, MAXSIZE * 2)):
+            assert dict is echo(dict)

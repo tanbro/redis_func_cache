@@ -1,17 +1,26 @@
 import time
-from unittest import TestCase
 from unittest.mock import patch
 from uuid import uuid4
+
+import pytest
 
 from ._catches import CACHES
 
 
-class TTLTest(TestCase):
-    def setUp(self):
-        """初始化测试环境，清除所有缓存。"""
-        super().setUp()
-        for cache in CACHES.values():
-            cache.policy.purge()
+@pytest.fixture(autouse=True)
+def clean_caches():
+    """自动清理缓存的夹具，在每个测试前后运行。"""
+    # 测试前清理
+    for cache in CACHES.values():
+        cache.policy.purge()
+    yield
+    # 测试后清理
+    for cache in CACHES.values():
+        cache.policy.purge()
+
+
+def test_cache_ttl():
+    """测试缓存项的独立超时功能。"""
 
     def test_cache_ttl(self):
         """测试缓存项的独立超时功能。"""
