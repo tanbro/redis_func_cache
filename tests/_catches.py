@@ -59,7 +59,11 @@ async def close_async_redis_client():
     """关闭全局异步Redis客户端连接"""
     global async_redis_client
     if async_redis_client is not None:
-        await async_redis_client.close()
+        # 使用 aclose() 而不是 close() 以避免弃用警告
+        if hasattr(async_redis_client, "aclose"):
+            await async_redis_client.aclose()
+        else:
+            await async_redis_client.close()
         async_redis_client = None
 
 
@@ -141,42 +145,39 @@ ASYNC_MULTI_CACHES = {
 
 async def close_all_async_resources():
     """关闭所有异步资源，防止出现 'Event loop is closed' 错误"""
-    # 关闭全局异步Redis客户端
-    await close_async_redis_client()
-
-    # 关闭所有异步缓存实例中的客户端连接
-    for cache in ASYNC_CACHES.values():
-        if hasattr(cache.client, "close"):
-            try:
-                await cache.client.close()
-            except RuntimeError:
-                # 如果事件循环已关闭，忽略错误
-                pass
-
-    for cache in ASYNC_MULTI_CACHES.values():
-        if hasattr(cache.client, "close"):
-            try:
-                await cache.client.close()
-            except RuntimeError:
-                # 如果事件循环已关闭，忽略错误
-                pass
-
-
-def _cleanup_async_resources():
-    """在程序退出时清理异步资源"""
     try:
-        # 获取当前事件循环
-        loop = asyncio.get_event_loop()
-        # 如果事件循环还在运行，则执行清理
-        if loop.is_running():
-            loop.create_task(close_all_async_resources())
-        else:
-            # 否则直接运行直到完成
-            loop.run_until_complete(close_all_async_resources())
-    except RuntimeError:
-        # 如果没有事件循环或者事件循环已关闭，忽略错误
+        # 关闭全局异步Redis客户端
+        await close_async_redis_client()
+
+        # 关闭所有异步缓存实例中的客户端连接
+        tasks = []
+        for cache in ASYNC_CACHES.values():
+            try:
+                if hasattr(cache.client, "aclose"):
+                    tasks.append(cache.client.aclose())
+                elif hasattr(cache.client, "close"):
+                    tasks.append(cache.client.close())
+            except Exception:
+                # 忽略单个客户端关闭过程中可能出现的异常
+                pass
+
+        for cache in ASYNC_MULTI_CACHES.values():
+            try:
+                if hasattr(cache.client, "aclose"):
+                    tasks.append(cache.client.aclose())
+                elif hasattr(cache.client, "close"):
+                    tasks.append(cache.client.close())
+            except Exception:
+                # 忽略单个客户端关闭过程中可能出现的异常
+                pass
+
+        if tasks:
+            # 使用return_exceptions=True确保即使某些任务失败也不会影响其他任务
+            await asyncio.gather(*tasks, return_exceptions=True)
+    except Exception:
+        # 忽略所有异常，确保不会因为清理过程中的错误导致测试失败
         pass
 
 
-# 在程序退出时注册清理函数
-atexit.register(_cleanup_async_resources)
+# 确保在模块被清理时也尝试关闭所有异步资源
+atexit.register(lambda: asyncio.run(close_all_async_resources()) if asyncio.get_event_loop() else None)

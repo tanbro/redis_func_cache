@@ -93,10 +93,12 @@ docs = [
   "sphinx_tippy",
   "sphinx-version-warning",
 ]
-coverage = ["coverage"]
 test = [
+  "pytest",
+  "pytest-mock",
+  "pytest-cov",
+  "pytest-asyncio",
   "python-dotenv",
-  { include-group = "coverage" },
 ]
 
 ipykernel = [
