@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-case-conflict
       - id: check-added-large-files
@@ -20,7 +20,7 @@ repos:
       # - id: check-docstring-first
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.7
+    rev: v0.12.9
     hooks:
       - id: ruff # Run the linter.
         types_or: [python, pyi, jupyter]
@@ -36,7 +36,7 @@ repos:
         additional_dependencies: [types-redis,types-PyYAML,types-Pygments]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: "0.33.2"
+    rev: "0.33.3"
     hooks:
       - id: check-github-workflows
       - id: check-readthedocs
