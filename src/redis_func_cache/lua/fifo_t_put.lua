@@ -38,7 +38,7 @@ if not redis.call('ZRANK', zset_key, hash) then
         end
     end
     local time = redis.call('TIME')
-    redis.call('ZADD', zset_key, time[1] + time[2] / 1e-6, hash) -- use current time as score
+    redis.call('ZADD', zset_key, time[1] + time[2] * 1e-6, hash) -- use current time as score
     redis.call('HSET', hmap_key, hash, return_value)
     -- Set Hash's Field TTL if specified
     if tonumber(field_ttl) > 0 then

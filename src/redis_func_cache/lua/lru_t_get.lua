@@ -25,7 +25,7 @@ local val = redis.call('HGET', hmap_key, hash)
 -- If found, update timestamp; else clean up stale entries
 if rnk and val then
     local time = redis.call('TIME')
-    redis.call('ZADD', zset_key, time[1] + time[2] / 1e-6, hash)
+    redis.call('ZADD', zset_key, time[1] + time[2] * 1e-6, hash)
     return val
 elseif rnk then
     redis.call('ZREM', zset_key, hash) -- remove stale zset member
