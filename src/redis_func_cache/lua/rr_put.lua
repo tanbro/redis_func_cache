@@ -43,8 +43,8 @@ end
 if redis.call('SISMEMBER', set_key, hash) == 1 then
     redis.call('HSET', hmap_key, hash, return_value)
 
-    -- Handle field TTL update (only update if update_ttl_flag is set)
-    if tonumber(field_ttl) > 0 and update_ttl_flag == "1" then
+    -- Handle field TTL update
+    if tonumber(field_ttl) > 0 then
         redis.call('HEXPIRE', hmap_key, field_ttl, 'FIELDS', 1, hash)
     end
 
