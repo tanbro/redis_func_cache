@@ -20,25 +20,41 @@ local hash = ARGV[4]
 local return_value = ARGV[5]
 local field_ttl = ARGV[6]
 
--- Set TTL if specified
--- For new items, always set initial TTL; for existing items, only update if update_ttl_flag is set
-if tonumber(ttl) > 0 then
-    -- Check if this is a new item by checking if hash exists in set
-    local is_member = redis.call('SISMEMBER', set_key, hash)
-    if is_member == 0 then
-        -- This is a new item, we'll set initial TTL after inserting the item
-        -- (Handled later in the code after item insertion)
-    elseif update_ttl_flag == "1" then
-        -- This is an existing item and update_ttl_flag is set
+local c = 0
+
+-- Check if set and hash keys exist
+local set_exists = redis.call('EXISTS', set_key)
+local hmap_exists = redis.call('EXISTS', hmap_key)
+
+-- If either set or hash doesn't exist, clean up the other one
+if set_exists == 0 or hmap_exists == 0 then
+    if set_exists == 1 then
+        redis.call('DEL', set_key)
+    end
+    if hmap_exists == 1 then
+        redis.call('DEL', hmap_key)
+    end
+    -- Reset existence flags since we just deleted them
+    set_exists = 0
+    hmap_exists = 0
+end
+
+-- If hash exists in set, update the value
+if redis.call('SISMEMBER', set_key, hash) == 1 then
+    redis.call('HSET', hmap_key, hash, return_value)
+
+    -- Handle field TTL update (only update if update_ttl_flag is set)
+    if tonumber(field_ttl) > 0 and update_ttl_flag == "1" then
+        redis.call('HEXPIRE', hmap_key, field_ttl, 'FIELDS', 1, hash)
+    end
+
+    -- Handle key TTL update (only update if update_ttl_flag is set)
+    if tonumber(ttl) > 0 and update_ttl_flag == "1" then
         redis.call('EXPIRE', set_key, ttl)
         redis.call('EXPIRE', hmap_key, ttl)
     end
-end
-
-local c = 0
-
--- If hash not in set, insert and evict if needed
-if redis.call('SISMEMBER', set_key, hash) == 0 then
+else
+    -- Hash does not exist in set
     if maxsize > 0 then
         local n = redis.call('SCARD', set_key) - maxsize
         while n >= 0 do
@@ -50,23 +66,20 @@ if redis.call('SISMEMBER', set_key, hash) == 0 then
     end
     redis.call('SADD', set_key, hash)
     redis.call('HSET', hmap_key, hash, return_value)
+
     -- Set Hash's Field TTL if specified (always set for new fields)
     if tonumber(field_ttl) > 0 then
         redis.call('HEXPIRE', hmap_key, field_ttl, 'FIELDS', 1, hash)
     end
 
-    -- Set initial TTL for new items
-    if tonumber(ttl) > 0 then
-        redis.call('EXPIRE', set_key, ttl)
-        redis.call('EXPIRE', hmap_key, ttl)
-    end
-else
-    -- Hash exists, update the value
-    redis.call('HSET', hmap_key, hash, return_value)
-
-    -- Handle field TTL update based on update_ttl_flag
-    if tonumber(field_ttl) > 0 and update_ttl_flag == "1" then
-        redis.call('HEXPIRE', hmap_key, field_ttl, 'FIELDS', 1, hash)
+    -- Set initial TTL for new keys (only when set or hash keys are first created)
+    if tonumber(ttl) > 0 and (set_exists == 0 or hmap_exists == 0) then
+        if set_exists == 0 then
+            redis.call('EXPIRE', set_key, ttl)
+        end
+        if hmap_exists == 0 then
+            redis.call('EXPIRE', hmap_key, ttl)
+        end
     end
 end
 
