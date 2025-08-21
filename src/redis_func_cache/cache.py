@@ -98,6 +98,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         client: Union[RedisClientTV, Callable[[], RedisClientTV]],
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
+        update_ttl: bool = True,
         prefix: str = DEFAULT_PREFIX,
         serializer: SerializerSetterValueT = "json",
     ):
@@ -137,6 +138,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 If not provided, the default is :data:`.DEFAULT_TTL`.
                 Zero or negative values means no set ttl.
                 Assigned to property :attr:`ttl`.
+
+            update_ttl: Whether to update the TTL of cached items when they are accessed.
+
+                If not provided, the default is ``True``.
+                When ``True``, accessing a cached item will reset its TTL.
+                When ``False``, accessing a cached item will not update its TTL.
 
             prefix: The prefix for cache keys.
 
@@ -186,6 +193,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self.prefix = prefix
         self.maxsize = maxsize
         self.ttl = ttl
+        self.update_ttl = update_ttl
         self._policy_type = policy
         self._policy_instance: Optional[AbstractPolicy] = None
         self._redis_instance: Optional[RedisClientTV] = None
@@ -368,6 +376,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         script: redis.commands.core.Script,
         key_pair: Tuple[KeyT, KeyT],
         hash_value: KeyT,
+        update_ttl: bool,
         ttl: int,
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
@@ -387,7 +396,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        return script(keys=key_pair, args=chain((ttl, hash_value, encoded_options), ext_args))
+        return script(keys=key_pair, args=chain((update_ttl, ttl, hash_value, encoded_options), ext_args))
 
     @classmethod
     async def aget(
@@ -395,6 +404,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         script: redis.commands.core.AsyncScript,
         key_pair: Tuple[KeyT, KeyT],
         hash_: KeyT,
+        update_ttl: bool,
         ttl: int,
         options: Optional[Mapping[str, Any]] = None,
         ext_args: Optional[Iterable[EncodableT]] = None,
@@ -402,7 +412,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Async version of :meth:`get`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        return await script(keys=key_pair, args=chain((ttl, hash_, encoded_options), ext_args))
+        return await script(keys=key_pair, args=chain((update_ttl, ttl, hash_, encoded_options), ext_args))
 
     @classmethod
     def put(
@@ -412,6 +422,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         hash_value: KeyT,
         value: EncodableT,
         maxsize: int,
+        update_ttl: bool,
         ttl: int,
         field_ttl: int = 0,
         options: Optional[Mapping[str, Any]] = None,
@@ -433,7 +444,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        script(keys=key_pair, args=chain((maxsize, ttl, hash_value, value, field_ttl, encoded_options), ext_args))
+        script(
+            keys=key_pair,
+            args=chain((maxsize, update_ttl, ttl, hash_value, value, field_ttl, encoded_options), ext_args),
+        )
 
     @classmethod
     async def aput(
@@ -443,6 +457,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         hash_: KeyT,
         value: EncodableT,
         maxsize: int,
+        update_ttl: bool,
         ttl: int,
         field_ttl: int = 0,
         options: Optional[Mapping[str, Any]] = None,
@@ -451,7 +466,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Async version of :meth:`put`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        await script(keys=key_pair, args=chain((maxsize, ttl, hash_, value, field_ttl, encoded_options), ext_args))
+        await script(
+            keys=key_pair, args=chain((maxsize, update_ttl, ttl, hash_, value, field_ttl, encoded_options), ext_args)
+        )
 
     @classmethod
     def make_bound(
@@ -530,7 +547,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
-        cached_return_value = self.get(script_0, keys, hash_value, self.ttl, options, ext_args)
+        cached_return_value = self.get(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
         if cached_return_value is not None:
             return self.deserialize(cached_return_value, deserialize_func)
         user_retval = user_function(*user_args, **user_kwds)
@@ -541,6 +558,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             hash_value,
             user_retval_serialized,
             self.maxsize,
+            self.update_ttl,
             self.ttl,
             0 if field_ttl is None else field_ttl,
             options,
@@ -569,7 +587,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         ):
             raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
-        cached = await self.aget(script_0, keys, hash_value, self.ttl, options, ext_args)
+        cached = await self.aget(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
         if cached is not None:
             return self.deserialize(cached, deserialize_func)
         user_retval = await user_function(*user_args, **user_kwds)
@@ -580,6 +598,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             hash_value,
             user_retval_serialized,
             self.maxsize,
+            self.update_ttl,
             self.ttl,
             0 if field_ttl is None else field_ttl,
             options,
