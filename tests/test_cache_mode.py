@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from redis_func_cache import RedisFuncCache
+from redis_func_cache import CacheMissError, RedisFuncCache
 
 from ._catches import CACHES
 
@@ -125,6 +125,30 @@ def test_cache_get_only(cache_name, cache):
             mock_get.assert_called_once()
             mock_put.assert_not_called()
             assert result == val
+
+
+@pytest.mark.parametrize("cache_name,cache", CACHES.items())
+def test_cache_get_only_miss(cache_name, cache):
+    """测试在 get_only 上下文中缓存未命中时的行为。"""
+
+    @cache
+    def echo(x):
+        return x
+
+    val = uuid4().hex
+
+    # 在 get_only 上下文中调用，但缓存中没有值
+    with cache.get_only():
+        # 函数不应该被执行，只应该从缓存中获取
+        with patch.object(cache, "get", return_value=None) as mock_get:
+            with patch.object(cache, "put") as mock_put:
+                # 应该抛出 CacheMissError 异常
+                with pytest.raises(CacheMissError):
+                    echo(val)
+                # 确保 get 被调用
+                mock_get.assert_called_once()
+                # 确保 put 未被调用
+                mock_put.assert_not_called()
 
 
 @pytest.mark.parametrize("cache_name,cache", CACHES.items())

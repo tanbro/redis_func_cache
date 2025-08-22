@@ -180,7 +180,7 @@ The library guarantees thread safety and concurrency security through the follow
 
 1. Contextual State Isolation
 
-   The [ContextVar](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar) based `disabled()` context manager ensures thread and coroutine isolation. Each thread or async task maintains its own independent state, preventing cross-context interference.
+   The [ContextVar](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar) based `disabled()` context manager and other cache control context managers ensure thread and coroutine isolation. Each thread or async task maintains its own independent state, preventing cross-context interference.
 
 Atomicity is a key feature of this library. All cache operations (both read and write) are implemented using Redis Lua scripts, which are executed atomically by the Redis server. This means that each script runs in its entirety without being interrupted by other operations, ensuring data consistency even under high concurrent load.
 
@@ -603,6 +603,63 @@ book1 = get_book(pool, book_id=1)
 with cache.disabled():
     book2 = get_book(pool, book_id=2)
     # Here, book2 will not be read from database instead of cache
+```
+
+### Cache Mode Control
+
+The library provides fine-grained control over cache behavior through the `cache_mode()` context manager and convenience methods. You can control whether the cache reads from or writes to Redis using the following modes:
+
+- `NORMAL` (default): Both read from and write to cache
+- `DISABLED`: Neither read from nor write to cache (equivalent to `disabled()`)
+- `PUT_ONLY`: Only write to cache, don't read from cache (useful for refreshing cache values)
+- `GET_ONLY`: Only read from cache, don't write to cache
+
+#### Using cache_mode() context manager
+
+You can use the `cache_mode()` context manager to explicitly set any mode:
+
+```python
+from redis_func_cache import RedisFuncCache
+
+@cache
+def get_user_data(user_id):
+    # Some expensive operation
+    return data
+
+# Normal operation (default)
+data = get_user_data(123)
+
+# Bypass cache reading, but still write to cache
+with cache.cache_mode(RedisFuncCache.Mode.PUT_ONLY):
+    data = get_user_data(123)  # Function executed, result stored in cache
+
+# Only read from cache, don't execute function or write to cache
+with cache.cache_mode(RedisFuncCache.Mode.GET_ONLY):
+    data = get_user_data(123)  # Only attempts to read from cache
+
+# Disable cache completely
+with cache.cache_mode(RedisFuncCache.Mode.DISABLED):
+    data = get_user_data(123)  # Function executed, no cache interaction
+```
+
+#### Using convenience methods
+
+For common use cases, you can use convenience methods:
+
+```python
+# These are equivalent to the cache_mode() calls above:
+
+# Equivalent to cache_mode(RedisFuncCache.Mode.DISABLED)
+with cache.disabled():
+    data = get_user_data(123)
+
+# Equivalent to cache_mode(RedisFuncCache.Mode.PUT_ONLY)
+with cache.put_only():
+    data = get_user_data(123)
+
+# Equivalent to cache_mode(RedisFuncCache.Mode.GET_ONLY)
+with cache.get_only():
+    data = get_user_data(123)
 ```
 
 ## Advanced Usage

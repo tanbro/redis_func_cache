@@ -70,7 +70,13 @@ if TYPE_CHECKING:  # pragma: no cover
     SerializerPairT = Tuple[SerializerT, DeserializerT]
     SerializerSetterValueT = Union[SerializerName, SerializerPairT]
 
-__all__ = ("RedisFuncCache",)
+__all__ = ("RedisFuncCache", "CacheMissError")
+
+
+class CacheMissError(Exception):
+    """Raised when a cache miss occurs in GET_ONLY mode."""
+
+    pass
 
 
 class RedisFuncCache(Generic[RedisClientTV]):
@@ -579,6 +585,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
             cached_return_value = self.get(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
             if cached_return_value is not None:
                 return self.deserialize(cached_return_value, deserialize_func)
+            elif cache_mode == RedisFuncCache.Mode.GET_ONLY:
+                # In GET_ONLY mode, if cache miss, raise CacheMissError
+                raise CacheMissError("Cache miss in GET_ONLY mode")
         user_retval = user_function(*user_args, **user_kwds)
         # Only put to cache if mode is not GET_ONLY
         if cache_mode != RedisFuncCache.Mode.GET_ONLY:
@@ -645,6 +654,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
             cached = await self.aget(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
             if cached is not None:
                 return self.deserialize(cached, deserialize_func)
+            elif cache_mode == RedisFuncCache.Mode.GET_ONLY:
+                # In GET_ONLY mode, if cache miss, raise CacheMissError
+                raise CacheMissError("Cache miss in GET_ONLY mode")
         user_retval = await user_function(*user_args, **user_kwds)
         # Only put to cache if mode is not GET_ONLY
         if cache_mode != RedisFuncCache.Mode.GET_ONLY:
