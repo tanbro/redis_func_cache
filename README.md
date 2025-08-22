@@ -512,6 +512,60 @@ Other serialization libraries such as [bson][], [simplejson](https://pypi.org/pr
 > The [`pickle`][] module is highly powerful but poses a significant security risk because it can execute arbitrary code during deserialization. Use it with extreme caution, especially when handling data from untrusted sources.
 > For best practices, it is recommended to cache functions that return simple, [JSON][]-serializable data. If you need to serialize more complex data structures than those supported by [JSON][], consider using safer alternatives such as [bson][], [msgpack][], or [yaml][].
 
+### Work with Un-Serializable Arguments
+
+As mentioned in the documentation, the [`RedisFuncCache`][] class does not support functions with un-serializable arguments.
+However, you can work around this issue by:
+
+- Splitting the function into two parts: one with fully serializable arguments (apply the cache decorator to this part), and another that may contain un-serializable arguments (this part calls the first one).
+
+- Using `excludes` and/or `excludes_positional` to exclude un-serializable arguments from key and hash calculations.
+
+  This approach is particularly useful for functions that takes arguments such as database connections, session objects, or other non-serializable objects. The `excludes` and `excludes_positional` parameters allow you to exclude specific arguments from cache key and hash calculations.
+
+The `excludes` parameter takes a sequence of parameter names to exclude from cache key generation:
+
+```python
+from redis_func_cache import RedisFuncCache
+
+cache = RedisFuncCache("my_cache", LruPolicy, redis_client)
+
+@cache(excludes=["session", "config"])
+def get_user_data(session, user_id: int, config=None):
+    # session and config are excluded from cache key
+    return fetch_user_data(user_id)
+
+# These calls will hit the same cache entry because user_id is the same
+data1 = get_user_data(session1, user_id=123, config=config1)
+data2 = get_user_data(session2, user_id=123, config=config2)  # Cache hit
+```
+
+The `excludes_positional` parameter takes a sequence of indices specifying positional arguments to exclude:
+
+```python
+@cache(excludes_positional=[0, 2])  # Exclude 1st and 3rd arguments
+def get_user_data(session, user_id: int, config):
+    # session (index 0) and config (index 2) are excluded from cache key
+    return fetch_user_data(user_id)
+
+# These calls will hit the same cache entry because user_id is the same
+data1 = get_user_data(session1, 123, config1)
+data2 = get_user_data(session2, 123, config2)  # Cache hit
+```
+
+You can use both parameters together to exclude both positional and keyword arguments:
+
+```python
+@cache(excludes=["config"], excludes_positional=[0])
+def get_user_data(session, user_id: int, book_id: int, config=None):
+    # session (positional, index 0) and config (keyword) are excluded
+    return fetch_user_data(user_id, book_id)
+
+# These calls will hit the same cache entry because user_id and book_id are the same
+data1 = get_user_data(session1, user_id=123, book_id=456, config=config1)
+data2 = get_user_data(session2, user_id=123, book_id=456, config=config2)  # Cache hit
+```
+
 ### TTL Update Behavior
 
 By default, accessing cached data updates the expiration time (TTL) of the cache data structures. This behavior is referred to as "sliding TTL". However, you can control this behavior using the `update_ttl` parameter.
@@ -553,66 +607,14 @@ The `update_ttl` parameter controls the behavior of the cache data structures (s
 > Use fixed TTL when you want predictable cache expiration behavior, regardless of how often cached functions are accessed.
 > Use sliding TTL when you want frequently accessed cached data to remain in cache longer.
 
-### Working with Un-Serializable Arguments
-
-As mentioned in the documentation, the [`RedisFuncCache`][] class does not support functions with un-serializable arguments.
-However, you can work around this issue by:
-
-- Splitting the function into two parts: one with fully serializable arguments (apply the cache decorator to this part), and another that may contain un-serializable arguments (this part calls the first one).
-
-- Using `excludes` and/or `excludes_positional` to exclude un-serializable arguments from key and hash calculations.
-
-This approach is particularly useful for functions such as a database query.
-
-For example, the `pool` argument in the following function is not serializable and can not be cached:
-
-```python
-def get_book(pool: ConnectionPool, book_id: int):
-    connection = pool.get_connection()
-    book = (
-        connection
-        .execute(
-            "SELECT * FROM books WHERE book_id = %s",
-            int(book_id)
-        )
-        .fetchone()
-    )
-    return book.to_dict()
-```
-
-However, we can exclude the `pool` argument from the key and hash calculations, so the function can be cached:
-
-```python
-@cache(excludes=["pool"])
-def get_book(pool: ConnectionPool, book_id: int):
-    ...
-```
-
-### Disable Cache Temporarily
-
-To disable caching temporarily, you can use the `disabled()` context manager:
-
-```python
-@cache(excludes=["pool"])
-def get_book(pool: ConnectionPool, book_id: int):
-    ...
-
-book1 = get_book(pool, book_id=1)
-# book1 will be cached
-
-with cache.disabled():
-    book2 = get_book(pool, book_id=2)
-    # Here, book2 will not be read from database instead of cache
-```
-
 ### Cache Mode Control
 
 The library provides fine-grained control over cache behavior through the `mode()` context manager and convenience methods. You can control whether the cache reads from or writes to Redis using the following modes:
 
-- `NORMAL` (default): Both read from and write to cache
-- `DISABLED`: Neither read from nor write to cache (equivalent to `disabled()`)
-- `PUT_ONLY`: Only write to cache, don't read from cache (useful for refreshing cache values)
-- `GET_ONLY`: Only read from cache, don't execute function or write to cache
+- `NORMAL` (default): Both read from and write to cache (combination of READ | WRITE flags)
+- `DISABLED`: Neither read from nor write to cache (NONE flag)
+- `PUT_ONLY`: Only write to cache, don't read from cache (WRITE flag)
+- `GET_ONLY`: Only read from cache, don't execute function or write to cache (READ flag)
 
 #### Using mode() context manager
 
@@ -630,32 +632,30 @@ def get_user_data(user_id):
 data = get_user_data(123)
 
 # Bypass cache reading, but still write to cache
-with cache.mode(RedisFuncCache.Mode.PUT_ONLY):
+with cache.mode(RedisFuncCache.Mode.WRITE):
     data = get_user_data(123)  # Function executed, result stored in cache
 
 # Only read from cache, don't execute function or write to cache
-with cache.mode(RedisFuncCache.Mode.GET_ONLY):
+with cache.mode(RedisFuncCache.Mode.READ):
     data = get_user_data(123)  # Only attempts to read from cache
 
 # Disable cache completely
-with cache.mode(RedisFuncCache.Mode.DISABLED):
+with cache.mode(RedisFuncCache.Mode.NONE):
     data = get_user_data(123)  # Function executed, no cache interaction
 ```
 
-When using `GET_ONLY` mode, if the value is not found in the cache, a `CacheMissError` exception will be raised. You can catch this exception to handle cache misses:
+When using `GET_ONLY` mode (equivalent to READ flag), if the value is not found in the cache, a `CacheMissError` exception will be raised. You can catch this exception to handle cache misses:
 
 ```python
 from redis_func_cache import CacheMissError
 
 try:
-    with cache.get_only():  # or cache.mode(RedisFuncCache.Mode.GET_ONLY)
+    with cache.get_only():  # or cache.mode(RedisFuncCache.Mode.READ)
         data = get_user_data(123)
 except CacheMissError:
     # Handle cache miss, e.g. fall back to executing the function normally
     data = get_user_data(123)  # This will execute the function and cache the result
 ```
-
-#### Using convenience methods
 
 For common use cases, you can use convenience methods:
 
