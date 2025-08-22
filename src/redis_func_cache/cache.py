@@ -59,6 +59,7 @@ else:
 
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
+from .exce import CacheMissError
 from .policies.abstract import AbstractPolicy
 from .typing import CallableTV, RedisClientTV, SerializerName, is_async_redis_client
 
@@ -70,13 +71,7 @@ if TYPE_CHECKING:  # pragma: no cover
     SerializerPairT = Tuple[SerializerT, DeserializerT]
     SerializerSetterValueT = Union[SerializerName, SerializerPairT]
 
-__all__ = ("RedisFuncCache", "CacheMissError")
-
-
-class CacheMissError(Exception):
-    """Raised when a cache miss occurs in GET_ONLY mode."""
-
-    pass
+__all__ = ("RedisFuncCache",)
 
 
 class RedisFuncCache(Generic[RedisClientTV]):

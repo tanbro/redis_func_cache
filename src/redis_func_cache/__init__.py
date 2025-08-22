@@ -1,6 +1,6 @@
 from . import _version as version
 from ._version import __version__, __version_tuple__
-from .cache import CacheMissError, RedisFuncCache
+from .cache import RedisFuncCache
 from .policies.fifo import (
     FifoClusterMultiplePolicy,
     FifoClusterPolicy,

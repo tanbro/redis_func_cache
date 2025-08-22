@@ -3,7 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from redis_func_cache import CacheMissError, RedisFuncCache
+from redis_func_cache import RedisFuncCache
+from redis_func_cache.exce import CacheMissError
 
 from ._catches import CACHES
 
