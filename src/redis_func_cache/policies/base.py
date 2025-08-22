@@ -27,6 +27,8 @@ class BaseSinglePolicy(AbstractPolicy):
     """
     Base policy for a single sorted-set or hash-map key pair.
 
+    .. inheritance-diagram:: BaseSinglePolicy
+
     All decorated functions using this policy share the same Redis key pair.
 
     Not intended for direct use.
@@ -117,6 +119,8 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
     """
     Base policy for a single sorted-set or hash-map key pair with Redis cluster support.
 
+    .. inheritance-diagram:: BaseClusterSinglePolicy
+
     All decorated functions using this policy share the same Redis key pair.
 
     Not intended for direct use.
@@ -144,6 +148,8 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
 class BaseMultiplePolicy(AbstractPolicy):
     """
     Base policy for multiple sorted-set or hash-map key pairs.
+
+    .. inheritance-diagram:: BaseMultiplePolicy
 
     Each decorated function using this policy has its own Redis key pair.
 
@@ -211,6 +217,8 @@ class BaseMultiplePolicy(AbstractPolicy):
 class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     """
     Base policy for multiple sorted-set or hash-map key pairs with Redis cluster support.
+
+    .. inheritance-diagram:: BaseClusterMultiplePolicy
 
     Each decorated function using this policy has its own Redis key pair.
 

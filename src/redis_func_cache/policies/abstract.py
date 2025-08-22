@@ -21,6 +21,8 @@ class AbstractPolicy(ABC):
     """
     Abstract base class for cache eviction policies used by :class:`RedisFuncCache`.
 
+    .. inheritance-diagram:: AbstractPolicy
+
     Subclasses **MUST** implement:
       - :meth:`calc_keys`
       - :meth:`calc_hash`
