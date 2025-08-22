@@ -6,6 +6,7 @@ import weakref
 from collections import OrderedDict
 from contextlib import contextmanager
 from contextvars import ContextVar
+from enum import Enum
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
@@ -91,6 +92,22 @@ class RedisFuncCache(Generic[RedisClientTV]):
     - The cache supports both synchronous and asynchronous Redis clients, but the decorated function must match the redis client's async/sync nature.
     """
 
+    class Mode(Enum):
+        """Cache operation mode.
+
+        Defines how the cache behaves when executing decorated functions:
+
+        - NORMAL: Both get from cache and put to cache (default behavior)
+        - GET_ONLY: Only get from cache, don't put to cache
+        - PUT_ONLY: Only put to cache, don't get from cache (bypass_get behavior)
+        - DISABLED: Neither get from cache nor put to cache (disabled behavior)
+        """
+
+        NORMAL = "normal"
+        GET_ONLY = "get_only"
+        PUT_ONLY = "put_only"
+        DISABLED = "disabled"
+
     def __init__(
         self,
         name: str,
@@ -125,7 +142,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 Access the client via the :attr:`client` property.
 
                 Caution:
-                    If a :term:`callable` object is passed is provided, it will be executed **EVERY TIME** the :attr:`.client` property is accessed.
+                    If a :term:`callable` object is passed is provided, it will be executed **EVER TIME** the :attr:`.client` property is accessed.
 
             maxsize: The maximum size of the cache.
 
@@ -203,7 +220,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         else:
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
+        self._cache_mode: ContextVar[RedisFuncCache.Mode] = ContextVar("cache_mode", default=RedisFuncCache.Mode.NORMAL)
         self._disabled: ContextVar[bool] = ContextVar("disabled", default=False)
+        self._bypass_get: ContextVar[bool] = ContextVar("bypass_get", default=False)
 
     __serializers__: Dict[str, SerializerPairT] = {
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
@@ -547,29 +566,35 @@ class RedisFuncCache(Generic[RedisClientTV]):
             This method first calls :meth:`get` to attempt retrieving a cached result before executing the ``user_function``.
             If no cached result is found, it executes the ``user_function``, then calls :meth:`put` to store the result in the cache.
         """
-        if self._disabled.get():
+        cache_mode = self._cache_mode.get()
+        if cache_mode == RedisFuncCache.Mode.DISABLED:
             return user_function(*user_args, **user_kwds)
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
-        cached_return_value = self.get(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
-        if cached_return_value is not None:
-            return self.deserialize(cached_return_value, deserialize_func)
+        # Only attempt to get from cache if mode is not PUT_ONLY
+        cached_return_value = None
+        if cache_mode != RedisFuncCache.Mode.PUT_ONLY:
+            cached_return_value = self.get(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
+            if cached_return_value is not None:
+                return self.deserialize(cached_return_value, deserialize_func)
         user_retval = user_function(*user_args, **user_kwds)
-        user_retval_serialized = self.serialize(user_retval, serialize_func)
-        self.put(
-            script_1,
-            keys,
-            hash_value,
-            user_retval_serialized,
-            self.maxsize,
-            update_ttl,
-            self.ttl,
-            0 if field_ttl is None else field_ttl,
-            options,
-            ext_args,
-        )
+        # Only put to cache if mode is not GET_ONLY
+        if cache_mode != RedisFuncCache.Mode.GET_ONLY:
+            user_retval_serialized = self.serialize(user_retval, serialize_func)
+            self.put(
+                script_1,
+                keys,
+                hash_value,
+                user_retval_serialized,
+                self.maxsize,
+                update_ttl,
+                self.ttl,
+                0 if field_ttl is None else field_ttl,
+                options,
+                ext_args,
+            )
         return user_retval
 
     async def aexec(
@@ -604,7 +629,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             options: Additional options passed from :meth:`decorate`'s `**kwargs`.
         """
-        if self._disabled.get():
+        cache_mode = self._cache_mode.get()
+        if cache_mode == RedisFuncCache.Mode.DISABLED:
             return await user_function(*user_args, **user_kwds)
         script_0, script_1 = self.policy.lua_scripts
         if not (
@@ -613,23 +639,28 @@ class RedisFuncCache(Generic[RedisClientTV]):
         ):
             raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
-        cached = await self.aget(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
-        if cached is not None:
-            return self.deserialize(cached, deserialize_func)
+        # Only attempt to get from cache if mode is not PUT_ONLY
+        cached = None
+        if cache_mode != RedisFuncCache.Mode.PUT_ONLY:
+            cached = await self.aget(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
+            if cached is not None:
+                return self.deserialize(cached, deserialize_func)
         user_retval = await user_function(*user_args, **user_kwds)
-        user_retval_serialized = self.serialize(user_retval, serialize_func)
-        await self.aput(
-            script_1,
-            keys,
-            hash_value,
-            user_retval_serialized,
-            self.maxsize,
-            update_ttl,
-            self.ttl,
-            0 if field_ttl is None else field_ttl,
-            options,
-            ext_args,
-        )
+        # Only put to cache if mode is not GET_ONLY
+        if cache_mode != RedisFuncCache.Mode.GET_ONLY:
+            user_retval_serialized = self.serialize(user_retval, serialize_func)
+            await self.aput(
+                script_1,
+                keys,
+                hash_value,
+                user_retval_serialized,
+                self.maxsize,
+                update_ttl,
+                self.ttl,
+                0 if field_ttl is None else field_ttl,
+                options,
+                ext_args,
+            )
         return user_retval
 
     def decorate(
@@ -800,6 +831,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def disabled(self):
         """A context manager who disables the cache temporarily.
 
+        This is equivalent to ``cache_mode(RedisFuncCache.Mode.DISABLED)``.
+
         Example:
 
           ::
@@ -811,8 +844,81 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 with cache.disabled():
                     result = func()  # will be executed without cache ability
         """
-        token = self._disabled.set(True)
+        with self.cache_mode(RedisFuncCache.Mode.DISABLED):
+            yield
+
+    @contextmanager
+    def cache_mode(self, mode: Mode):
+        """A context manager to control cache behavior.
+
+        Args:
+            mode: The cache mode to use within the context.
+
+        Example:
+
+          ::
+
+                @cache
+                def func(): ...
+
+
+                # Normal operation (default)
+                result = func()
+
+                # Bypass cache reading, but still write to cache (equivalent to put_only mode)
+                with cache.cache_mode(RedisFuncCache.Mode.PUT_ONLY):
+                    result = func()
+
+                # Only read from cache, don't write to cache
+                with cache.cache_mode(RedisFuncCache.Mode.GET_ONLY):
+                    result = func()
+
+                # Disable cache completely (equivalent to old disabled)
+                with cache.cache_mode(RedisFuncCache.Mode.DISABLED):
+                    result = func()
+        """
+        token = self._cache_mode.set(mode)
         try:
             yield
         finally:
-            self._disabled.reset(token)
+            self._cache_mode.reset(token)
+
+    @contextmanager
+    def put_only(self):
+        """A context manager that bypasses cache retrieval but still writes the result to cache.
+
+        This is equivalent to ``cache_mode(RedisFuncCache.Mode.PUT_ONLY)``.
+
+        Example:
+
+          ::
+
+                @cache
+                def func(): ...
+
+
+                with cache.put_only():
+                    result = func()  # will be executed and result stored in cache, but not read from cache
+        """
+        with self.cache_mode(RedisFuncCache.Mode.PUT_ONLY):
+            yield
+
+    @contextmanager
+    def get_only(self):
+        """A context manager that only reads from cache but doesn't execute the function or write to cache.
+
+        This is equivalent to ``cache_mode(CacheMode.GET_ONLY)``.
+
+        Example:
+
+          ::
+
+                @cache
+                def func(): ...
+
+
+                with cache.get_only():
+                    result = func()  # will only attempt to read from cache, won't execute func
+        """
+        with self.cache_mode(RedisFuncCache.Mode.GET_ONLY):
+            yield
