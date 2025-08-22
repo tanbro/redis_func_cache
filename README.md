@@ -863,7 +863,7 @@ The serializer and decoder are defined in the `__hash_config__` attribute of the
 
 This configuration can be illustrated as follows:
 
-```
+```mermaid
 flowchart TD
     A[Start] --> B{Is f callable?}
     B -->|No| C[Throw TypeError]
