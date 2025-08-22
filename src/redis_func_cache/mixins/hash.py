@@ -23,12 +23,24 @@ __all__ = (
     "JsonSha1HashMixin",
     "JsonSha1HexHashMixin",
     "JsonSha1Base64HashMixin",
+    "JsonSha256HashMixin",
+    "JsonSha256HexHashMixin",
+    "JsonSha256Base64HashMixin",
+    "JsonSha512HashMixin",
+    "JsonSha512HexHashMixin",
+    "JsonSha512Base64HashMixin",
     "PickleMd5HashMixin",
     "PickleMd5HexHashMixin",
     "PickleMd5Base64HashMixin",
     "PickleSha1HashMixin",
     "PickleSha1HexHashMixin",
     "PickleSha1Base64HashMixin",
+    "PickleSha256HashMixin",
+    "PickleSha256HexHashMixin",
+    "PickleSha256Base64HashMixin",
+    "PickleSha512HashMixin",
+    "PickleSha512HexHashMixin",
+    "PickleSha512Base64HashMixin",
 )
 
 
@@ -188,6 +200,90 @@ class JsonSha1Base64HashMixin(AbstractHashMixin):
     )
 
 
+class JsonSha256HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA256 hash value,
+    and finally returns the digest as bytes.
+
+    .. inheritance-diagram:: JsonSha256HashMixin
+    """
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=lambda x: json.dumps(x).encode())
+
+
+class JsonSha256HexHashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA256 hash value,
+    and finally returns the hexadecimal representation of the digest.
+
+    .. inheritance-diagram:: JsonSha256HexHashMixin
+    """
+
+    __hash_config__ = HashConfig(
+        algorithm="sha256", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
+    )
+
+
+class JsonSha256Base64HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA256 hash value,
+    and finally returns the base64 encoded digest.
+
+    .. inheritance-diagram:: JsonSha256Base64HashMixin
+    """
+
+    __hash_config__ = HashConfig(
+        algorithm="sha256",
+        serializer=lambda x: json.dumps(x).encode(),
+        decoder=lambda x: b64decode(x.digest().decode().rstrip("=")),
+    )
+
+
+class JsonSha512HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA512 hash value,
+    and finally returns the digest as bytes.
+
+    .. inheritance-diagram:: JsonSha512HashMixin
+    """
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=lambda x: json.dumps(x).encode())
+
+
+class JsonSha512HexHashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA512 hash value,
+    and finally returns the hexadecimal representation of the digest.
+
+    .. inheritance-diagram:: JsonSha512HexHashMixin
+    """
+
+    __hash_config__ = HashConfig(
+        algorithm="sha512", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
+    )
+
+
+class JsonSha512Base64HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`json` module,
+    then calculates the SHA512 hash value,
+    and finally returns the base64 encoded digest.
+
+    .. inheritance-diagram:: JsonSha512Base64HashMixin
+    """
+
+    __hash_config__ = HashConfig(
+        algorithm="sha512",
+        serializer=lambda x: json.dumps(x).encode(),
+        decoder=lambda x: b64decode(x.digest().decode().rstrip("=")),
+    )
+
+
 class PickleMd5HashMixin(AbstractHashMixin):
     """
     Serializes the function name, source code, and arguments using the :mod:`pickle` module,
@@ -258,3 +354,75 @@ class PickleSha1Base64HashMixin(AbstractHashMixin):
     """
 
     __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=b64digest)
+
+
+class PickleSha256HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA256 hash value,
+    and finally returns the digest as bytes.
+
+    .. inheritance-diagram:: PickleSha256HashMixin
+    """
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps)
+
+
+class PickleSha256HexHashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA256 hash value,
+    and finally returns the hexadecimal representation of the digest.
+
+    .. inheritance-diagram:: PickleSha256HexHashMixin
+    """
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
+
+
+class PickleSha256Base64HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA256 hash value,
+    and finally returns the base64 encoded digest.
+
+    .. inheritance-diagram:: PickleSha256Base64HashMixin
+    """
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=b64digest)
+
+
+class PickleSha512HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA512 hash value,
+    and finally returns the digest as bytes.
+
+    .. inheritance-diagram:: PickleSha512HashMixin
+    """
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps)
+
+
+class PickleSha512HexHashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA512 hash value,
+    and finally returns the hexadecimal representation of the digest.
+
+    .. inheritance-diagram:: PickleSha512HexHashMixin
+    """
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
+
+
+class PickleSha512Base64HashMixin(AbstractHashMixin):
+    """
+    Serializes the function name, source code, and arguments using the :mod:`pickle` module,
+    then calculates the SHA512 hash value,
+    and finally returns the base64 encoded digest.
+
+    .. inheritance-diagram:: PickleSha512Base64HashMixin
+    """
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=b64digest)
