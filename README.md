@@ -607,16 +607,16 @@ with cache.disabled():
 
 ### Cache Mode Control
 
-The library provides fine-grained control over cache behavior through the `cache_mode()` context manager and convenience methods. You can control whether the cache reads from or writes to Redis using the following modes:
+The library provides fine-grained control over cache behavior through the `mode()` context manager and convenience methods. You can control whether the cache reads from or writes to Redis using the following modes:
 
 - `NORMAL` (default): Both read from and write to cache
 - `DISABLED`: Neither read from nor write to cache (equivalent to `disabled()`)
 - `PUT_ONLY`: Only write to cache, don't read from cache (useful for refreshing cache values)
-- `GET_ONLY`: Only read from cache, don't write to cache
+- `GET_ONLY`: Only read from cache, don't execute function or write to cache
 
-#### Using cache_mode() context manager
+#### Using mode() context manager
 
-You can use the `cache_mode()` context manager to explicitly set any mode:
+You can use the `mode()` context manager to explicitly set any mode:
 
 ```python
 from redis_func_cache import RedisFuncCache
@@ -630,16 +630,29 @@ def get_user_data(user_id):
 data = get_user_data(123)
 
 # Bypass cache reading, but still write to cache
-with cache.cache_mode(RedisFuncCache.Mode.PUT_ONLY):
+with cache.mode(RedisFuncCache.Mode.PUT_ONLY):
     data = get_user_data(123)  # Function executed, result stored in cache
 
 # Only read from cache, don't execute function or write to cache
-with cache.cache_mode(RedisFuncCache.Mode.GET_ONLY):
+with cache.mode(RedisFuncCache.Mode.GET_ONLY):
     data = get_user_data(123)  # Only attempts to read from cache
 
 # Disable cache completely
-with cache.cache_mode(RedisFuncCache.Mode.DISABLED):
+with cache.mode(RedisFuncCache.Mode.DISABLED):
     data = get_user_data(123)  # Function executed, no cache interaction
+```
+
+When using `GET_ONLY` mode, if the value is not found in the cache, a `CacheMissError` exception will be raised. You can catch this exception to handle cache misses:
+
+```python
+from redis_func_cache import CacheMissError
+
+try:
+    with cache.get_only():  # or cache.mode(RedisFuncCache.Mode.GET_ONLY)
+        data = get_user_data(123)
+except CacheMissError:
+    # Handle cache miss, e.g. fall back to executing the function normally
+    data = get_user_data(123)  # This will execute the function and cache the result
 ```
 
 #### Using convenience methods
@@ -647,17 +660,17 @@ with cache.cache_mode(RedisFuncCache.Mode.DISABLED):
 For common use cases, you can use convenience methods:
 
 ```python
-# These are equivalent to the cache_mode() calls above:
+# These are equivalent to the mode() calls above:
 
-# Equivalent to cache_mode(RedisFuncCache.Mode.DISABLED)
+# Equivalent to mode(RedisFuncCache.Mode.DISABLED)
 with cache.disabled():
     data = get_user_data(123)
 
-# Equivalent to cache_mode(RedisFuncCache.Mode.PUT_ONLY)
+# Equivalent to mode(RedisFuncCache.Mode.PUT_ONLY)
 with cache.put_only():
     data = get_user_data(123)
 
-# Equivalent to cache_mode(RedisFuncCache.Mode.GET_ONLY)
+# Equivalent to mode(RedisFuncCache.Mode.GET_ONLY)
 with cache.get_only():
     data = get_user_data(123)
 ```

@@ -154,7 +154,7 @@ def test_cache_get_only_miss(cache_name, cache):
 
 @pytest.mark.parametrize("cache_name,cache", CACHES.items())
 def test_cache_mode_enum(cache_name, cache):
-    """测试使用 cache_mode 上下文管理器直接设置模式。"""
+    """测试使用 mode 上下文管理器直接设置模式。"""
 
     @cache
     def echo(x):
@@ -164,8 +164,8 @@ def test_cache_mode_enum(cache_name, cache):
     # 正常调用，缓存应生效
     assert echo(val) == val
 
-    # 使用 cache_mode 设置 DISABLED 模式
-    with cache.cache_mode(RedisFuncCache.Mode.DISABLED):
+    # 使用 mode 设置 DISABLED 模式
+    with cache.mode(RedisFuncCache.Mode.DISABLED):
         with patch.object(cache, "get") as mock_get:
             with patch.object(cache, "put") as mock_put:
                 result = echo(val)
@@ -173,8 +173,8 @@ def test_cache_mode_enum(cache_name, cache):
                 mock_put.assert_not_called()
                 assert result == val
 
-    # 使用 cache_mode 设置 PUT_ONLY 模式
-    with cache.cache_mode(RedisFuncCache.Mode.PUT_ONLY):
+    # 使用 mode 设置 PUT_ONLY 模式
+    with cache.mode(RedisFuncCache.Mode.PUT_ONLY):
         with patch.object(cache, "get") as mock_get:
             with patch.object(cache, "put") as mock_put:
                 result = echo(val)
@@ -182,8 +182,8 @@ def test_cache_mode_enum(cache_name, cache):
                 mock_put.assert_called_once()
                 assert result == val
 
-    # 使用 cache_mode 设置 GET_ONLY 模式
-    with cache.cache_mode(RedisFuncCache.Mode.GET_ONLY):
+    # 使用 mode 设置 GET_ONLY 模式
+    with cache.mode(RedisFuncCache.Mode.GET_ONLY):
         with patch.object(cache, "get", return_value=cache.serialize(val)) as mock_get:
             with patch.object(cache, "put") as mock_put:
                 result = echo(val)
