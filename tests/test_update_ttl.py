@@ -156,3 +156,50 @@ def test_update_ttl_override_in_decorate():
             mock_put.assert_called_once()
 
         default_cache.policy.purge()
+
+
+def test_update_ttl_override_true_in_decorate():
+    """测试在decorate方法中覆盖update_ttl参数为True（实例级别为False）"""
+    for cache in CACHES.values():
+        # 创建一个默认不更新TTL的缓存实例
+        no_update_ttl_cache = RedisFuncCache(
+            __name__,
+            cache._policy_type,
+            client=redis_factory,
+            maxsize=cache.maxsize,
+            ttl=2,  # 2秒TTL
+            update_ttl=False,  # 实例级别不更新TTL
+        )
+        no_update_ttl_cache.policy.purge()
+
+        # 但在装饰器中设置update_ttl=True
+        @no_update_ttl_cache(update_ttl=True)
+        def echo(x):
+            return x
+
+        val = uuid4().hex
+        # 第一次调用，填充缓存
+        result1 = echo(val)
+        assert result1 == val
+
+        # 等待1秒（TTL的一半时间）
+        time.sleep(1)
+
+        # 第二次调用，应该命中缓存并更新TTL（因为装饰器中覆盖为True）
+        with patch.object(no_update_ttl_cache, "put") as mock_put:
+            result2 = echo(val)
+            assert result2 == val
+            # 在update_ttl=True模式下，缓存命中不应该触发重新存储
+            mock_put.assert_not_called()
+
+        # 再等待1.5秒（总共2.5秒，超过初始TTL）
+        time.sleep(1.5)
+
+        # 第三次调用，如果TTL被更新了，应该仍然命中缓存
+        with patch.object(no_update_ttl_cache, "put") as mock_put:
+            result3 = echo(val)
+            assert result3 == val
+            # 在update_ttl=True模式下，即使过了初始TTL，也应该命中缓存
+            mock_put.assert_not_called()
+
+        no_update_ttl_cache.policy.purge()
