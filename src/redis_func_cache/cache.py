@@ -172,25 +172,29 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             maxsize: The maximum size of the cache.
 
-                If not provided, the default is :data:`.DEFAULT_MAXSIZE`.
-                Zero or negative values means no limit.
+                - If not provided, the default is :data:`.DEFAULT_MAXSIZE`.
+                - Zero or negative values means no limit.
+
                 Assigned to property :attr:`maxsize`.
 
-            ttl: The time-to-live (in seconds) for cache items.
+            ttl: The time-to-live (in seconds) for the whole cache data structures on Redis backend.
 
-                If not provided, the default is :data:`.DEFAULT_TTL`.
-                Zero or negative values means no set ttl.
+                - If not provided, the default is :data:`.DEFAULT_TTL`.
+                - Zero or negative values means no set ttl.
+
                 Assigned to property :attr:`ttl`.
 
-            update_ttl: Whether to update the TTL of cached items when they are accessed.
+            update_ttl: Whether to update the TTL of the whole cache data structures on Redis backend when they are accessed.
 
-                If not provided, the default is ``True``.
-                When ``True``, accessing a cached item will reset its TTL.
-                When ``False``, accessing a cached item will not update its TTL.
+                - When ``True`` (default), accessing a cached item will reset its TTL.
+                - When ``False``, accessing a cached item will not update its TTL.
+
+                Assigned to property :attr:`update_ttl`.
 
             prefix: The prefix for cache keys.
 
                 If not provided, the default is :data:`.DEFAULT_PREFIX`.
+
                 Assigned to property :attr:`prefix`.
 
             serializer: Optional serialize/deserialize name or function pair for return value of what decorated.
@@ -325,6 +329,15 @@ class RedisFuncCache(Generic[RedisClientTV]):
         if not value > 0:
             raise ValueError("ttl must be a greater than 0")
         self._ttl = int(value)
+
+    @property
+    def update_ttl(self) -> bool:
+        """Whether to update the TTL of cache items."""
+        return self._update_ttl
+
+    @update_ttl.setter
+    def update_ttl(self, value: bool):
+        self._update_ttl = bool(value)
 
     @property
     def serializer(self) -> SerializerPairT:
@@ -745,7 +758,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             update_ttl: Whether to update the TTL of cached items when they are accessed.
 
-                - If not provided, the default is the value set in the cache instance.
+                - If not provided, the default is the value of :attr:`update_ttl`.
                 - When ``True``, accessing a cached item will reset its TTL.
                 - When ``False``, accessing a cached item will not update its TTL.
 
