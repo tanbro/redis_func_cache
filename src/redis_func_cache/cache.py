@@ -604,9 +604,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if mode & RedisFuncCache.Mode.NO_EXEC:
-            if cached is None:
-                raise CacheMissError("The cache does not hit and function will not execute")
-            return self.deserialize(cached, deserialize_func)
+            raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = user_function(*user_args, **user_kwds)
         # Only put to cache if mode has WRITE flag
         if mode & RedisFuncCache.Mode.WRITE:
@@ -673,9 +671,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if mode & RedisFuncCache.Mode.NO_EXEC:
-            if cached is None:
-                raise CacheMissError("The cache does not hit and function will not execute")
-            return self.deserialize(cached, deserialize_func)
+            raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = await user_function(*user_args, **user_kwds)
         # Only put to cache if mode has WRITE flag
         if mode & RedisFuncCache.Mode.WRITE:
