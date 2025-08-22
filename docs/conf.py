@@ -37,6 +37,7 @@ extensions = [
     "sphinx_copybutton",
     "versionwarning.extension",
     "sphinxcontrib.mermaid",
+    "sphinx_autodoc_typehints",
 ]
 
 source_suffix = {
@@ -69,7 +70,7 @@ html_theme_options = {
 
 # Automatically extract typehints when specified and place them in
 # descriptions of the relevant function/method.
-autodoc_typehints = "description"
+autodoc_typehints = "both"
 
 # Don't show class signature with the class' name.
 # autodoc_class_signature = "separated"

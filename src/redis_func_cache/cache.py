@@ -165,10 +165,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 or a function that returns one of these objects.
 
-                Access the client via the :attr:`client` property.
+                Get the client via :meth:`get_client`.
 
                 Caution:
-                    If a :term:`callable` object is passed here, it will be executed **every time** the :attr:`.client` property is accessed.
+                    If a :term:`callable` object is passed here, it will be executed **every time** :meth:`get_client` is called.
 
             maxsize: The maximum size of the cache.
 
@@ -881,7 +881,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     __call__ = decorate
 
     @contextmanager
-    def mode(self, mode: Mode) -> Generator[None, None, None]:
+    def mode(self, mode: RedisFuncCache.Mode) -> Generator[None, None, None]:
         """A context manager to control cache behavior.
 
         Args:
@@ -894,7 +894,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._mode.reset(token)
 
     @contextmanager
-    def mask_mode(self, mode: Mode) -> Generator[None, None, None]:
+    def mask_mode(self, mode: RedisFuncCache.Mode) -> Generator[None, None, None]:
         """Apply a mode mask using bitwise AND operation to restrict cache capabilities.
 
         This context manager allows you to temporarily restrict the current cache mode

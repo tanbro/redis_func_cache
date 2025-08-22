@@ -92,6 +92,7 @@ docs = [
   "sphinx-inline-tabs",
   "sphinx_tippy",
   "sphinx-version-warning",
+  "sphinx-autodoc-typehints",
 ]
 test = [
   "pytest",
