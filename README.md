@@ -180,7 +180,7 @@ The library guarantees thread safety and concurrency security through the follow
 
 1. Contextual State Isolation
 
-   The [ContextVar](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar) based `disabled()` context manager and other cache control context managers ensure thread and coroutine isolation. Each thread or async task maintains its own independent state, preventing cross-context interference.
+   The [ContextVar](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar) based `mode()` and `mask_mode()` context manager and other cache control context managers ensure thread and coroutine isolation. Each thread or async task maintains its own independent state, preventing cross-context interference.
 
 Atomicity is a key feature of this library. All cache operations (both read and write) are implemented using Redis Lua scripts, which are executed atomically by the Redis server. This means that each script runs in its entirety without being interrupted by other operations, ensuring data consistency even under high concurrent load.
 
@@ -667,6 +667,8 @@ with cache.mask_mode(~RedisFuncCache.Mode.WRITE):
 with cache.mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
     data = get_user_data(123)  # No cache operations allowed
 ```
+
+All these methods can be used as context managers and are based on [`ContextVar`](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar), making them thread-safe and concurrency-isolated.
 
 ## Advanced Usage
 
