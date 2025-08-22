@@ -167,7 +167,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 Access the client via the :attr:`client` property.
 
                 Caution:
-                    If a :term:`callable` object is passed is provided, it will be executed **EVER TIME** the :attr:`.client` property is accessed.
+                    If a :term:`callable` object is passed here, it will be executed **every time** the :attr:`.client` property is accessed.
 
             maxsize: The maximum size of the cache.
 
