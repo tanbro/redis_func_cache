@@ -207,9 +207,9 @@ Using an *LRU* cache to decorate a recursive Fibonacci function:
 from redis import Redis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
-redis_client = Redis("redis://")
+redis_factory = lambda: Redis("redis://")
 
-lru_cache = RedisFuncCache("my-first-lru-cache", LruTPolicy, redis_client)
+lru_cache = RedisFuncCache("my-first-lru-cache", LruTPolicy, redis_factory)
 
 @lru_cache
 def fib(n):
@@ -237,7 +237,7 @@ If we browse the [Redis][] database, we can find the pair of keys' names look li
     The key (with `1` suffix) is a hash map. Each key field in it is the hash value of a function invocation, and the value field is the return value of the function.
 
 > ❗ **Important:**\
-> The name **SHOULD** be unique for each [`RedisFuncCache`][] instance.
+> The `name` **SHOULD** be unique for each [`RedisFuncCache`][] instance.
 > Therefore, we need to choose a unique name carefully using the `name` argument.
 
 ### Async functions
@@ -248,8 +248,8 @@ To decorate async functions, you should pass an `Async Redis client` to [`RedisF
 from redis.asyncio import Redis as AsyncRedis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
-redis_client = AsyncRedis.from_url("redis://")
-my_async_cache = RedisFuncCache(__name__, LruTPolicy, redis_client)
+async_redis_factory = lambda: AsyncRedis.from_url("redis://")
+my_async_cache = RedisFuncCache(__name__, LruTPolicy, async_redis_factory)
 
 @my_async_cache
 async def my_async_func(*args, **kwargs):
