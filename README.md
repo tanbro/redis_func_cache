@@ -464,6 +464,47 @@ Other serialization libraries such as [bson][], [simplejson](https://pypi.org/pr
 > The [`pickle`][] module is highly powerful but poses a significant security risk because it can execute arbitrary code during deserialization. Use it with extreme caution, especially when handling data from untrusted sources.
 > For best practices, it is recommended to cache functions that return simple, [JSON][]-serializable data. If you need to serialize more complex data structures than those supported by [JSON][], consider using safer alternatives such as [bson][], [msgpack][], or [yaml][].
 
+### TTL Update Behavior
+
+By default, accessing cached data updates the expiration time (TTL) of the cache data structures. This behavior is referred to as "sliding TTL". However, you can control this behavior using the `update_ttl` parameter.
+
+There are two TTL update modes:
+
+- **Sliding TTL** (`update_ttl=True`, default): Each cache access (both read and write) extends the life of the cache data structures.
+- **Fixed TTL** (`update_ttl=False`): The expiration time is set only when the cache data structures are first created, and subsequent accesses do not extend their life.
+
+You can set the `update_ttl` parameter at the cache instance level:
+
+```python
+# Sliding TTL (default behavior)
+sliding_cache = RedisFuncCache("sliding-cache", LruTPolicy, redis_client, update_ttl=True)
+
+# Fixed TTL
+fixed_cache = RedisFuncCache("fixed-cache", LruTPolicy, redis_client, update_ttl=False)
+```
+
+Or override it at the function level:
+
+```python
+cache = RedisFuncCache("my-cache", LruTPolicy, redis_client)
+
+# Override to use fixed TTL for this specific function
+@cache(update_ttl=False)
+def my_func(x):
+    ...
+
+# Override to use sliding TTL for this specific function
+@cache(update_ttl=True)
+def another_func(x):
+    ...
+```
+
+The `update_ttl` parameter controls the behavior of the cache data structures (sorted set and hash map) as a whole, not individual cached items. It is independent of the per-item TTL (set via the `ttl` parameter in the decorator), which controls the expiration of individual cached function results.
+
+> 💡 **Tip:** \
+> Use fixed TTL when you want predictable cache expiration behavior, regardless of how often cached functions are accessed.
+> Use sliding TTL when you want frequently accessed cached data to remain in cache longer.
+
 ## Advanced Usage
 
 ### Custom result serializer
@@ -657,7 +698,7 @@ The serializer and decoder are defined in the `__hash_config__` attribute of the
 
 This configuration can be illustrated as follows:
 
-```mermaid
+```
 flowchart TD
     A[Start] --> B{Is f callable?}
     B -->|No| C[Throw TypeError]
@@ -988,7 +1029,7 @@ pre-commit install
 
 ### Module structure
 
-```mermaid
+```
 graph TD
     A[RedisFuncCache] --> B[AbstractPolicy]
     A --> C[Serializer]
@@ -1016,7 +1057,7 @@ graph TD
 
 Core class:
 
-```mermaid
+```
 classDiagram
     class RedisFuncCache {
         -client: RedisClientTV
@@ -1059,7 +1100,7 @@ classDiagram
 
 Strategy pattern and mixins:
 
-```mermaid
+```
 classDiagram
     class LruPolicy {
         __key__ = "lru"
@@ -1091,7 +1132,7 @@ classDiagram
 
 Cluster and multiple-keys support
 
-```mermaid
+```
 classDiagram
     class BaseClusterSinglePolicy {
         +calc_keys(f, args, kwds) -> Tuple[str, str]
@@ -1113,7 +1154,7 @@ classDiagram
 
 Decorator and proxy:
 
-```mermaid
+```
 classDiagram
     class RedisFuncCache {
         +__call__(user_function) -> CallableTV
@@ -1130,7 +1171,7 @@ classDiagram
 
 Weak reference:
 
-```mermaid
+```
 classDiagram
     class AbstractPolicy {
         -_cache: CallableProxyType[RedisFuncCache]
