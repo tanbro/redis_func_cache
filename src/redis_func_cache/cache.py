@@ -745,7 +745,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 Example: `excludes_positional=[0]`
 
-            **options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
+            options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
         This method is equivalent to :attr:`__call__`.
 
