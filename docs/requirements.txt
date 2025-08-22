@@ -12,4 +12,4 @@ sphinx-inline-tabs
 sphinx_tippy
 sphinx-version-warning
 
-sphinx-autodoc-typehint
+sphinx-autodoc-typehints
