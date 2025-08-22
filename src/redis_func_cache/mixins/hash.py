@@ -71,10 +71,12 @@ class AbstractHashMixin(ABC):
         __hash_config__: Configure of how to calculate hash for a function.
 
 
-    Example::
+    Example:
 
-        class Md5JsonHashMixin(AbstractHashMixin):
-            __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
+        ::
+
+            class Md5JsonHashMixin(AbstractHashMixin):
+                __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
     """
 
     __hash_config__: HashConfig

@@ -27,6 +27,7 @@ from typing import (
     Union,
     cast,
 )
+from warnings import warn
 
 import redis.commands.core
 
@@ -367,13 +368,17 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
 
-    @property
-    def client(self) -> RedisClientTV:
-        """The redis client instance used in the cache.
+    def get_client(self) -> RedisClientTV:
+        """Get the redis client instance used in the cache.
+
+        Returns:
+            The redis client instance used in the cache.
+
+        - If a redis client instance was passed to the cache constructor, it will be returned.
+        - If a :term:`callable` object that returns a redis client was passed to the cache constructor (factory pattern), it returns what returned by the factory function.
 
         Caution:
-            If a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor,
-            it will be invoked **EVERY TIME** this property is accessed, and its return value will be used as the property value.
+            When using the factory pattern (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor), **the factory function will be invoked every time this method is called**, and its return value will be used as the method's return value.
         """
         if self._redis_instance:
             return self._redis_instance
@@ -382,9 +387,20 @@ class RedisFuncCache(Generic[RedisClientTV]):
         raise RuntimeError("No redis client or factory provided.")
 
     @property
+    def client(self) -> RedisClientTV:  # pragma: no cover
+        """
+        Equivalent to call :meth:`get_client`.
+
+        .. deprecated:: 0.5
+            use :meth:`get_client` instead.
+        """
+        warn("property `client` is deprecated, use `get_client()` instead", DeprecationWarning)
+        return self.get_client()
+
+    @property
     def asynchronous(self) -> bool:
         """Indicates whether the Redis client is asynchronous."""
-        return is_async_redis_client(self.client)
+        return is_async_redis_client(self.get_client())
 
     def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
         """Serialize the return value of the decorated function.
@@ -715,31 +731,41 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 If assigned, it overwrite the :attr:`serializer` property of the cache instance on the decorated function.
 
-        ttl: The time-to-live (in seconds) for the cached result.
+            ttl: The time-to-live (in seconds) for the cached result.
 
-            Note:
-                This parameter specifies the expiration time for a single invocation result, not for the entire cache.
+                Note:
+                    This parameter specifies the expiration time for a single invocation result, not for the entire cache.
 
-            Caution:
-                The expiration is based on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration).
-                Therefore, expiration only applies to the hash field and does not decrease the total item count in the cache when a field expires.
+                Caution:
+                    The expiration is based on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration).
+                    Therefore, expiration only applies to the hash field and does not decrease the total item count in the cache when a field expires.
 
-            Warning:
-                Only available in Redis Open Source version above 7.4
+                Warning:
+                    Only available in Redis Open Source version above 7.4
 
             update_ttl: Whether to update the TTL of cached items when they are accessed.
 
-                If not provided, the default is the value set in the cache instance.
-                When ``True``, accessing a cached item will reset its TTL.
-                When ``False``, accessing a cached item will not update its TTL.
+                - If not provided, the default is the value set in the cache instance.
+                - When ``True``, accessing a cached item will reset its TTL.
+                - When ``False``, accessing a cached item will not update its TTL.
 
             excludes: Optional sequence of parameter names specifying keyword arguments to exclude from cache key generation.
 
-                Example: `excludes=["token"]`
+                Example:
+
+                    ::
+
+                        @cache(excludes=["session", "token"])
+                        def update_user(user_id: int, session: Session, token: str) -> None: ...
 
             excludes_positional: Optional sequence of indices specifying positional arguments to exclude from cache key generation.
 
-                Example: `excludes_positional=[0]`
+                Example:
+
+                    ::
+
+                        @cache(excludes_positional=[1, 2])
+                        def update_user(user_id: int, session: Session, token: str) -> None: ...
 
             options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
@@ -880,15 +906,17 @@ class RedisFuncCache(Generic[RedisClientTV]):
             mode: The mode mask to apply. Only capabilities present in both the current
                   mode and this mask will be enabled within the context.
 
-        Example::
+        Example:
 
-            # Temporarily disable cache writes (keeping reads if enabled)
-            with cache.mask_mode(~RedisFuncCache.Mode.WRITE):
-                result = func()  # Only cache reads allowed
+            ::
 
-            # Temporarily disable cache read and write completely
-            with cache.mask_mode(~(~RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
-                result = func()  # No cache operations allowed
+                # Temporarily disable cache writes (keeping reads if enabled)
+                with cache.mask_mode(~RedisFuncCache.Mode.WRITE):
+                    result = func()  # Only cache reads allowed
+
+                # Temporarily disable cache read and write completely
+                with cache.mask_mode(~(~RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
+                    result = func()  # No cache operations allowed
         """
         token = self._mode.set(self._mode.get() & mode)
         try:
@@ -904,14 +932,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         This is equivalent to ``mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE))``.
 
-        Example::
+        Example:
 
-            @cache
-            def func(): ...
+            ::
+
+                @cache
+                def func(): ...
 
 
-            with cache.disabled():
-                result = func()  # will be executed without cache ability
+                with cache.disabled():
+                    result = func()  # will be executed without cache ability
         """
         with self.mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
             yield
@@ -926,14 +956,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         This is equivalent to ``mask_mode(RedisFuncCache.Mode.READ & ~RedisFuncCache.Mode.WRITE)``.
 
-        Example::
+        Example:
 
-            @cache
-            def func(): ...
+            ::
+
+                @cache
+                def func(): ...
 
 
-            with cache.read_only():
-                result = func()
+                with cache.read_only():
+                    result = func()
         """
         with self.mask_mode(RedisFuncCache.Mode.READ & ~RedisFuncCache.Mode.WRITE):
             yield
@@ -944,14 +976,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         This is equivalent to ``mask_mode(~RedisFuncCache.Mode.READ & RedisFuncCache.Mode.WRITE)``.
 
-        Example::
+        Example:
 
-            @cache
-            def func(): ...
+            ::
+
+                @cache
+                def func(): ...
 
 
-            with cache.disable_read():
-                result = func()  # will be executed and result stored in cache, but not read from cache
+                with cache.disable_read():
+                    result = func()  # will be executed and result stored in cache, but not read from cache
         """
         with self.mask_mode(~RedisFuncCache.Mode.READ & RedisFuncCache.Mode.WRITE):
             yield

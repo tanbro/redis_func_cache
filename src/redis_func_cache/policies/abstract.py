@@ -131,10 +131,11 @@ class AbstractPolicy(ABC):
             Tuple of registered Script or AsyncScript objects.
         """
         if self._lua_scripts is None:
+            client = self.cache.get_client()
             script_texts = self.read_lua_scripts()
             self._lua_scripts = (
-                self.cache.client.register_script(script_texts[0]),
-                self.cache.client.register_script(script_texts[1]),
+                client.register_script(script_texts[0]),
+                client.register_script(script_texts[1]),
             )
         return self._lua_scripts
 

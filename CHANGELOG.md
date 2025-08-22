@@ -21,6 +21,9 @@
   - Removed `CacheMissError` exception as cache mode behavior is now controlled through bit flags
   - Replaced `modify_mode()` with `mask_mode()` for more accurate naming
 
+- Deprecated:
+  - The property `RedisFuncCache.cache` is deprecated, use `RedisFuncCache.get_cache()` instead
+
 - 🛠 **Improvements:**
   - Improved documentation and examples for cache mode control
   - Enhanced test coverage for new cache mode context managers
