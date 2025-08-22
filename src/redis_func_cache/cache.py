@@ -60,6 +60,7 @@ else:
 
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
+from .exceptions import CacheMissError
 from .policies.abstract import AbstractPolicy
 from .typing import CallableTV, RedisClientTV, SerializerName, is_async_redis_client
 
@@ -101,6 +102,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         - READ: Allow reading from cache
         - WRITE: Allow writing to cache
+        - NO_EXEC: Disable function execution
 
         Example:
 
@@ -129,6 +131,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         NONE = 0
         READ = 1 << 0
         WRITE = 1 << 1
+        NO_EXEC = 1 << 2
 
     def __init__(
         self,
@@ -594,11 +597,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
-        cached_return_value = None
+        cached = None
         if mode & RedisFuncCache.Mode.READ:
-            cached_return_value = self.get(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
-            if cached_return_value is not None:
-                return self.deserialize(cached_return_value, deserialize_func)
+            cached = self.get(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
+            if cached is not None:
+                return self.deserialize(cached, deserialize_func)
+        # Only attempt to execute if mode has not NO_EXEC flag
+        if mode & RedisFuncCache.Mode.NO_EXEC:
+            if cached is None:
+                raise CacheMissError("The cache does not hit and function will not execute")
+            return self.deserialize(cached, deserialize_func)
         user_retval = user_function(*user_args, **user_kwds)
         # Only put to cache if mode has WRITE flag
         if mode & RedisFuncCache.Mode.WRITE:
@@ -663,6 +671,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
             cached = await self.aget(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
             if cached is not None:
                 return self.deserialize(cached, deserialize_func)
+        # Only attempt to execute if mode has not NO_EXEC flag
+        if mode & RedisFuncCache.Mode.NO_EXEC:
+            if cached is None:
+                raise CacheMissError("The cache does not hit and function will not execute")
+            return self.deserialize(cached, deserialize_func)
         user_retval = await user_function(*user_args, **user_kwds)
         # Only put to cache if mode has WRITE flag
         if mode & RedisFuncCache.Mode.WRITE:
