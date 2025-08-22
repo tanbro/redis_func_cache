@@ -7,11 +7,23 @@
 - ✨ **New Features:**
   - Added arguments excluding support for the `RedisFuncCache` class, which makes it possible to cache functions with arguments that cannot be serialized.
   - Added support for per-invocation TTL.
-  - `RdisFuncCache.disabled()` provides a scope in which the cache is disabled temporarily.
+  - `RedisFuncCache.disabled()` provides a scope in which the cache is disabled temporarily.
   - Added support for controlling cache TTL update behavior with `update_ttl` parameter.
+  - Enhanced cache mode control with bit-flag based `Mode` enum and new context managers:
+    - `mask_mode()` for applying mode masks using bitwise AND operations
+    - `disable_rw()` as an alias for completely disabling cache read and write operations
+    - `read_only()` for read-only cache mode
+    - `write_only()` for write-only cache mode
 
 - 💔 **Breaking Changes:**
   - Rename `redis_func_cache.mixins.policies` to `redis_func_cache.mixins.scripts`.
+  - Removed deprecated `disabled()`, `put_only()`, and `get_only()` methods in favor of new context managers
+  - Removed `CacheMissError` exception as cache mode behavior is now controlled through bit flags
+  - Replaced `modify_mode()` with `mask_mode()` for more accurate naming
+
+- 🛠 **Improvements:**
+  - Improved documentation and examples for cache mode control
+  - Enhanced test coverage for new cache mode context managers
 
 ## v0.4
 

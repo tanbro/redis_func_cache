@@ -864,29 +864,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         Args:
             mode: The cache mode to use within the context. Can be a combination of Mode flags.
-
-        Example:
-
-          ::
-
-                @cache
-                def func(): ...
-
-
-                # Normal operation (default)
-                result = func()
-
-                # Bypass cache reading, but still write to cache (equivalent to put_only mode)
-                with cache.mode(RedisFuncCache.Mode.WRITE):
-                    result = func()
-
-                # Only read from cache, don't write to cache
-                with cache.mode(RedisFuncCache.Mode.READ):
-                    result = func()
-
-                # Disable cache completely (equivalent to old disabled)
-                with cache.mode(RedisFuncCache.Mode.NONE):
-                    result = func()
         """
         token = self._mode.set(mode)
         try:
@@ -929,18 +906,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         This wall disable the cache read and write, as if there is no cache.
 
-        This is equivalent to ``modify_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE))``.
+        This is equivalent to ``mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE))``.
 
-        Example:
+        Example::
 
-          ::
-
-                @cache
-                def func(): ...
+            @cache
+            def func(): ...
 
 
-                with cache.disabled():
-                    result = func()  # will be executed without cache ability
+            with cache.disabled():
+                result = func()  # will be executed without cache ability
         """
         with self.mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
             yield
@@ -953,7 +928,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         A :class:`CacheMissError` will be raised if the cache was missed in readonly mode.
 
-        This is equivalent to ``modify_mode(~RedisFuncCache.Mode.WRITE)``.
+        This is equivalent to ``mask_mode(RedisFuncCache.Mode.READ & ~RedisFuncCache.Mode.WRITE)``.
 
         Example::
 
@@ -971,7 +946,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def write_only(self) -> Generator[None, None, None]:
         """A context manager that bypasses cache retrieval but still writes the result to cache.
 
-        This is equivalent to ``modify_mode(~RedisFuncCache.Mode.WRITE)``.
+        This is equivalent to ``mask_mode(~RedisFuncCache.Mode.READ & RedisFuncCache.Mode.WRITE)``.
 
         Example::
 

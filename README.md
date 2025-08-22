@@ -611,14 +611,10 @@ The `update_ttl` parameter controls the behavior of the cache data structures (s
 
 The library provides fine-grained control over cache behavior through the `mode()` context manager and convenience methods. You can control whether the cache reads from or writes to Redis using the following modes:
 
-- `NORMAL` (default): Both read from and write to cache (combination of READ | WRITE flags)
-- `DISABLED`: Neither read from nor write to cache (NONE flag)
-- `PUT_ONLY`: Only write to cache, don't read from cache (WRITE flag)
-- `GET_ONLY`: Only read from cache, don't execute function or write to cache (READ flag)
+- `READ`: Only read from cache
+- `WRITE`: Only write to cache
 
-#### Using mode() context manager
-
-You can use the `mode()` context manager to explicitly set any mode:
+You can use the `mask_mode()` or `mode()` context manager to explicitly set any mode:
 
 ```python
 from redis_func_cache import RedisFuncCache
@@ -632,47 +628,44 @@ def get_user_data(user_id):
 data = get_user_data(123)
 
 # Bypass cache reading, but still write to cache
-with cache.mode(RedisFuncCache.Mode.WRITE):
+with cache.mask_mode(~RedisFuncCache.Mode.READ):
     data = get_user_data(123)  # Function executed, result stored in cache
 
 # Only read from cache, don't execute function or write to cache
-with cache.mode(RedisFuncCache.Mode.READ):
+with cache.mask_mode(~RedisFuncCache.Mode.WRITE):
     data = get_user_data(123)  # Only attempts to read from cache
 
-# Disable cache completely
-with cache.mode(RedisFuncCache.Mode.NONE):
+# Disable cache read and write
+with cache.mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
     data = get_user_data(123)  # Function executed, no cache interaction
-```
-
-When using `GET_ONLY` mode (equivalent to READ flag), if the value is not found in the cache, a `CacheMissError` exception will be raised. You can catch this exception to handle cache misses:
-
-```python
-from redis_func_cache import CacheMissError
-
-try:
-    with cache.get_only():  # or cache.mode(RedisFuncCache.Mode.READ)
-        data = get_user_data(123)
-except CacheMissError:
-    # Handle cache miss, e.g. fall back to executing the function normally
-    data = get_user_data(123)  # This will execute the function and cache the result
 ```
 
 For common use cases, you can use convenience methods:
 
 ```python
-# These are equivalent to the mode() calls above:
-
-# Equivalent to mode(RedisFuncCache.Mode.DISABLED)
-with cache.disabled():
+# Equivalent to mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE))
+with cache.disable_rw():
     data = get_user_data(123)
 
-# Equivalent to mode(RedisFuncCache.Mode.PUT_ONLY)
-with cache.put_only():
+# Equivalent to mask_mode(~RedisFuncCache.Mode.READ & RedisFuncCache.Mode.WRITE)
+with cache.write_only():
     data = get_user_data(123)
 
-# Equivalent to mode(RedisFuncCache.Mode.GET_ONLY)
-with cache.get_only():
+# Equivalent to mask_mode(RedisFuncCache.Mode.READ & ~RedisFuncCache.Mode.WRITE)
+with cache.read_only():
     data = get_user_data(123)
+```
+
+Additionally, you can use the `mask_mode()` method to apply a mode mask using bitwise AND operation:
+
+```python
+# Temporarily disable cache writes (keeping reads if enabled)
+with cache.mask_mode(~RedisFuncCache.Mode.WRITE):
+    data = get_user_data(123)  # Only cache reads allowed
+
+# Temporarily disable cache r/w completely
+with cache.mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
+    data = get_user_data(123)  # No cache operations allowed
 ```
 
 ## Advanced Usage
