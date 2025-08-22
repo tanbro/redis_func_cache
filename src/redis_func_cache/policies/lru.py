@@ -21,6 +21,7 @@ class LruPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     LRU eviction policy, single key pair.
 
     .. inheritance-diagram:: LruPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -33,6 +34,7 @@ class LruMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy)
     LRU eviction policy, multiple key pairs.
 
     .. inheritance-diagram:: LruMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -45,6 +47,7 @@ class LruClusterPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePol
     LRU eviction policy with Redis cluster support, single key pair.
 
     .. inheritance-diagram:: LruClusterPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -57,6 +60,7 @@ class LruClusterMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterM
     LRU eviction policy with Redis cluster support, multiple key pairs.
 
     .. inheritance-diagram:: LruClusterMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -69,6 +73,7 @@ class LruTPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     LRU-T (timestamp-based pseudo LRU) eviction policy, single key pair.
 
     .. inheritance-diagram:: LruTPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -81,6 +86,7 @@ class LruTMultiplePolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseMultiplePolic
     LRU-T (timestamp-based pseudo LRU) eviction policy, multiple key pairs.
 
     .. inheritance-diagram:: LruTMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -93,6 +99,7 @@ class LruTClusterPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseClusterSingleP
     LRU-T (timestamp-based pseudo LRU) eviction policy with Redis cluster support, single key pair.
 
     .. inheritance-diagram:: LruTClusterPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -105,6 +112,7 @@ class LruTClusterMultiplePolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseCluste
     LRU-T (timestamp-based pseudo LRU) eviction policy with Redis cluster support, multiple key pairs.
 
     .. inheritance-diagram:: LruTClusterMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """

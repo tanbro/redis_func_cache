@@ -61,6 +61,9 @@ class HashConfig:
 class AbstractHashMixin(ABC):
     """An abstract mixin class for hash function name, source code, and arguments.
 
+    .. inheritance-diagram:: AbstractHashMixin
+        :parts: 1
+
     **Do NOT use the mixin class directly.**
     Override the class attribute :attr:`.__hash_config__` to define the algorithm and serializer.
 
@@ -121,6 +124,7 @@ class JsonMd5HashMixin(AbstractHashMixin):
     and finally returns the digest as bytes.
 
     .. inheritance-diagram:: JsonMd5HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
@@ -133,6 +137,7 @@ class JsonMd5HexHashMixin(AbstractHashMixin):
     and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: JsonMd5HexHashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(
@@ -147,6 +152,7 @@ class JsonMd5Base64HashMixin(AbstractHashMixin):
     and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: JsonMd5Base64HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(
@@ -163,6 +169,7 @@ class JsonSha1HashMixin(AbstractHashMixin):
     and finally returns the digest as bytes.
 
     .. inheritance-diagram:: JsonSha1HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha1", serializer=lambda x: json.dumps(x).encode())
@@ -175,6 +182,7 @@ class JsonSha1HexHashMixin(AbstractHashMixin):
     and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: JsonSha1HexHashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(
@@ -189,6 +197,7 @@ class JsonSha1Base64HashMixin(AbstractHashMixin):
     and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: JsonSha1Base64HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(
@@ -205,6 +214,7 @@ class JsonSha256HashMixin(AbstractHashMixin):
     and finally returns the digest as bytes.
 
     .. inheritance-diagram:: JsonSha256HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha256", serializer=lambda x: json.dumps(x).encode())
@@ -217,6 +227,7 @@ class JsonSha256HexHashMixin(AbstractHashMixin):
     and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: JsonSha256HexHashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(
@@ -231,6 +242,7 @@ class JsonSha256Base64HashMixin(AbstractHashMixin):
     and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: JsonSha256Base64HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(
@@ -247,6 +259,7 @@ class JsonSha512HashMixin(AbstractHashMixin):
     and finally returns the digest as bytes.
 
     .. inheritance-diagram:: JsonSha512HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha512", serializer=lambda x: json.dumps(x).encode())
@@ -259,6 +272,7 @@ class JsonSha512HexHashMixin(AbstractHashMixin):
     and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: JsonSha512HexHashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(
@@ -273,6 +287,7 @@ class JsonSha512Base64HashMixin(AbstractHashMixin):
     and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: JsonSha512Base64HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(
@@ -291,6 +306,7 @@ class PickleMd5HashMixin(AbstractHashMixin):
     It is the default hash mixin.
 
     .. inheritance-diagram:: PickleMd5HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps)
@@ -302,6 +318,7 @@ class PickleMd5HexHashMixin(AbstractHashMixin):
     then calculates the MD5 hash value, and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: PickleMd5HexHashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
@@ -313,6 +330,7 @@ class PickleMd5Base64HashMixin(AbstractHashMixin):
     then calculates the MD5 hash value, and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: PickleMd5Base64HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=b64digest)
@@ -325,6 +343,7 @@ class PickleSha1HashMixin(AbstractHashMixin):
     and finally returns the digest as bytes.
 
     .. inheritance-diagram:: PickleSha1HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps)
@@ -337,6 +356,7 @@ class PickleSha1HexHashMixin(AbstractHashMixin):
     and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: PickleSha1HexHashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
@@ -349,6 +369,7 @@ class PickleSha1Base64HashMixin(AbstractHashMixin):
     and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: PickleSha1Base64HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=b64digest)
@@ -361,6 +382,7 @@ class PickleSha256HashMixin(AbstractHashMixin):
     and finally returns the digest as bytes.
 
     .. inheritance-diagram:: PickleSha256HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps)
@@ -373,6 +395,7 @@ class PickleSha256HexHashMixin(AbstractHashMixin):
     and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: PickleSha256HexHashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
@@ -385,6 +408,7 @@ class PickleSha256Base64HashMixin(AbstractHashMixin):
     and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: PickleSha256Base64HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=b64digest)
@@ -397,6 +421,7 @@ class PickleSha512HashMixin(AbstractHashMixin):
     and finally returns the digest as bytes.
 
     .. inheritance-diagram:: PickleSha512HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps)
@@ -409,6 +434,7 @@ class PickleSha512HexHashMixin(AbstractHashMixin):
     and finally returns the hexadecimal representation of the digest.
 
     .. inheritance-diagram:: PickleSha512HexHashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
@@ -421,6 +447,7 @@ class PickleSha512Base64HashMixin(AbstractHashMixin):
     and finally returns the base64 encoded digest.
 
     .. inheritance-diagram:: PickleSha512Base64HashMixin
+        :parts: 1
     """
 
     __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=b64digest)

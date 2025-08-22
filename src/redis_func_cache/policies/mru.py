@@ -15,6 +15,7 @@ class MruPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, Bas
     MRU eviction policy, single key pair.
 
     .. inheritance-diagram:: MruPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -27,6 +28,7 @@ class MruMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMi
     MRU eviction policy, multiple key pairs.
 
     .. inheritance-diagram:: MruMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -39,6 +41,7 @@ class MruClusterPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMix
     MRU eviction policy with Redis cluster support, single key pair.
 
     .. inheritance-diagram:: MruClusterPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -51,6 +54,7 @@ class MruClusterMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd
     MRU eviction policy with Redis cluster support, multiple key pairs.
 
     .. inheritance-diagram:: MruClusterMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """

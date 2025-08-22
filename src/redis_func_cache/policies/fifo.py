@@ -21,6 +21,7 @@ class FifoPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     FIFO eviction policy, single key pair.
 
     .. inheritance-diagram:: FifoPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -33,6 +34,7 @@ class FifoMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseMultiplePolic
     FIFO eviction policy, multiple key pairs.
 
     .. inheritance-diagram:: FifoMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -45,6 +47,7 @@ class FifoClusterPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterSingleP
     FIFO eviction policy with Redis cluster support, single key pair.
 
     .. inheritance-diagram:: FifoClusterPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -57,6 +60,7 @@ class FifoClusterMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseCluste
     FIFO eviction policy with Redis cluster support, multiple key pairs.
 
     .. inheritance-diagram:: FifoClusterMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -69,6 +73,7 @@ class FifoTPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     FIFO eviction policy (timestamp variant), single key pair.
 
     .. inheritance-diagram:: FifoTPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -81,6 +86,7 @@ class FifoTMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseMultiplePol
     FIFO eviction policy (timestamp variant), multiple key pairs.
 
     .. inheritance-diagram:: FifoTMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -93,6 +99,7 @@ class FifoTClusterPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterSingl
     FIFO eviction policy (timestamp variant) with Redis cluster support, single key pair.
 
     .. inheritance-diagram:: FifoTClusterPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -105,6 +112,7 @@ class FifoTClusterMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClus
     FIFO eviction policy (timestamp variant) with Redis cluster support, multiple key pairs.
 
     .. inheritance-diagram:: FifoTClusterMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """

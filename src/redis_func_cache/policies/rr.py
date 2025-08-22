@@ -12,6 +12,7 @@ class RrPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     Random replacement (RR) eviction policy, single key pair.
 
     .. inheritance-diagram:: RrPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -24,6 +25,7 @@ class RrMultiplePolicy(RrScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     Random replacement (RR) eviction policy, multiple key pairs.
 
     .. inheritance-diagram:: RrMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -36,6 +38,7 @@ class RrClusterPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolic
     Random replacement (RR) eviction policy with Redis cluster support, single key pair.
 
     .. inheritance-diagram:: RrClusterPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -48,6 +51,7 @@ class RrClusterMultiplePolicy(RrScriptsMixin, PickleMd5HashMixin, BaseClusterMul
     Random replacement (RR) eviction policy with Redis cluster support, multiple key pairs.
 
     .. inheritance-diagram:: RrClusterMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """

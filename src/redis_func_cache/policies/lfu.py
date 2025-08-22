@@ -12,6 +12,7 @@ class LfuPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     LFU eviction policy, single key pair.
 
     .. inheritance-diagram:: LfuPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -24,6 +25,7 @@ class LfuMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy)
     LFU eviction policy, multiple key pairs.
 
     .. inheritance-diagram:: LfuMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
@@ -36,6 +38,7 @@ class LfuClusterPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePol
     LFU eviction policy with Redis cluster support, single key pair.
 
     .. inheritance-diagram:: LfuClusterPolicy
+        :parts: 1
 
     All decorated functions share the same Redis key pair.
     """
@@ -48,6 +51,7 @@ class LfuClusterMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterM
     LFU eviction policy with Redis cluster support, multiple key pairs.
 
     .. inheritance-diagram:: LfuClusterMultiplePolicy
+        :parts: 1
 
     Each decorated function has its own Redis key pair.
     """
