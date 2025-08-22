@@ -1,9 +1,9 @@
-__all__ = ("RedisFuncCacheException", "CacheMissError")
+__all__ = ("BaseCacheError", "CacheMissError")
 
 
-class RedisFuncCacheException(Exception):
+class BaseCacheError(Exception):
     pass
 
 
-class CacheMissError(RedisFuncCacheException):
+class CacheMissError(BaseCacheError):
     pass
