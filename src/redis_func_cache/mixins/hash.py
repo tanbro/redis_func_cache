@@ -4,7 +4,6 @@ import hashlib
 import json
 import pickle
 from abc import ABC
-from base64 import b64decode
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
@@ -154,7 +153,7 @@ class JsonMd5Base64HashMixin(AbstractHashMixin):
     __hash_config__ = HashConfig(
         algorithm="md5",
         serializer=lambda x: json.dumps(x).encode(),
-        decoder=lambda x: b64decode(x.digest().decode().rstrip("=")),
+        decoder=b64digest,
     )
 
 
@@ -196,7 +195,7 @@ class JsonSha1Base64HashMixin(AbstractHashMixin):
     __hash_config__ = HashConfig(
         algorithm="sha1",
         serializer=lambda x: json.dumps(x).encode(),
-        decoder=lambda x: b64decode(x.digest().decode().rstrip("=")),
+        decoder=b64digest,
     )
 
 
@@ -238,7 +237,7 @@ class JsonSha256Base64HashMixin(AbstractHashMixin):
     __hash_config__ = HashConfig(
         algorithm="sha256",
         serializer=lambda x: json.dumps(x).encode(),
-        decoder=lambda x: b64decode(x.digest().decode().rstrip("=")),
+        decoder=b64digest,
     )
 
 
@@ -280,7 +279,7 @@ class JsonSha512Base64HashMixin(AbstractHashMixin):
     __hash_config__ = HashConfig(
         algorithm="sha512",
         serializer=lambda x: json.dumps(x).encode(),
-        decoder=lambda x: b64decode(x.digest().decode().rstrip("=")),
+        decoder=b64digest,
     )
 
 
