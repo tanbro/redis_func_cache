@@ -2,7 +2,7 @@
 
 ## v0.5
 
-> 📅 developing (beta-1)
+> 📅 developing (beta-2)
 
 - ✨ **New Features:**
   - Added arguments excluding support for the `RedisFuncCache` class, which makes it possible to cache functions with arguments that cannot be serialized.
@@ -20,7 +20,7 @@
   - Removed `CacheMissError` exception as cache mode behavior is now controlled through bit flags
   - Replaced `modify_mode()` with `mask_mode()` for more accurate naming
 
-- Deprecated:
+- 👎 Deprecated:
   - The property `RedisFuncCache.cache` is deprecated, use `RedisFuncCache.get_cache()` instead
 
 - 🛠 **Improvements:**
