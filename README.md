@@ -146,6 +146,54 @@ flowchart TD
     K --> L[Return User Function Result]
 ```
 
+## Concurrency and atomicity
+
+The library guarantees thread safety and concurrency security through the following design principles:
+
+1. Redis Concurrency
+
+   - The underlying redis-py client is not thread-safe. Each thread should use a separate client instance or a connection pool (`redis.ConnectionPool`) to avoid resource contention.
+   - It is recommended to use a factory pattern with thread-safe locking for client instantiation, preventing race conditions during connection creation. A pre-configured connection pool helps manage Redis connections efficiently and prevents exhaustion under high concurrency.
+   - All Redis operations (e.g., get, put) are executed via Lua scripts to ensure atomicity, preventing race conditions during concurrent access.
+
+   Here is an example using `redis.ConnectionPool` to avoid conflicts when the cache accesses Redis:
+
+   ```python
+   import redis
+   from redis_func_cache import RedisFuncCache, LruPolicy
+
+   redis_pool = redis.ConnectionPool(...)  # Use a pool, not a single client
+   redis_factory = lambda: redis.from_pool(redis_pool)  # Use factory, not a static client
+
+   cache = RedisFuncCache(__name__, LruPolicy, redis_factory)
+
+   @cache
+   def your_concurrent_func(...):
+       ...
+   ```
+
+1. Function Execution Concurrency
+
+   Both synchronous and asynchronous functions decorated by RedisFuncCache are executed as-is. Therefore, each function is responsible for its own thread, coroutine or process safety.
+   The only concurrency risk lies in Redis I/O and operations. The cache will use a synchronous Redis client for synchronous functions and an asynchronous Redis client for asynchronous functions.
+   As described above, you should provide an appropriate Redis client or factory to the cache in concurrent scenarios.
+
+1. Contextual State Isolation
+
+   The [ContextVar](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar) based `disabled()` context manager ensures thread and coroutine isolation. Each thread or async task maintains its own independent state, preventing cross-context interference.
+
+Atomicity is a key feature of this library. All cache operations (both read and write) are implemented using Redis Lua scripts, which are executed atomically by the Redis server. This means that each script runs in its entirety without being interrupted by other operations, ensuring data consistency even under high concurrent load.
+
+Each cache policy implements two Lua scripts:
+- A "get" script that attempts to retrieve a value from cache and updates access information
+- A "put" script that adds or updates a value in cache and performs eviction if necessary
+
+These scripts operate on the cache data structures (a sorted set for tracking items and a hash map for storing values) in a single atomic operation. This prevents race conditions that could occur if multiple Redis commands were issued separately.
+
+For Redis Cluster deployments, it's important to note that atomicity is guaranteed only within a single key's hash slot. Since our implementation uses two keys (a sorted set and a hash map) for each cache instance, both keys are designed to belong to the same hash slot. This ensures that all operations on these keys can be executed atomically within the cluster environment.
+
+This design enables safe operation in both multi-threaded and asynchronous environments while maintaining high-performance Redis I/O throughput. For best results, use the library with Redis 6.0 or newer to take advantage of native Lua script atomicity and advanced connection management features.
+
 ## Usage
 
 ### A simple example
@@ -505,6 +553,58 @@ The `update_ttl` parameter controls the behavior of the cache data structures (s
 > Use fixed TTL when you want predictable cache expiration behavior, regardless of how often cached functions are accessed.
 > Use sliding TTL when you want frequently accessed cached data to remain in cache longer.
 
+### Working with Un-Serializable Arguments
+
+As mentioned in the documentation, the [`RedisFuncCache`][] class does not support functions with un-serializable arguments.
+However, you can work around this issue by:
+
+- Splitting the function into two parts: one with fully serializable arguments (apply the cache decorator to this part), and another that may contain un-serializable arguments (this part calls the first one).
+
+- Using `excludes` and/or `excludes_positional` to exclude un-serializable arguments from key and hash calculations.
+
+This approach is particularly useful for functions such as a database query.
+
+For example, the `pool` argument in the following function is not serializable and can not be cached:
+
+```python
+def get_book(pool: ConnectionPool, book_id: int):
+    connection = pool.get_connection()
+    book = (
+        connection
+        .execute(
+            "SELECT * FROM books WHERE book_id = %s",
+            int(book_id)
+        )
+        .fetchone()
+    )
+    return book.to_dict()
+```
+
+However, we can exclude the `pool` argument from the key and hash calculations, so the function can be cached:
+
+```python
+@cache(excludes=["pool"])
+def get_book(pool: ConnectionPool, book_id: int):
+    ...
+```
+
+### Disable Cache Temporarily
+
+To disable caching temporarily, you can use the `disabled()` context manager:
+
+```python
+@cache(excludes=["pool"])
+def get_book(pool: ConnectionPool, book_id: int):
+    ...
+
+book1 = get_book(pool, book_id=1)
+# book1 will be cached
+
+with cache.disabled():
+    book2 = get_book(pool, book_id=2)
+    # Here, book2 will not be read from database instead of cache
+```
+
 ## Advanced Usage
 
 ### Custom result serializer
@@ -797,96 +897,6 @@ def some_func(*args, **kwargs):
 > 💡 **Tip:**\
 > The purpose of the hash algorithm is to ensure the isolation of cached return values for different function invocations.
 > Therefore, you can generate unique key names using any method, not just hashes.
-
-### Working with Un-Serializable Arguments
-
-As mentioned in the documentation, the [`RedisFuncCache`][] class does not support functions with un-serializable arguments.
-However, you can work around this issue by:
-
-- Splitting the function into two parts: one with fully serializable arguments (apply the cache decorator to this part), and another that may contain un-serializable arguments (this part calls the first one).
-
-- Using `excludes` and/or `excludes_positional` to exclude un-serializable arguments from key and hash calculations.
-
-This approach is particularly useful for functions such as a database query.
-
-For example, the `pool` argument in the following function is not serializable and can not be cached:
-
-```python
-def get_book(pool: ConnectionPool, book_id: int):
-    connection = pool.get_connection()
-    book = (
-        connection
-        .execute(
-            "SELECT * FROM books WHERE book_id = %s",
-            int(book_id)
-        )
-        .fetchone()
-    )
-    return book.to_dict()
-```
-
-However, we can exclude the `pool` argument from the key and hash calculations, so the function can be cached:
-
-```python
-@cache(excludes=["pool"])
-def get_book(pool: ConnectionPool, book_id: int):
-    ...
-```
-
-### Disable Cache Temporarily
-
-To disable caching temporarily, you can use the `disabled()` context manager:
-
-```python
-@cache(excludes=["pool"])
-def get_book(pool: ConnectionPool, book_id: int):
-    ...
-
-book1 = get_book(pool, book_id=1)
-# book1 will be cached
-
-with cache.disabled():
-    book2 = get_book(pool, book_id=2)
-    # Here, book2 will not be read from database instead of cache
-```
-
-## Concurrency
-
-The library guarantees thread safety and concurrency security through the following design principles:
-
-1. Redis Concurrency
-
-   - The underlying redis-py client is not thread-safe. Each thread should use a separate client instance or a connection pool (`redis.ConnectionPool`) to avoid resource contention.
-   - It is recommended to use a factory pattern with thread-safe locking for client instantiation, preventing race conditions during connection creation. A pre-configured connection pool helps manage Redis connections efficiently and prevents exhaustion under high concurrency.
-   - All Redis operations (e.g., get, put) are executed via Lua scripts to ensure atomicity, preventing race conditions during concurrent access.
-
-   Here is an example using `redis.ConnectionPool` to avoid conflicts when the cache accesses Redis:
-
-   ```python
-   import redis
-   from redis_func_cache import RedisFuncCache, LruPolicy
-
-   redis_pool = redis.ConnectionPool(...)  # Use a pool, not a single client
-   redis_factory = lambda: redis.from_pool(redis_pool)  # Use factory, not a static client
-
-   cache = RedisFuncCache(__name__, LruPolicy, redis_factory)
-
-   @cache
-   def your_concurrent_func(...):
-       ..
-   ```
-
-1. Function Execution Concurrency
-
-   Both synchronous and asynchronous functions decorated by RedisFuncCache are executed as-is. Therefore, each function is responsible for its own thread safety.
-   The only concurrency risk lies in Redis I/O and operations. The cache will use a synchronous Redis client for synchronous functions and an asynchronous Redis client for asynchronous functions.
-   As described above, you should provide an appropriate Redis client or factory to the cache in concurrent scenarios.
-
-1. Contextual State Isolation
-
-   The [ContextVar](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar) based `disabled()` context manager ensures thread and coroutine isolation. Each thread or async task maintains its own independent state, preventing cross-context interference.
-
-This design enables safe operation in both multi-threaded and asynchronous environments while maintaining high-performance Redis I/O throughput. For best results, use the library with Redis 6.0 or newer to take advantage of native Lua script atomicity and advanced connection management features.
 
 ## Known Issues
 
