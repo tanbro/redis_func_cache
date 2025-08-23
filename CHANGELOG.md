@@ -16,9 +16,7 @@
 
 - 💔 **Breaking Changes:**
   - Rename `redis_func_cache.mixins.policies` to `redis_func_cache.mixins.scripts`.
-  - Removed deprecated `disabled()`, `put_only()`, and `get_only()` methods in favor of new context managers
-  - Removed `CacheMissError` exception as cache mode behavior is now controlled through bit flags
-  - Replaced `modify_mode()` with `mask_mode()` for more accurate naming
+  - Remove `asynchronous` property and related checks, you must ensure to decorate an async function with a cache instance has asynchronous redis client and a common function with a cache instance has synchronous redis client.
 
 - 👎 Deprecated:
   - The property `RedisFuncCache.cache` is deprecated, use `RedisFuncCache.get_cache()` instead

@@ -64,7 +64,7 @@ else:
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
 from .policies.abstract import AbstractPolicy
-from .typing import CallableTV, RedisClientTV, SerializerName, is_async_redis_client
+from .typing import CallableTV, RedisClientTV, SerializerName
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
@@ -383,11 +383,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         warn("property `client` is deprecated, use `get_client()` instead", DeprecationWarning)
         return self.get_client()
-
-    @property
-    def asynchronous(self) -> bool:
-        """Indicates whether the Redis client is asynchronous."""
-        return is_async_redis_client(self.get_client())
 
     def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
         """Serialize the return value of the decorated function.
@@ -836,17 +831,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             if not callable(user_func):
                 raise TypeError("Can not decorate a non-callable object.")
-            if self.asynchronous:
-                if not iscoroutinefunction(user_func):
-                    raise TypeError(
-                        "The decorated function or method must be a coroutine when using an asynchronous redis client."
-                    )
+            if iscoroutinefunction(user_func):
                 return cast(CallableTV, awrapper)
             else:
-                if iscoroutinefunction(user_func):
-                    raise TypeError(
-                        "The decorated function or method cannot be a coroutine when using a synchronous redis client."
-                    )
                 return cast(CallableTV, wrapper)
 
         if user_function is None:
