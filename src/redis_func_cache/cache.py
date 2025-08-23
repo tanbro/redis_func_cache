@@ -112,6 +112,26 @@ class RedisFuncCache(Generic[RedisClientTV]):
         exec: bool = True
         """Allow function execution"""
 
+    @dataclass
+    class Stats:
+        """A :func:`dataclasses.dataclass` for cache operation statistics.
+
+        .. versionadded:: 0.5
+        """
+
+        count: int = 0
+        """Number of cache operations"""
+        read: int = 0
+        """Number of read operations"""
+        write: int = 0
+        """Number of write operations"""
+        exec: int = 0
+        """Number of function execution operations"""
+        miss: int = 0
+        """Number of cache misses"""
+        hit: int = 0
+        """Number of cache hits"""
+
     def __init__(
         self,
         name: str,
@@ -230,7 +250,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         else:
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
-        self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("_mode", default=RedisFuncCache.Mode())
+        self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=RedisFuncCache.Mode())
+        self._stats: ContextVar[RedisFuncCache.Stats] = ContextVar("stats", default=RedisFuncCache.Stats())
 
     __serializers__: Dict[str, SerializerPairT] = {
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
@@ -595,20 +616,27 @@ class RedisFuncCache(Generic[RedisClientTV]):
             If no cached result is found, it executes the ``user_function``, then calls :meth:`put` to store the result in the cache.
         """
         mode = self._mode.get()
+        stats = self._stats.get()
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
+        stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
         cached = None
         if mode.read:
             cached = self.get(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
-            if cached is not None:
+            stats.read += 1
+            if cached is None:
+                stats.miss += 1
+            else:
+                stats.hit += 1
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = user_function(*user_args, **user_kwds)
+        stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
@@ -624,6 +652,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 options,
                 ext_args,
             )
+            stats.write += 1
         return user_retval
 
     async def aexec(
@@ -658,23 +687,30 @@ class RedisFuncCache(Generic[RedisClientTV]):
             options: Additional options passed from :meth:`decorate`'s `**kwargs`.
         """
         mode = self._mode.get()
+        stats = self._stats.get()
         script_0, script_1 = self.policy.lua_scripts
         if not (
             isinstance(script_0, redis.commands.core.AsyncScript)
             and isinstance(script_1, redis.commands.core.AsyncScript)
         ):
             raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
+        stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
         cached = None
         if mode.read:
             cached = await self.aget(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
-            if cached is not None:
+            stats.read += 1
+            if cached is None:
+                stats.miss += 1
+            else:
+                stats.hit += 1
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = await user_function(*user_args, **user_kwds)
+        stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
@@ -690,6 +726,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 options,
                 ext_args,
             )
+            stats.write += 1
         return user_retval
 
     def decorate(
@@ -870,7 +907,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self._mode.reset(token)
 
     @contextmanager
-    def mode_context(self, mode: RedisFuncCache.Mode) -> Generator[None, None, None]:
+    def mode_context(self, mode: RedisFuncCache.Mode) -> Generator[RedisFuncCache.Mode]:
         """A context manager to control cache behavior.
 
         This context manager allows you to temporarily change cache mode flags.
@@ -899,12 +936,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         token = self._mode.set(mode)
         try:
-            yield
+            yield mode
         finally:
             self._mode.reset(token)
 
     @contextmanager
-    def disable_rw(self) -> Generator[None, None, None]:
+    def disable_rw(self) -> Generator[RedisFuncCache.Mode]:
         """A context manager who disables the cache read and write temporarily.
 
         This wall disable the cache read and write, as if there is no cache.
@@ -923,11 +960,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=False, write=False)
-        with self.mode_context(mode):
-            yield
+        with self.mode_context(mode) as x:
+            yield x
 
     @contextmanager
-    def read_only(self) -> Generator[None, None, None]:
+    def read_only(self) -> Generator[RedisFuncCache.Mode]:
         """A context manager that only reads from cache but does not write to cache.
 
         It doesn't execute the function if the cache was hit.
@@ -948,11 +985,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=True, write=False)
-        with self.mode_context(mode):
-            yield
+        with self.mode_context(mode) as x:
+            yield x
 
     @contextmanager
-    def write_only(self) -> Generator[None, None, None]:
+    def write_only(self) -> Generator[RedisFuncCache.Mode]:
         """A context manager that bypasses cache retrieval but still writes the result to cache.
 
         Example:
@@ -969,5 +1006,22 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=False, write=True)
-        with self.mode_context(mode):
-            yield
+        with self.mode_context(mode) as x:
+            yield x
+
+    @contextmanager
+    def stats_context(self, stats: Optional[RedisFuncCache.Stats] = None) -> Generator[RedisFuncCache.Stats]:
+        """A context manager that yields a stats object.
+
+        Args:
+            stats: The initial ``stats`` object to use. If ``None``, a new stats object will be created.
+
+        .. versionadded:: 0.5
+        """
+        if stats is None:
+            stats = RedisFuncCache.Stats()
+        token = self._stats.set(stats)
+        try:
+            yield stats
+        finally:
+            self._stats.reset(token)
