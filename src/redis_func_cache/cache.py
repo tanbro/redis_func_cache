@@ -101,6 +101,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """A :func:`dataclasses.dataclass` for cache operation mode flags.
 
         Defines how the cache behaves when executing decorated functions.
+
+        .. versionadded:: 0.5
         """
 
         read: bool = True
@@ -166,6 +168,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 - When ``False``, accessing a cached item will not update its TTL.
 
                 Assigned to property :attr:`update_ttl`.
+
+                .. versionadded:: 0.5
 
             prefix: The prefix for cache keys.
 
@@ -366,6 +370,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         Caution:
             When using the factory pattern (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor), **the factory function will be invoked every time this method is called**, and its return value will be used as the method's return value.
+
+        .. versionadded:: 0.5
         """
         if self._redis_instance:
             return self._redis_instance
@@ -846,13 +852,21 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Return a **copy** of the cache mode.
 
         The cache mode inside the class instance is contextual variable, which is thread local and thread safe.
+
+        .. versionadded:: 0.5
         """
         return copy(self._mode.get())
 
     def set_mode(self, mode: RedisFuncCache.Mode) -> Token[RedisFuncCache.Mode]:
+        """
+        .. versionadded:: 0.5
+        """
         return self._mode.set(mode)
 
     def reset_mode(self, token: Token[RedisFuncCache.Mode]):
+        """
+        .. versionadded:: 0.5
+        """
         self._mode.reset(token)
 
     @contextmanager
@@ -881,6 +895,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 with cache.scoped_mode(mode):
                     result = func()  # will be executed without cache write
+
+        .. versionadded:: 0.5
         """
         token = self._mode.set(mode)
         try:
@@ -902,8 +918,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 def func(): ...
 
 
-                with cache.disabled():
+                with cache.disable_rw():
                     result = func()  # will be executed without cache ability
+
+        .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=False, write=False)
         with self.scoped_mode(mode):
@@ -927,6 +945,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 with cache.read_only():
                     result = func()
+
+        .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=True, write=False)
         with self.scoped_mode(mode):
@@ -946,6 +966,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 with cache.disable_read():
                     result = func()  # will be executed and result stored in cache, but not read from cache
+
+        .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=False, write=True)
         with self.scoped_mode(mode):

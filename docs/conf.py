@@ -62,6 +62,9 @@ html_theme_options = {
     "use_download_button": True,
     "use_fullscreen_button": True,
     "use_repository_button": True,
+    "use_issues_button": True,
+    "use_download_button": True,
+    "show_toc_level": 2,
 }
 
 # -- Options for autodoc ----------------------------------------------------
