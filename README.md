@@ -443,7 +443,7 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
     cache = RedisFuncCache("my-cache-5", LruTPolicy, redis_client, ttl=300)
     ```
 
-- per-invocation TTL: The expiration time (in seconds) for each cached item, not the entire cache.
+- per-invocation TTL: (Experimental) The expiration time (in seconds) for each cached item, not the entire cache.
 
   You can set this argument when decorating a function:
 
@@ -457,11 +457,11 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
   The argument's default value is `None`, which means that the cache item will never expire.
 
   > ⁉️ **Caution:**\
-  > This expiration relies on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). Expiration only applies to the hash field (the cached return value), and does **not** reduce the total number of items in the cache when a field expires.
-  > Typically, the cached return value in the HASH portion is automatically released after expiration. However, the corresponding hash key in the ZSET portion is **not** removed automatically. Instead, it is only "lazily" cleaned up when accessed, or removed by the eviction policy when a new value is added. During this period, the ZSET portion continues to occupy memory, and the reported number of cache items does not decrease.
+  > This experimental expiration mechanism relies on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). Expiration only applies to the `HASH` field (the cached return value), and does **not** reduce the total number of items in the cache when a field expires.
+  > Typically, the cached return value in the `HASH` portion is automatically released after expiration. However, the corresponding hash key in the `ZSET` portion is **not** removed automatically. Instead, it is only "lazily" cleaned up when accessed, or removed by the eviction policy when a new value is added. During this period, the `ZSET` portion continues to occupy memory, and the reported number of cache items does not decrease.
 
   > ⚠️ **Warning:**\
-  > This feature requires [Redis][] Open Source version 7.4 or later.
+  > This feature is experimental and requires [Redis][] 7.4 or above.
 
 ### Complex return types
 
@@ -584,34 +584,19 @@ sliding_cache = RedisFuncCache("sliding-cache", LruTPolicy, redis_client, update
 fixed_cache = RedisFuncCache("fixed-cache", LruTPolicy, redis_client, update_ttl=False)
 ```
 
-Or override it at the function level:
-
-```python
-cache = RedisFuncCache("my-cache", LruTPolicy, redis_client)
-
-# Override to use fixed TTL for this specific function
-@cache(update_ttl=False)
-def my_func(x):
-    ...
-
-# Override to use sliding TTL for this specific function
-@cache(update_ttl=True)
-def another_func(x):
-    ...
-```
-
 The `update_ttl` parameter controls the behavior of the cache data structures (sorted set and hash map) as a whole, not individual cached items. It is independent of the per-item TTL (set via the `ttl` parameter in the decorator), which controls the expiration of individual cached function results.
 
-> 💡 **Tip:** \
+> 💡 **Tip:**\
 > Use fixed TTL when you want predictable cache expiration behavior, regardless of how often cached functions are accessed.
 > Use sliding TTL when you want frequently accessed cached data to remain in cache longer.
 
 ### Cache Mode Control
 
-The library provides fine-grained control over cache behavior through the `scoped_mode()` context manager and convenience methods. You can control whether the cache reads from or writes to Redis using the following modes:
+The library provides fine-grained control over cache behavior through the `scoped_mode()` context manager and convenience methods. You can control whether the cache reads from or writes to Redis using the following flags:
 
-- `READ`: Only read from cache
-- `WRITE`: Only write to cache
+- `read` (`bool`): allow read from cache
+- `write` (`bool`): allow write to cache
+- `exec` (`bool`): allow execute function
 
 You can use the `scoped_mode()` context manager to explicitly set any mode:
 
