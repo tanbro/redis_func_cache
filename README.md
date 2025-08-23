@@ -480,7 +480,7 @@ However, we can still use [`pickle`][]. This can be achieved by specifying eithe
 >     __name__,
 >     LruTPolicy,
 >     lambda: Redis.from_url("redis://"),
->     serializer="pickle"
+>     serializer="pickle", # by string
 > )
 >
 > # or like this:
@@ -488,18 +488,18 @@ However, we can still use [`pickle`][]. This can be achieved by specifying eithe
 >     __name__,
 >     LruTPolicy,
 >     lambda: Redis.from_url("redis://"),
->     serializer=(pickle.dumps, pickle.loads)
+>     serializer=(pickle.dumps, pickle.loads) # by tuple of serializer/deserializer functions
 > )
 >
 > # or like this:
 > cache = RedisFuncCache(__name__, LruTPolicy, lambda: Redis.from_url("redis://"))
 >
-> @cache(serializer=(pickle.loads, pickle.dumps))
+> @cache(serializer=(pickle.loads, pickle.dumps)) # set serializer/deserializer in decorator, override that in cache instance
 > def my_func_with_complex_return_value(x):
 >     ...
 >
 > # or just like this:
-> @cache(serializer="pickle")
+> @cache(serializer="pickle") # set serializer/deserializer in decorator, override that in cache instance
 > def my_func_with_complex_return_value(x):
 >     ...
 >
