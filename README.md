@@ -33,20 +33,20 @@ Here is a simple example:
    import asyncio
    from time import time
    import redis.asyncio
-   from redis_func_cache import LruTPolicy, RedisFuncCache
+   from redis_func_cache import LruTPolicy, RedisFuncCache as Cache
 
    # Create a redis client
-   async_redis_client = redis.asyncio.Redis.from_url("redis://")
+   rc = redis.asyncio.Redis.from_url("redis://")
 
    # Create an LRU cache, connecting to Redis using the previously created redis client
-   async_lru_cache = RedisFuncCache(__name__, LruTPolicy, async_redis_client)
+   cache = Cache(__name__, LruTPolicy, rc)
 
-
-   @async_lru_cache  # Decorate a function to cache its result
+   # Decorate a function to cache its result
+   @cache
    async def a_slow_func():
+       t = time()
        await asyncio.sleep(10)  # Sleep to simulate a slow operation
-       return "OK"
-
+       return f"actual duration: {time() - t}"
 
    with asyncio.Runner() as runner:
        t = time()
@@ -61,20 +61,19 @@ Here is a simple example:
 The output should look like:
 
 ```
-duration=10.083423614501953, r='OK'
-duration=0.0015192031860351562, r='OK'
+duration=10.117542743682861, r='1755924146.8998647 ... 1755924156.9133286'
+duration=0.001995563507080078, r='1755924146.8998647 ... 1755924156.9133286'
 ```
 
-We can see that the second call to `a_slow_func()` is served from the cache, which is much faster than the first call.
+We can see that the second call to `a_slow_func()` is served from the cache, which is much faster than the first call, and its result is same as the first call.
 
 ## Features
 
 - Built on [redis-py][], the official Python client for [Redis][].
-- Simple [decorator][] syntax supporting **`async`** and synchronous functions.
-- Supports both **asynchronous** and synchronous I/O.
-- [Redis][] **cluster** integration.
-- Multiple caching policies: LRU, FIFO, LFU, RR.
-- Serialization formats: JSON, Pickle, MsgPack, YAML, BSON, CBOR.
+- Simple [decorator][] syntax supporting both **`async`** and common functions, **asynchronous** and synchronous I/O.
+- Support [Redis][] **cluster**.
+- Multiple caching policies: LRU, FIFO, LFU, RR ...
+- Serialization formats: JSON, Pickle, MsgPack, YAML, BSON, CBOR ...
 
 ## Installation
 
@@ -205,11 +204,11 @@ Using an *LRU* cache to decorate a recursive Fibonacci function:
 
 ```python
 from redis import Redis
-from redis_func_cache import RedisFuncCache, LruTPolicy
+from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
 redis_factory = lambda: Redis("redis://")
 
-lru_cache = RedisFuncCache("my-first-lru-cache", LruTPolicy, redis_factory)
+lru_cache = Cache("my-first-lru-cache", LruTPolicy, redis_factory)
 
 @lru_cache
 def fib(n):
@@ -237,7 +236,7 @@ If we browse the [Redis][] database, we can find the pair of keys' names look li
     The key (with `1` suffix) is a hash map. Each key field in it is the hash value of a function invocation, and the value field is the return value of the function.
 
 > ❗ **Important:**\
-> The `name` **SHOULD** be unique for each [`RedisFuncCache`][] instance.
+> The `name` **MUST** be unique for each [`RedisFuncCache`][] instance.
 > Therefore, we need to choose a unique name carefully using the `name` argument.
 
 ### Async functions
@@ -246,13 +245,13 @@ To decorate async functions, you should pass an `Async Redis client` to [`RedisF
 
 ```python
 from redis.asyncio import Redis as AsyncRedis
-from redis_func_cache import RedisFuncCache, LruTPolicy
+from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
-async_redis_factory = lambda: AsyncRedis.from_url("redis://")
-my_async_cache = RedisFuncCache(__name__, LruTPolicy, async_redis_factory)
+redis_factory = lambda: AsyncRedis.from_url("redis://")
+cache = Cache(__name__, LruTPolicy, redis_factory)
 
-@my_async_cache
-async def my_async_func(*args, **kwargs):
+@cache
+async def my_async_func(...):
     ...
 ```
 
