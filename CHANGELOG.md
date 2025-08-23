@@ -7,8 +7,8 @@
 - ✨ **New Features:**
   - Added arguments excluding support for the `RedisFuncCache` class, which makes it possible to cache functions with arguments that cannot be serialized.
   - Added support for controlling cache TTL update behavior with `update_ttl` parameter.
-  - Enhanced cache mode control with bit-flag based `Mode` enum and new context managers:
-    - `mask_mode()` for applying mode masks using bitwise AND operations
+  - Enhanced cache mode control with context managers:
+    - `mode_context()` for applying mode contextually
     - `disable_rw()` as an alias for completely disabling cache read and write operations
     - `read_only()` for read-only cache mode
     - `write_only()` for write-only cache mode

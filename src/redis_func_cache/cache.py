@@ -870,7 +870,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self._mode.reset(token)
 
     @contextmanager
-    def scoped_mode(self, mode: RedisFuncCache.Mode) -> Generator[None, None, None]:
+    def mode_context(self, mode: RedisFuncCache.Mode) -> Generator[None, None, None]:
         """A context manager to control cache behavior.
 
         This context manager allows you to temporarily change cache mode flags.
@@ -880,7 +880,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         Args:
             mode: The cache mode to use within the context. Can be a combination of Mode bitwise flags.
-
 
         Example:
 
@@ -924,7 +923,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=False, write=False)
-        with self.scoped_mode(mode):
+        with self.mode_context(mode):
             yield
 
     @contextmanager
@@ -949,7 +948,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=True, write=False)
-        with self.scoped_mode(mode):
+        with self.mode_context(mode):
             yield
 
     @contextmanager
@@ -970,5 +969,5 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. versionadded:: 0.5
         """
         mode = replace(self._mode.get(), read=False, write=True)
-        with self.scoped_mode(mode):
+        with self.mode_context(mode):
             yield
