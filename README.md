@@ -1080,7 +1080,7 @@ pre-commit install
 
 ### Module structure
 
-```
+```mermaid
 graph TD
     A[RedisFuncCache] --> B[AbstractPolicy]
     A --> C[Serializer]
@@ -1108,7 +1108,7 @@ graph TD
 
 Core class:
 
-```
+```mermaid
 classDiagram
     class RedisFuncCache {
         -client: RedisClientTV
@@ -1151,7 +1151,7 @@ classDiagram
 
 Strategy pattern and mixins:
 
-```
+```mermaid
 classDiagram
     class LruPolicy {
         __key__ = "lru"
@@ -1183,7 +1183,7 @@ classDiagram
 
 Cluster and multiple-keys support
 
-```
+```mermaid
 classDiagram
     class BaseClusterSinglePolicy {
         +calc_keys(f, args, kwds) -> Tuple[str, str]
@@ -1205,7 +1205,7 @@ classDiagram
 
 Decorator and proxy:
 
-```
+```mermaid
 classDiagram
     class RedisFuncCache {
         +__call__(user_function) -> CallableTV
@@ -1222,7 +1222,7 @@ classDiagram
 
 Weak reference:
 
-```
+```mermaid
 classDiagram
     class AbstractPolicy {
         -_cache: CallableProxyType[RedisFuncCache]
