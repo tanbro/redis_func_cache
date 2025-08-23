@@ -101,19 +101,23 @@ async def test_async_multi_missing():
 
 def test_async_for_sync_type_error():
     for cache in ASYNC_CACHES.values():
-        with pytest.raises(TypeError):
 
-            @cache
-            def _(x):
-                return x
+        @cache
+        def fn(x):
+            return x
+
+        with pytest.raises(TypeError):
+            fn(1)
 
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_sync_for_async_type_error():
     for cache in CACHES.values():
-        with pytest.raises(TypeError):
 
-            @cache
-            async def _(x):
-                await asyncio.sleep(0)
-                return x
+        @cache
+        async def fn(x):
+            await asyncio.sleep(0)
+            return x
+
+        with pytest.raises(TypeError):
+            await fn(1)
