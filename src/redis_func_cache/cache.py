@@ -5,8 +5,9 @@ import pickle
 import weakref
 from collections import OrderedDict
 from contextlib import contextmanager
-from contextvars import ContextVar
-from enum import IntFlag
+from contextvars import ContextVar, Token
+from copy import copy
+from dataclasses import dataclass, replace
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
@@ -95,44 +96,19 @@ class RedisFuncCache(Generic[RedisClientTV]):
     - The cache supports both synchronous and asynchronous Redis clients, but the decorated function must match the redis client's async/sync nature.
     """
 
-    class Mode(IntFlag):
-        """Cache operation mode flags.
+    @dataclass
+    class Mode:
+        """A :func:`dataclasses.dataclass` for cache operation mode flags.
 
         Defines how the cache behaves when executing decorated functions.
-        Flags can be combined using bitwise operations:
-
-        - READ: Allow reading from cache
-        - WRITE: Allow writing to cache
-        - NO_EXEC: Disable function execution
-
-        Example:
-
-          ::
-
-                @cache
-                def func(): ...
-
-
-                # Normal operation (default)
-                result = func()
-
-                # Only read from cache, don't write
-                with cache.mode(RedisFuncCache.Mode.READ):
-                    result = func()
-
-                # Only write to cache, don't read
-                with cache.mode(RedisFuncCache.Mode.WRITE):
-                    result = func()
-
-                # Disable cache completely
-                with cache.mode(0):
-                    result = func()
         """
 
-        NONE = 0
-        READ = 1 << 0
-        WRITE = 1 << 1
-        NO_EXEC = 1 << 2
+        read: bool = True
+        """Allow reading from cache backend"""
+        write: bool = True
+        """Allow writing to cache backend"""
+        exec: bool = True
+        """Allow function execution"""
 
     def __init__(
         self,
@@ -250,9 +226,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         else:
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
-        self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar(
-            "_mode", default=RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE
-        )
+        self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("_mode", default=RedisFuncCache.Mode())
 
     __serializers__: Dict[str, SerializerPairT] = {
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
@@ -590,7 +564,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         deserialize_func: Optional[DeserializerT] = None,
         bound: Optional[BoundArguments] = None,
         field_ttl: int = 0,
-        update_ttl: bool = True,
         **options,
     ) -> Any:
         """Execute the given user function with the provided arguments.
@@ -627,16 +600,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
         cached = None
-        if mode & RedisFuncCache.Mode.READ:
-            cached = self.get(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
+        if mode.read:
+            cached = self.get(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
             if cached is not None:
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
-        if mode & RedisFuncCache.Mode.NO_EXEC:
+        if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = user_function(*user_args, **user_kwds)
         # Only put to cache if mode has WRITE flag
-        if mode & RedisFuncCache.Mode.WRITE:
+        if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
             self.put(
                 script_1,
@@ -644,7 +617,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 hash_value,
                 user_retval_serialized,
                 self.maxsize,
-                update_ttl,
+                self.update_ttl,
                 self.ttl,
                 0 if field_ttl is None else field_ttl,
                 options,
@@ -661,7 +634,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         deserialize_func: Optional[DeserializerT] = None,
         bound: Optional[BoundArguments] = None,
         field_ttl: int = 0,
-        update_ttl: bool = True,
         **options,
     ) -> Any:
         """Asynchronous version of :meth:`.exec`
@@ -694,16 +666,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
         cached = None
-        if mode & RedisFuncCache.Mode.READ:
-            cached = await self.aget(script_0, keys, hash_value, update_ttl, self.ttl, options, ext_args)
+        if mode.read:
+            cached = await self.aget(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
             if cached is not None:
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
-        if mode & RedisFuncCache.Mode.NO_EXEC:
+        if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = await user_function(*user_args, **user_kwds)
         # Only put to cache if mode has WRITE flag
-        if mode & RedisFuncCache.Mode.WRITE:
+        if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
             await self.aput(
                 script_1,
@@ -711,7 +683,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 hash_value,
                 user_retval_serialized,
                 self.maxsize,
-                update_ttl,
+                self.update_ttl,
                 self.ttl,
                 0 if field_ttl is None else field_ttl,
                 options,
@@ -726,7 +698,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         *,
         serializer: Optional[SerializerSetterValueT] = None,
         ttl: Optional[int] = None,
-        update_ttl: Optional[bool] = None,
         excludes: Optional[Sequence[str]] = None,
         excludes_positional: Optional[Sequence[int]] = None,
         **options,
@@ -744,7 +715,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 If assigned, it overwrite the :attr:`serializer` property of the cache instance on the decorated function.
 
-            ttl: The time-to-live (in seconds) for the cached result.
+            ttl: (_Experimental_) The time-to-live (in seconds) for the cached result.
 
                 Note:
                     This parameter specifies the expiration time for a single invocation result, not for the entire cache.
@@ -754,13 +725,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     Therefore, expiration only applies to the hash field and does not decrease the total item count in the cache when a field expires.
 
                 Warning:
-                    Only available in Redis Open Source version above 7.4
-
-            update_ttl: Whether to update the TTL of cached items when they are accessed.
-
-                - If not provided, the default is the value of :attr:`update_ttl`.
-                - When ``True``, accessing a cached item will reset its TTL.
-                - When ``False``, accessing a cached item will not update its TTL.
+                    Experimental and only available in Redis versions above 7.4`
 
             excludes: Optional sequence of parameter names specifying keyword arguments to exclude from cache key generation.
 
@@ -839,7 +804,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         elif serializer is not None:
             serialize_func, deserialize_func = serializer
         field_ttl = 0 if ttl is None else int(ttl)
-        effective_update_ttl = self.update_ttl if update_ttl is None else update_ttl
 
         def decorator(user_func: CallableTV) -> CallableTV:
             @wraps(user_func)
@@ -853,7 +817,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     deserialize_func,
                     bound,
                     field_ttl,
-                    effective_update_ttl,
                     **options,
                 )
 
@@ -868,7 +831,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     deserialize_func,
                     bound,
                     field_ttl,
-                    effective_update_ttl,
                     **options,
                 )
 
@@ -893,45 +855,47 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     __call__ = decorate
 
+    def get_mode(self) -> RedisFuncCache.Mode:
+        """Return a **copy** of the cache mode.
+
+        The cache mode inside the class instance is contextual variable, which is thread local and thread safe.
+        """
+        return copy(self._mode.get())
+
+    def set_mode(self, mode: RedisFuncCache.Mode) -> Token[RedisFuncCache.Mode]:
+        return self._mode.set(mode)
+
+    def reset_mode(self, token: Token[RedisFuncCache.Mode]):
+        self._mode.reset(token)
+
     @contextmanager
-    def mode(self, mode: RedisFuncCache.Mode) -> Generator[None, None, None]:
+    def scoped_mode(self, mode: RedisFuncCache.Mode) -> Generator[None, None, None]:
         """A context manager to control cache behavior.
 
-        Args:
-            mode: The cache mode to use within the context. Can be a combination of Mode flags.
-        """
-        token = self._mode.set(mode)
-        try:
-            yield
-        finally:
-            self._mode.reset(token)
+        This context manager allows you to temporarily change cache mode flags.
+        It's useful for temporarily disabling specific cache capabilities (e.g., disabling cache writes while keeping reads enabled).
 
-    @contextmanager
-    def mask_mode(self, mode: RedisFuncCache.Mode) -> Generator[None, None, None]:
-        """Apply a mode mask using bitwise AND operation to restrict cache capabilities.
-
-        This context manager allows you to temporarily restrict the current cache mode
-        by applying a bitwise AND operation between the current mode and the provided mode mask.
-        It's useful for temporarily disabling specific cache capabilities (e.g., disabling
-        cache writes while keeping reads enabled).
+        The context manager is thread local and thread safe.
 
         Args:
-            mode: The mode mask to apply. Only capabilities present in both the current
-                  mode and this mask will be enabled within the context.
+            mode: The cache mode to use within the context. Can be a combination of Mode bitwise flags.
+
 
         Example:
 
             ::
 
-                # Temporarily disable cache writes (keeping reads if enabled)
-                with cache.mask_mode(~RedisFuncCache.Mode.WRITE):
-                    result = func()  # Only cache reads allowed
+                @cache
+                def func(): ...
 
-                # Temporarily disable cache read and write completely
-                with cache.mask_mode(~(~RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
-                    result = func()  # No cache operations allowed
+
+                mode = cache.get_mode()
+                mode.write = False
+
+                with cache.scoped_mode():
+                    result = func()  # will be executed without cache write
         """
-        token = self._mode.set(self._mode.get() & mode)
+        token = self._mode.set(mode)
         try:
             yield
         finally:
@@ -942,8 +906,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """A context manager who disables the cache read and write temporarily.
 
         This wall disable the cache read and write, as if there is no cache.
-
-        This is equivalent to ``mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE))``.
 
         Example:
 
@@ -956,7 +918,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 with cache.disabled():
                     result = func()  # will be executed without cache ability
         """
-        with self.mask_mode(~(RedisFuncCache.Mode.READ | RedisFuncCache.Mode.WRITE)):
+        mode = replace(self._mode.get(), read=False, write=False)
+        with self.scoped_mode(mode):
             yield
 
     @contextmanager
@@ -966,8 +929,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         It doesn't execute the function if the cache was hit.
 
         A :class:`CacheMissError` will be raised if the cache was missed in readonly mode.
-
-        This is equivalent to ``mask_mode(RedisFuncCache.Mode.READ & ~RedisFuncCache.Mode.WRITE)``.
 
         Example:
 
@@ -980,14 +941,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 with cache.read_only():
                     result = func()
         """
-        with self.mask_mode(RedisFuncCache.Mode.READ & ~RedisFuncCache.Mode.WRITE):
+        mode = replace(self._mode.get(), read=True, write=False)
+        with self.scoped_mode(mode):
             yield
 
     @contextmanager
     def write_only(self) -> Generator[None, None, None]:
         """A context manager that bypasses cache retrieval but still writes the result to cache.
-
-        This is equivalent to ``mask_mode(~RedisFuncCache.Mode.READ & RedisFuncCache.Mode.WRITE)``.
 
         Example:
 
@@ -1000,5 +960,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 with cache.disable_read():
                     result = func()  # will be executed and result stored in cache, but not read from cache
         """
-        with self.mask_mode(~RedisFuncCache.Mode.READ & RedisFuncCache.Mode.WRITE):
+        mode = replace(self._mode.get(), read=False, write=True)
+        with self.scoped_mode(mode):
             yield

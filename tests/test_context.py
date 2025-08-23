@@ -3,6 +3,8 @@ from uuid import uuid4
 
 import pytest
 
+from redis_func_cache.cache import RedisFuncCache
+
 from ._catches import CACHES
 
 
@@ -19,7 +21,7 @@ def clean_caches():
 
 
 @pytest.mark.parametrize("cache_name,cache", CACHES.items())
-def test_disable_rw(cache_name, cache):
+def test_disable_rw(cache_name: str, cache: RedisFuncCache):  # noqa: F821
     """测试 disable_rw 上下文管理器是否正确禁用读写操作。"""
 
     @cache
@@ -30,11 +32,15 @@ def test_disable_rw(cache_name, cache):
     # 正常调用，缓存应生效
     assert echo(val) == val
     with patch.object(cache, "put") as mock_put:
+        assert cache.get_mode().read
+        assert cache.get_mode().write
         assert echo(val) == val
         mock_put.assert_not_called()
 
     # 在 disable_rw 上下文中调用，缓存应完全禁用
     with cache.disable_rw():
+        assert not cache.get_mode().read
+        assert not cache.get_mode().write
         # 直接调用函数，不经过缓存
         with patch.object(cache, "get") as mock_get:
             with patch.object(cache, "put") as mock_put:
@@ -49,6 +55,8 @@ def test_disable_rw(cache_name, cache):
                 assert result == val
 
     # 离开上下文后，缓存应恢复正常
+    assert cache.get_mode().read
+    assert cache.get_mode().write
     with patch.object(cache, "get", return_value=cache.serialize(val)) as mock_get:
         with patch.object(cache, "put") as mock_put:
             result = echo(val)
