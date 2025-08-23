@@ -1081,27 +1081,62 @@ pre-commit install
 ### Module structure
 
 ```mermaid
-graph TD
-    A[RedisFuncCache] --> B[AbstractPolicy]
-    A --> C[Serializer]
-    A --> D[Script Execution]
-    B --> E[BaseSinglePolicy]
-    B --> F[BaseMultiplePolicy]
-    E --> G[FifoPolicy]
-    E --> H[LfuPolicy]
-    E --> I[LruPolicy]
-    E --> J[RrPolicy]
-    G --> K[FifoScriptsMixin]
-    H --> L[LfuScriptsMixin]
-    I --> M[LruScriptsMixin]
-    J --> N[RrScriptsMixin]
-    K --> O[lua/fifo_get.lua]
-    K --> P[lua/fifo_put.lua]
-    M --> Q[lua/lru_get.lua]
-    M --> R[lua/lru_put.lua]
-    A --> S[utils.py]
-    S --> T[b64digest]
-    S --> U[get_callable_bytecode]
+graph LR
+    RedisFuncCache --> AbstractPolicy
+    RedisFuncCache --> Serializer
+    RedisFuncCache --> ScriptExecution
+    AbstractPolicy --> BaseSinglePolicy
+    AbstractPolicy --> BaseMultiplePolicy
+    AbstractPolicy --> BaseClusterSinglePolicy
+    AbstractPolicy --> BaseClusterMultiplePolicy
+    BaseSinglePolicy --> FifoPolicy
+    BaseSinglePolicy --> LfuPolicy
+    BaseSinglePolicy --> LruPolicy
+    BaseSinglePolicy --> MruPolicy
+    BaseSinglePolicy --> RrPolicy
+    BaseSinglePolicy --> LruTPolicy
+    BaseMultiplePolicy --> FifoMultiplePolicy
+    BaseMultiplePolicy --> LfuMultiplePolicy
+    BaseMultiplePolicy --> LruMultiplePolicy
+    BaseMultiplePolicy --> MruMultiplePolicy
+    BaseMultiplePolicy --> RrMultiplePolicy
+    BaseMultiplePolicy --> LruTMultiplePolicy
+    BaseClusterSinglePolicy --> FifoClusterPolicy
+    BaseClusterSinglePolicy --> LfuClusterPolicy
+    BaseClusterSinglePolicy --> LruClusterPolicy
+    BaseClusterSinglePolicy --> MruClusterPolicy
+    BaseClusterSinglePolicy --> RrClusterPolicy
+    BaseClusterSinglePolicy --> LruTClusterPolicy
+    BaseClusterMultiplePolicy --> FifoClusterMultiplePolicy
+    BaseClusterMultiplePolicy --> LfuClusterMultiplePolicy
+    BaseClusterMultiplePolicy --> LruClusterMultiplePolicy
+    BaseClusterMultiplePolicy --> MruClusterMultiplePolicy
+    BaseClusterMultiplePolicy --> RrClusterMultiplePolicy
+    BaseClusterMultiplePolicy --> LruTClusterMultiplePolicy
+    FifoPolicy --> FifoScriptsMixin
+    LfuPolicy --> LfuScriptsMixin
+    LruPolicy --> LruScriptsMixin
+    MruPolicy --> MruScriptsMixin
+    RrPolicy --> RrScriptsMixin
+    LruTPolicy --> LruTScriptsMixin
+    FifoScriptsMixin --> fifo_get.lua
+    FifoScriptsMixin --> fifo_put.lua
+    LruScriptsMixin --> lru_get.lua
+    LruScriptsMixin --> lru_put.lua
+    LruTScriptsMixin --> lru_t_get.lua
+    LruTScriptsMixin --> lru_t_put.lua
+    Serializer --> json
+    Serializer --> pickle
+    Serializer --> msgpack
+    Serializer --> bson
+    Serializer --> yaml
+    Serializer --> cbor
+    Serializer --> cloudpickle
+    ScriptExecution --> redis.commands.core.Script
+    ScriptExecution --> redis.commands.core.AsyncScript
+    RedisFuncCache --> utils.py
+    utils.py --> b64digest
+    utils.py --> get_callable_bytecode
 ```
 
 ### Class Diagrams
@@ -1179,6 +1214,7 @@ classDiagram
 
     BaseSinglePolicy <|-- FifoPolicy
     FifoScriptsMixin -- FifoPolicy
+    PickleMd5HashMixin -- FifoPolicy
 ```
 
 Cluster and multiple-keys support
