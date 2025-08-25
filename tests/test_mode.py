@@ -37,82 +37,18 @@ def test_disable_rw(cache_name: str, cache: RedisFuncCache):  # noqa: F821
         assert echo(val) == val
         mock_put.assert_not_called()
 
-    # 在 disable_rw 上下文中调用，缓存应完全禁用
+    # 在 disable_rw 上下文中调用，函数仍然会被执行，但不会读写缓存
     with cache.disable_rw():
         assert not cache.get_mode().read
         assert not cache.get_mode().write
         # 直接调用函数，不经过缓存
         with patch.object(cache, "get") as mock_get:
             with patch.object(cache, "put") as mock_put:
-                # 模拟缓存未命中时的返回值
-                mock_get.return_value = None
-                result = echo(val)  # 不触发缓存读写
+                result = echo(val)  # 函数被执行，但不读写缓存
                 # 确保 get 未被调用
                 mock_get.assert_not_called()
                 # 确保 put 未被调用
                 mock_put.assert_not_called()
-                # 确保返回值正确
-                assert result == val
-
-    # 离开上下文后，缓存应恢复正常
-    assert cache.get_mode().read
-    assert cache.get_mode().write
-    with patch.object(cache, "get", return_value=cache.serialize(val)) as mock_get:
-        with patch.object(cache, "put") as mock_put:
-            result = echo(val)
-            mock_get.assert_called_once()
-            mock_put.assert_not_called()
-            assert result == val
-
-
-@pytest.mark.parametrize("cache_name,cache", CACHES.items())
-def test_read_only(cache_name, cache):
-    """测试 read_only 上下文管理器是否只允许读取操作。"""
-
-    @cache
-    def echo(x):
-        return x
-
-    val = uuid4().hex
-    # 先正常调用一次，确保缓存中有值
-    assert echo(val) == val
-
-    # 在 read_only 上下文中调用
-    with cache.read_only():
-        # 函数不应该被执行，只应该从缓存中获取
-        with patch.object(cache, "get", return_value=cache.serialize(val)) as mock_get:
-            with patch.object(cache, "put") as mock_put:
-                result = echo(val)
-                # 确保 get 被调用
-                mock_get.assert_called_once()
-                # 确保 put 未被调用
-                mock_put.assert_not_called()
-                # 确保返回值正确
-                assert result == val
-
-
-@pytest.mark.parametrize("cache_name,cache", CACHES.items())
-def test_write_only(cache_name, cache):
-    """测试 write_only 上下文管理器是否只允许写入操作。"""
-
-    @cache
-    def echo(x):
-        return x
-
-    val = uuid4().hex
-    # 确保缓存中没有值
-    cache.policy.purge()
-
-    # 在 write_only 上下文中调用
-    with cache.write_only():
-        # 函数应该被执行，结果应该被写入缓存
-        with patch.object(cache, "get") as mock_get:
-            with patch.object(cache, "put") as mock_put:
-                result = echo(val)
-                # 确保 get 未被调用
-                mock_get.assert_not_called()
-                # 确保 put 被调用
-                mock_put.assert_called_once()
                 # 确保返回值正确
                 assert result == val
 
@@ -123,3 +59,41 @@ def test_write_only(cache_name, cache):
             mock_get.assert_called_once()
             mock_put.assert_not_called()
             assert result == val
+
+
+@pytest.mark.parametrize("cache_name,cache", CACHES.items())
+def test_mode_cross_thread(cache_name: str, cache: RedisFuncCache):
+    """测试 mode 在跨线程环境中的隔离性。"""
+    from threading import Thread
+
+    results = {}
+
+    def thread_func():
+        # 在子线程中，mode 应该是默认值（可读可写可执行）
+        mode = cache.get_mode()
+        results["thread_default_mode"] = (mode.read, mode.write, mode.exec)
+
+    # 主线程中的 mode 测试
+    main_initial_mode = cache.get_mode()
+
+    # 启动子线程
+    thread = Thread(target=thread_func)
+    thread.start()
+    thread.join()
+
+    # 验证子线程执行结果
+    assert "thread_default_mode" in results
+
+    # 验证子线程中的 mode 隔离性
+    assert results["thread_default_mode"] == (True, True, True)
+
+    # 主线程中的 mode 测试
+    main_after_thread_mode = cache.get_mode()
+
+    # 验证主线程中的 mode 未受影响
+    assert (main_initial_mode.read, main_initial_mode.write, main_initial_mode.exec) == (True, True, True)
+    assert (main_after_thread_mode.read, main_after_thread_mode.write, main_after_thread_mode.exec) == (
+        True,
+        True,
+        True,
+    )

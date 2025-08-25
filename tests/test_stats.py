@@ -102,6 +102,63 @@ def test_stats_context_basic(cache_name: str, cache: RedisFuncCache):
 
 
 @pytest.mark.parametrize("cache_name,cache", list(CACHES.items()) + list(MULTI_CACHES.items()))
+def test_stats_context_cross_thread(cache_name: str, cache: RedisFuncCache):
+    """测试 stats 在跨线程环境中的隔离性。"""
+    from threading import Thread
+
+    results = {}
+
+    @cache
+    def echo(x):
+        return x
+
+    val1 = uuid4().hex
+    val2 = uuid4().hex
+
+    # 主线程中使用 stats_context
+    with cache.stats_context() as main_stats:
+        # 主线程调用
+        assert echo(val1) == val1
+        assert echo(val1) == val1  # 第二次调用，应该命中缓存
+        assert echo(val1) == val1  # 第三次调用，应该命中缓存
+
+        def thread_func():
+            # 子线程中，应该使用自己的 stats 上下文
+            with cache.stats_context() as thread_stats:
+                # 子线程调用
+                assert echo(val2) == val2
+                assert echo(val2) == val2  # 第二次调用，应该命中缓存
+
+                results["thread_stats"] = {
+                    "count": thread_stats.count,
+                    "hit": thread_stats.hit,
+                    "miss": thread_stats.miss,
+                }
+
+        # 启动子线程
+        thread = Thread(target=thread_func)
+        thread.start()
+        thread.join()
+
+        # 主线程继续调用
+        assert echo(val1) == val1  # 第四次调用，应该命中缓存
+
+    # 验证统计结果的隔离性
+    # 主线程中的统计
+    assert main_stats.count == 4  # 4次调用
+    assert main_stats.hit == 3  # 3次命中
+    assert main_stats.miss == 1  # 1次未命中
+
+    # 子线程中的统计
+    assert results["thread_stats"]["count"] == 2  # 2次调用
+    assert results["thread_stats"]["hit"] == 1  # 1次命中
+    assert results["thread_stats"]["miss"] == 1  # 1次未命中
+
+    # 验证线程间的统计隔离
+    assert main_stats.count != results["thread_stats"]["count"]
+
+
+@pytest.mark.parametrize("cache_name,cache", list(CACHES.items()) + list(MULTI_CACHES.items()))
 def test_stats_context_reuse_stats_object(cache_name: str, cache: RedisFuncCache):
     """测试重用 Stats 对象。"""
 

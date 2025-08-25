@@ -137,3 +137,52 @@ class TestAsyncContext:
                 mock_get.assert_called_once()
                 mock_put.assert_not_called()
                 assert result == val
+
+    @pytest.mark.asyncio
+    async def test_mode_cross_coroutine(self, cache):
+        """测试 mode 在跨 coroutine 环境中的隔离性。"""
+        from asyncio import create_task
+
+        @cache
+        async def echo(x):
+            await asyncio.sleep(0)
+            return x
+
+        results = {}
+
+        async def coroutine_func():
+            # 在子协程中，mode 应该是默认值（可读可写可执行）
+            mode = cache.get_mode()
+            results["initial_mode"] = (mode.read, mode.write, mode.exec)
+
+            # 在子协程中修改 mode
+            with cache.disable_rw():
+                mode = cache.get_mode()
+                results["disabled_mode"] = (mode.read, mode.write, mode.exec)
+
+            # 离开上下文后，mode 应该恢复为默认值
+            mode = cache.get_mode()
+            results["restored_mode"] = (mode.read, mode.write, mode.exec)
+
+        # 主线程中的 mode 测试
+        main_initial_mode = cache.get_mode()
+
+        # 启动子协程
+        task = create_task(coroutine_func())
+        await task
+
+        # 验证子协程中的 mode 隔离性
+        assert results["initial_mode"] == (True, True, True)
+        assert results["disabled_mode"] == (False, False, True)  # read=False, write=False, exec=True
+        assert results["restored_mode"] == (True, True, True)
+
+        # 主线程中的 mode 测试
+        main_after_coroutine_mode = cache.get_mode()
+
+        # 验证主线程中的 mode 未受影响
+        assert (main_initial_mode.read, main_initial_mode.write, main_initial_mode.exec) == (True, True, True)
+        assert (main_after_coroutine_mode.read, main_after_coroutine_mode.write, main_after_coroutine_mode.exec) == (
+            True,
+            True,
+            True,
+        )
