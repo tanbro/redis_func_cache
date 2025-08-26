@@ -23,6 +23,7 @@
   - The property `RedisFuncCache.cache` is deprecated, use `RedisFuncCache.get_cache()` instead
 
 - 🛠 **Improvements:**
+  - Optimized Lua scripts for better performance
   - Improved documentation and examples for cache mode control
   - Enhanced test coverage for new cache mode context managers
 
