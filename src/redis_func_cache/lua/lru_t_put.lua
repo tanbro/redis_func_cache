@@ -34,11 +34,11 @@ local hmap_exists = redis.call('EXISTS', hmap_key)
 
 -- If either zset or hash doesn't exist, clean up the other one
 if zset_exists == 0 or hmap_exists == 0 then
-    if zset_exists == 1 then
-        redis.call('DEL', zset_key)
+      if zset_exists == 1 then
+        redis.call('UNLINK', zset_key)
     end
     if hmap_exists == 1 then
-        redis.call('DEL', hmap_key)
+        redis.call('UNLINK', hmap_key)
     end
     -- Reset existence flags since we just deleted them
     zset_exists = 0
@@ -66,16 +66,23 @@ else
     -- Hash does not exist in zset
     if maxsize > 0 then
         local n = redis.call('ZCARD', zset_key) - maxsize
-        while n >= 0 do
-            local popped
+        if n >= 0 then
+            local count = n + 1
+            local popped_keys
             if is_mru then
-                popped = redis.call('ZPOPMAX', zset_key) -- MRU eviction
+                popped_keys = redis.call('ZPOPMAX', zset_key, count) -- MRU eviction with batch pop
             else
-                popped = redis.call('ZPOPMIN', zset_key) -- LRU eviction
+                popped_keys = redis.call('ZPOPMIN', zset_key, count) -- LRU eviction with batch pop
             end
-            redis.call('HDEL', hmap_key, popped[1])
-            n = n - 1
-            c = c + 1
+
+            if #popped_keys > 0 then
+                local keys = {}
+                for i = 1, #popped_keys, 2 do
+                    table.insert(keys, popped_keys[i])
+                end
+                redis.call('HDEL', hmap_key, unpack(keys))
+                c = #keys
+            end
         end
     end
     local time = redis.call('TIME')

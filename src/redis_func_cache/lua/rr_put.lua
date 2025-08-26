@@ -29,10 +29,10 @@ local hmap_exists = redis.call('EXISTS', hmap_key)
 -- If either set or hash doesn't exist, clean up the other one
 if set_exists == 0 or hmap_exists == 0 then
     if set_exists == 1 then
-        redis.call('DEL', set_key)
+        redis.call('UNLINK', set_key)
     end
     if hmap_exists == 1 then
-        redis.call('DEL', hmap_key)
+        redis.call('UNLINK', hmap_key)
     end
     -- Reset existence flags since we just deleted them
     set_exists = 0
@@ -57,11 +57,18 @@ else
     -- Hash does not exist in set
     if maxsize > 0 then
         local n = redis.call('SCARD', set_key) - maxsize
-        while n >= 0 do
-            local popped = redis.call('SPOP', set_key) -- evict random member
-            redis.call('HDEL', hmap_key, popped)
-            n = n - 1
-            c = c + 1
+        if n >= 0 then
+            local popped_keys = {}
+            for i = 1, n + 1 do
+                local popped = redis.call('SPOP', set_key) -- evict random member
+                if popped then
+                    table.insert(popped_keys, popped)
+                end
+            end
+            if #popped_keys > 0 then
+                redis.call('HDEL', hmap_key, unpack(popped_keys))
+                c = #popped_keys
+            end
         end
     end
     redis.call('SADD', set_key, hash)

@@ -35,10 +35,10 @@ local hmap_exists = redis.call('EXISTS', hmap_key)
 -- If either zset or hash doesn't exist, clean up the other one
 if zset_exists == 0 or hmap_exists == 0 then
     if zset_exists == 1 then
-        redis.call('DEL', zset_key)
+        redis.call('UNLINK', zset_key)
     end
     if hmap_exists == 1 then
-        redis.call('DEL', hmap_key)
+        redis.call('UNLINK', hmap_key)
     end
     -- Reset existence flags since we just deleted them
     zset_exists = 0
@@ -63,16 +63,23 @@ else
     -- Hash does not exist in zset
     if maxsize > 0 then
         local n = redis.call('ZCARD', zset_key) - maxsize
-        while n >= 0 do
-            local popped
+        if n >= 0 then
+            local count
             if is_mru then
-                popped = redis.call('ZPOPMAX', zset_key) -- MRU eviction
+                -- MRU eviction: remove highest scores (most recently used)
+                count = redis.call('ZREMRANGEBYSCORE', zset_key, '+inf', '-inf', 'LIMIT', 0, n + 1)
             else
-                popped = redis.call('ZPOPMIN', zset_key) -- LRU eviction
+                -- LRU eviction: remove lowest scores (least recently used)
+                count = redis.call('ZREMRANGEBYRANK', zset_key, 0, n)
             end
-            redis.call('HDEL', hmap_key, popped[1])
-            n = n - 1
-            c = c + 1
+            if count > 0 then
+                -- Get the evicted keys
+                local evicted_keys = redis.call('ZRANGE', zset_key, 0, count - 1)
+                if #evicted_keys > 0 then
+                    redis.call('HDEL', hmap_key, unpack(evicted_keys))
+                end
+                c = count
+            end
         end
     end
 
