@@ -14,6 +14,7 @@
     - `RedisFuncCache.write_only()` for write-only cache mode
   - Added new `RedisFuncCache.Stats` class for cache statistics, and `RedisFuncCache.stats_context()` for retrieving cache statistics.
   - Added support for per-invocation's cache TTL(experimental).
+  - Added `use_bytecode` attribute to `HashConfig` class.
 
 - 💔 **Breaking Changes:**
   - Rename `redis_func_cache.mixins.policies` to `redis_func_cache.mixins.scripts`.

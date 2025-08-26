@@ -56,6 +56,11 @@ class HashConfig:
 
     Default is :data:`None`, means no convert and use the digested bytes directly.
     """
+    use_bytecode: bool = True
+    """whether to use bytecode of the function to calculate hash.
+
+    .. versionadded:: 0.5
+    """
 
 
 class AbstractHashMixin(ABC):
@@ -109,7 +114,8 @@ class AbstractHashMixin(ABC):
         conf = self.__hash_config__
         hash = hashlib.new(conf.algorithm)
         hash.update(f"{f.__module__}:{f.__qualname__}".encode())
-        hash.update(get_callable_bytecode(f))
+        if conf.use_bytecode:
+            hash.update(get_callable_bytecode(f))
         if args is not None:
             hash.update(conf.serializer(args))
         if kwds is not None:
