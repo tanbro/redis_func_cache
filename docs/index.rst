@@ -40,6 +40,7 @@ Contents
 
    README
    CHANGELOG
+   CONTRIBUTING
    AUTHORS
    LICENSE
 

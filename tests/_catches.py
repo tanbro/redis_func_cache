@@ -60,8 +60,8 @@ async def close_async_redis_client():
     global async_redis_client
     if async_redis_client is not None:
         # 使用 aclose() 而不是 close() 以避免弃用警告
-        if hasattr(async_redis_client, "aclose"):
-            await async_redis_client.aclose()
+        if aclose := getattr(async_redis_client, "aclose", None):
+            await aclose()
         else:
             await async_redis_client.close()
         async_redis_client = None
@@ -153,8 +153,8 @@ async def close_all_async_resources():
         tasks = []
         for cache in ASYNC_CACHES.values():
             try:
-                if hasattr(cache.client, "aclose"):
-                    tasks.append(cache.client.aclose())
+                if aclose := getattr(cache.client, "aclose", None):
+                    tasks.append(aclose())
                 elif hasattr(cache.client, "close"):
                     tasks.append(cache.client.close())
             except Exception:
@@ -163,8 +163,8 @@ async def close_all_async_resources():
 
         for cache in ASYNC_MULTI_CACHES.values():
             try:
-                if hasattr(cache.client, "aclose"):
-                    tasks.append(cache.client.aclose())
+                if aclose := getattr(cache.client, "aclose", None):
+                    tasks.append(aclose())
                 elif hasattr(cache.client, "close"):
                     tasks.append(cache.client.close())
             except Exception:

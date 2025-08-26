@@ -111,7 +111,6 @@ def clean_lua_script(source: str) -> str:
         code = "".join(tok_str for _, tok_str in lexer.get_tokens(source))
         # remote empty lines
         return "\n".join(s for line in code.splitlines() if (s := line.strip()))
-
     else:  # pragma: no cover
         return source
 
