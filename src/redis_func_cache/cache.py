@@ -934,7 +934,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 mode = cache.get_mode()
                 mode.write = False
 
-                with cache.scoped_mode(mode):
+                with cache.mode_context(mode):
                     result = func()  # will be executed without cache write
 
         .. versionadded:: 0.5
