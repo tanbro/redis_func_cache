@@ -109,7 +109,7 @@ intersphinx_mapping = {
     "redis": ("https://redis.readthedocs.io/en/stable/", None),
     "pymongo": ("https://pymongo.readthedocs.io/en/stable/", None),
     "msgpack": ("https://msgpack-python.readthedocs.io/en/stable/", None),
-    "pygments": ("https://pygments.org/docs/", None),
+    "pygments": ("https://pygments.org/", None),
 }
 
 # -- Options for Napoleon settings ---------------------------------------

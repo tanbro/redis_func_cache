@@ -15,6 +15,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..typing import Hash
 
 __all__ = (
+    "HashConfig",
     "AbstractHashMixin",
     "JsonMd5HashMixin",
     "JsonMd5HexHashMixin",
@@ -45,16 +46,19 @@ __all__ = (
 
 @dataclass(frozen=True)
 class HashConfig:
-    """Configurator for :class:`.AbstractHashMixin`"""
+    """A :func:`dataclasses.dataclass` Configurator for :class:`.AbstractHashMixin`"""
 
     serializer: Callable[[Any], bytes]
-    """function to serialize function name, source code, and arguments"""
+    """function to serialize function positional and keyword arguments."""
     algorithm: str
-    """name for hashing algorithm"""
-    decoder: Optional[Callable[[Hash], KeyT]] = None
-    """function to convert hash digest to member of a sorted/unsorted set and also field name of a hash map in redis.
+    """name for hashing algorithm
 
-    Default is :data:`None`, means no convert and use the digested bytes directly.
+    The name must be supported by :mod:`hashlib`.
+    """
+    decoder: Optional[Callable[[Hash], KeyT]] = None
+    """function to decode hash digest to member of a sorted/unsorted set and also field name of a hash map in redis.
+
+    Default is :data:`None`, means no decoding and to use the raw digest bytes directly.
     """
     use_bytecode: bool = True
     """whether to use bytecode of the function to calculate hash.
@@ -70,11 +74,7 @@ class AbstractHashMixin(ABC):
         :parts: 1
 
     **Do NOT use the mixin class directly.**
-    Override the class attribute :attr:`.__hash_config__` to define the algorithm and serializer.
-
-    Attributes:
-        __hash_config__: Configure of how to calculate hash for a function.
-
+    Inherit it and override the :attr:`.__hash_config__` to define the algorithm and serializer.
 
     Example:
 
@@ -82,6 +82,9 @@ class AbstractHashMixin(ABC):
 
             class Md5JsonHashMixin(AbstractHashMixin):
                 __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
+
+    Attributes:
+        __hash_config__: Configure of how to calculate hash for a function.
     """
 
     __hash_config__: HashConfig
