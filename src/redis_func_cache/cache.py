@@ -172,15 +172,15 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             maxsize: The maximum size of the cache.
 
-                - If not provided, the default is :data:`.DEFAULT_MAXSIZE`.
-                - Zero or negative values means no limit.
+                - If ``None`` or not provided, the default is :data:`.DEFAULT_MAXSIZE`.
+                - Zero or negative values will cause a :class:`ValueError`.
 
                 Assigned to property :attr:`maxsize`.
 
             ttl: The time-to-live (in seconds) for the whole cache data structures on Redis backend.
 
-                - If not provided, the default is :data:`.DEFAULT_TTL`.
-                - Zero or negative values means no set ttl.
+                - If ``None`` or not provided, the default is :data:`.DEFAULT_TTL`.
+                - Zero or negative values will cause a :class:`ValueError`.
 
                 Assigned to property :attr:`ttl`.
 
