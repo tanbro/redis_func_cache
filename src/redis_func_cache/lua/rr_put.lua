@@ -58,14 +58,15 @@ else
     if maxsize > 0 then
         local n = redis.call('SCARD', set_key) - maxsize
         if n >= 0 then
-            local popped_keys = {}
-            for i = 1, n + 1 do
-                local popped = redis.call('SPOP', set_key) -- evict random member
-                if popped then
-                    table.insert(popped_keys, popped)
-                end
-            end
-            if #popped_keys > 0 then
+            -- SPOP: Removes and returns one or more random members from the set value store at key
+            local popped_keys = redis.call('SPOP', set_key, n + 1) -- evict random members
+
+            if type(popped_keys) == "string" then
+                -- What returned by SPOP is a string when only one element is popped
+                redis.call('HDEL', hmap_key, popped_keys)
+                c = 1
+            elseif type(popped_keys) == "table" and #popped_keys > 0 then
+                -- what returned by SPOP is a table when multiple elements are popped
                 redis.call('HDEL', hmap_key, unpack(popped_keys))
                 c = #popped_keys
             end

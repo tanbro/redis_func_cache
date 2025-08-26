@@ -58,13 +58,15 @@ else
     if maxsize > 0 then
         local n = redis.call('ZCARD', zset_key) - maxsize
         if n >= 0 then
+            -- Use batch ZPOPMIN instead of looping calls
+            local popped_keys_data = redis.call('ZPOPMIN', zset_key, n + 1) -- evict least frequently used
+
+            -- Extract keys from returned data (ZPOPMIN returns [key,score,key,score,...] format)
             local popped_keys = {}
-            for i = 1, n + 1 do
-                local popped = redis.call('ZPOPMIN', zset_key) -- evict least frequently used
-                if popped[1] then
-                    table.insert(popped_keys, popped[1])
-                end
+            for i = 1, #popped_keys_data, 2 do
+                table.insert(popped_keys, popped_keys_data[i])
             end
+
             if #popped_keys > 0 then
                 redis.call('HDEL', hmap_key, unpack(popped_keys))
                 c = #popped_keys
