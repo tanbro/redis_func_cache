@@ -73,6 +73,8 @@ class AbstractHashMixin(ABC):
     .. inheritance-diagram:: AbstractHashMixin
         :parts: 1
 
+    The hash result is used inside the redis (ordered) set and hash map in redis, aka the sub-key.
+
     **Do NOT use the mixin class directly.**
     Inherit it and override the :attr:`.__hash_config__` to define the algorithm and serializer.
 

@@ -257,27 +257,27 @@ class RedisFuncCache(Generic[RedisClientTV]):
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
         "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
     }
-    if bson:
+    if bson is not None:
         __serializers__["bson"] = (
             lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if msgpack:
+    if msgpack is not None:
         __serializers__["msgpack"] = (  # pyright: ignore[reportArgumentType]
             lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if cbor2:
+    if cbor2 is not None:
         __serializers__["cbor"] = (
             lambda x: cbor2.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: cbor2.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if yaml:
+    if yaml is not None:
         __serializers__["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
             lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
         )
-    if cloudpickle:
+    if cloudpickle is not None:
         __serializers__["cloudpickle"] = (
             lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
@@ -285,7 +285,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def name(self) -> str:
-        """The name of the cache manager."""
+        """The name of the cache instance."""
         return self._name
 
     @name.setter
@@ -309,7 +309,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def maxsize(self) -> int:
-        """The cache's maximum size."""
+        """The cache's maximum capacity size."""
         return self._maxsize
 
     @maxsize.setter
@@ -320,7 +320,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def ttl(self) -> int:
-        """The time-to-live (in seconds) for cache items."""
+        """The time-to-live (in seconds) of the whole cache structure."""
         return self._ttl
 
     @ttl.setter
@@ -331,7 +331,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def update_ttl(self) -> bool:
-        """Whether to update the TTL of cache items."""
+        """Whether to update the TTL of whole cache structure each time accessed."""
         return self._update_ttl
 
     @update_ttl.setter
