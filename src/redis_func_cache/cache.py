@@ -443,7 +443,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def get(
         cls,
         script: redis.commands.core.Script,
-        key_pair: Tuple[KeyT, KeyT],
+        keys: Tuple[KeyT, KeyT],
         hash_value: KeyT,
         update_ttl: bool,
         ttl: int,
@@ -465,13 +465,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        return script(keys=key_pair, args=chain((int(update_ttl), ttl, hash_value, encoded_options), ext_args))
+        return script(keys=keys, args=chain((int(update_ttl), ttl, hash_value, encoded_options), ext_args))
 
     @classmethod
     async def aget(
         cls,
         script: redis.commands.core.AsyncScript,
-        key_pair: Tuple[KeyT, KeyT],
+        keys: Tuple[KeyT, KeyT],
         hash_: KeyT,
         update_ttl: bool,
         ttl: int,
@@ -481,13 +481,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Async version of :meth:`get`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        return await script(keys=key_pair, args=chain((int(update_ttl), ttl, hash_, encoded_options), ext_args))
+        return await script(keys=keys, args=chain((int(update_ttl), ttl, hash_, encoded_options), ext_args))
 
     @classmethod
     def put(
         cls,
         script: redis.commands.core.Script,
-        key_pair: Tuple[KeyT, KeyT],
+        keys: Tuple[KeyT, KeyT],
         hash_value: KeyT,
         value: EncodableT,
         maxsize: int,
@@ -514,7 +514,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         script(
-            keys=key_pair,
+            keys=keys,
             args=chain((maxsize, int(update_ttl), ttl, hash_value, value, field_ttl, encoded_options), ext_args),
         )
 
@@ -522,7 +522,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     async def aput(
         cls,
         script: redis.commands.core.AsyncScript,
-        key_pair: Tuple[KeyT, KeyT],
+        keys: Tuple[KeyT, KeyT],
         hash_: KeyT,
         value: EncodableT,
         maxsize: int,
@@ -536,8 +536,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         await script(
-            keys=key_pair,
-            args=chain((maxsize, int(update_ttl), ttl, hash_, value, field_ttl, encoded_options), ext_args),
+            keys=keys, args=chain((maxsize, int(update_ttl), ttl, hash_, value, field_ttl, encoded_options), ext_args)
         )
 
     @classmethod
