@@ -251,7 +251,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=RedisFuncCache.Mode())
-        self._stats: ContextVar[RedisFuncCache.Stats] = ContextVar("stats", default=RedisFuncCache.Stats())
+        self._stats: ContextVar[Optional[RedisFuncCache.Stats]] = ContextVar("stats", default=None)
 
     __serializers__: Dict[str, SerializerPairT] = {
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
@@ -619,23 +619,28 @@ class RedisFuncCache(Generic[RedisClientTV]):
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
-        stats.count += 1
+        if stats:
+            stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
         cached = None
         if mode.read:
             cached = self.get(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
-            stats.read += 1
+            if stats:
+                stats.read += 1
             if cached is None:
-                stats.miss += 1
+                if stats:
+                    stats.miss += 1
             else:
-                stats.hit += 1
+                if stats:
+                    stats.hit += 1
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = user_function(*user_args, **user_kwds)
-        stats.exec += 1
+        if stats:
+            stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
@@ -651,7 +656,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 options,
                 ext_args,
             )
-            stats.write += 1
+            if stats:
+                stats.write += 1
         return user_retval
 
     async def aexec(
@@ -693,23 +699,28 @@ class RedisFuncCache(Generic[RedisClientTV]):
             and isinstance(script_1, redis.commands.core.AsyncScript)
         ):
             raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
-        stats.count += 1
+        if stats:
+            stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
         cached = None
         if mode.read:
             cached = await self.aget(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
-            stats.read += 1
+            if stats:
+                stats.read += 1
             if cached is None:
-                stats.miss += 1
+                if stats:
+                    stats.miss += 1
             else:
-                stats.hit += 1
+                if stats:
+                    stats.hit += 1
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = await user_function(*user_args, **user_kwds)
-        stats.exec += 1
+        if stats:
+            stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
@@ -725,7 +736,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 options,
                 ext_args,
             )
-            stats.write += 1
+            if stats:
+                stats.write += 1
         return user_retval
 
     def decorate(
