@@ -2,18 +2,19 @@
 
 ## v0.5
 
-> 📅 developing (beta-2)
+> 📅 2025-08-26
 
 - ✨ **New Features:**
   - Added arguments excluding support for the `RedisFuncCache` class, which makes it possible to cache functions with arguments that cannot be serialized.
   - Added support for controlling cache TTL update behavior with `update_ttl` parameter.
-  - Enhanced cache mode control with context managers:
+  - Enhanced cache mode control with mode context managers:
     - `RedisFuncCache.mode_context()` for applying mode contextually
     - `RedisFuncCache.disable_rw()` as an alias for completely disabling cache read and write operations
     - `RedisFuncCache.read_only()` for read-only cache mode
     - `RedisFuncCache.write_only()` for write-only cache mode
-  - Added new `RedisFuncCache.Stats` class for cache statistics, and `RedisFuncCache.stats_context()` for retrieving cache statistics.
+  - Added new `RedisFuncCache.Stats` class for cache statistics, and `RedisFuncCache.stats_context()` for retrieving cache statistics in a context manager.
   - Added support for per-invocation's cache TTL(experimental).
+  - Added `use_bytecode` attribute to `HashConfig` class.
 
 - 💔 **Breaking Changes:**
   - Rename `redis_func_cache.mixins.policies` to `redis_func_cache.mixins.scripts`.

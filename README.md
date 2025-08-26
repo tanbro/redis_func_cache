@@ -948,21 +948,33 @@ def some_func(*args, **kwargs):
 
 - Compatibility with other [decorator][]s is not guaranteed.
 
-- The built-in policies in `redis_func_cache.policies` use [`pickle`][] to serialize function arguments, then calculate the cache key by hashing the serialized data with `md5`. [`pickle`][] is chosen because only the hash bytes are stored in Redis, not the serialized data itself, so this is safe. However, [`pickle`][] causes **incompatibility between different Python versions**. If your application needs to be compatible across Python versions, you should use a [json][] based hash mixer, or define your own hash policy using a version-compatible serialization method, for example:
+- It cannot hit cache across different Python versions by default. Because:
 
-    ```python
-    from redis_func_cache import RedisFuncCache
-    from redis_func_cache.policies.abstract import BaseSinglePolicy
-    from redis_func_cache.mixins.hash import JsonMd5HashMixin
-    from redis_func_cache.mixins.scripts import LfuScriptsMixin
+  - The built-in policies in `policies` use [`pickle`][] to serialize function arguments and then calculate the cache key by hashing the serialized data with `md5` by default.
 
-    class MyLfuPolicy(LfuScriptsMixin, JsonMd5HashMixin, BaseSinglePolicy):
-        __key__ = "my-lfu"
+    [`pickle`][] is chosen because only the hash bytes are stored in Redis, not the serialized data itself, making this approach safe. However, [`pickle`][] causes **incompatibility between different Python versions**.
 
-    my_cache = RedisFuncCache(__name__, policy=MyLfuPolicy, client=redis_client_factory)
-    ```
+  - The key calculation defined in `mixins.hash.AbstractHashMixin.calc_hash()` uses the function's bytecode as part of the hash computation by default. So it cannot hit cache across different Python versions.
 
-    As shown above, the `JsonMd5HashMixin` uses [json][], which can be used across different Python versions, rather than [`pickle`][].
+  If your application needs to be compatible across Python versions, you should disable `use_bytecode` attribute of the mixin's `__hash_config__`, and use a [json][] based hash mixer. Or define your own hash policy using a version-compatible serialization method. For example:
+
+  ```python
+  from dataclasses import replace
+  from redis_func_cache import RedisFuncCache as Cache
+  from redis_func_cache.policies.abstract import BaseSinglePolicy
+  from redis_func_cache.mixins.hash import JsonMd5HashMixin
+  from redis_func_cache.mixins.scripts import LfuScriptsMixin
+
+  class MyLfuPolicy(LfuScriptsMixin, JsonMd5HashMixin, BaseSinglePolicy):
+      __key__ = "my-lfu"
+
+      # Override hash config here !!!
+      __hash_config__ = replace(JsonMd5HashMixin.__hash_config__, use_bytecode=False)
+
+  cache = Cache(__name__, policy=MyLfuPolicy, client=redis_client_factory)
+  ```
+
+  As shown above, the `JsonMd5HashMixin` uses [json][], which can be used across different Python versions, rather than [`pickle`][]. `use_bytecode` is set to `False` to avoid version compatible problems caused by bytecode.
 
 - The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. Its maximum value is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
 

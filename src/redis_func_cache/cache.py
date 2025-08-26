@@ -166,19 +166,21 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 Get the client via :meth:`get_client`.
 
                 Caution:
-                    If a :term:`callable` object is passed here, it will be executed **every time** :meth:`get_client` is called.
+                    When using the factory pattern
+                    (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor),
+                    the factory function will be invoked **every time** when :meth:`get_client` is called, or the cache instance requires a redis client internally.
 
             maxsize: The maximum size of the cache.
 
-                - If not provided, the default is :data:`.DEFAULT_MAXSIZE`.
-                - Zero or negative values means no limit.
+                - If ``None`` or not provided, the default is :data:`.DEFAULT_MAXSIZE`.
+                - Zero or negative values will cause a :class:`ValueError`.
 
                 Assigned to property :attr:`maxsize`.
 
             ttl: The time-to-live (in seconds) for the whole cache data structures on Redis backend.
 
-                - If not provided, the default is :data:`.DEFAULT_TTL`.
-                - Zero or negative values means no set ttl.
+                - If ``None`` or not provided, the default is :data:`.DEFAULT_TTL`.
+                - Zero or negative values will cause a :class:`ValueError`.
 
                 Assigned to property :attr:`ttl`.
 
@@ -226,15 +228,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
                   We can then pass the two callbacks to ``serializer`` parameter::
 
                       my_cache = RedisFuncCache(
-                        __name__,
-                        MyPolicy,
-                        redis_client,
-                        serializer=(my_serializer, my_deserializer)
-                    )
+                          __name__, MyPolicy, redis_client, serializer=(my_serializer, my_deserializer)
+                      )
 
         Attributes:
             __call__: Equivalent to the :meth:`decorate` method.
-            __serializers__: A dictionary of serializers.
+            __serializers__ (Dict[str, SerializerPairT]): A dictionary of serializers.
         """
         self.name = name
         self.prefix = prefix
@@ -251,33 +250,33 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._redis_instance = client
         self.serializer = serializer  # type: ignore[assignment]
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=RedisFuncCache.Mode())
-        self._stats: ContextVar[RedisFuncCache.Stats] = ContextVar("stats", default=RedisFuncCache.Stats())
+        self._stats: ContextVar[Optional[RedisFuncCache.Stats]] = ContextVar("stats", default=None)
 
     __serializers__: Dict[str, SerializerPairT] = {
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
         "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
     }
-    if bson:
+    if bson is not None:
         __serializers__["bson"] = (
             lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if msgpack:
+    if msgpack is not None:
         __serializers__["msgpack"] = (  # pyright: ignore[reportArgumentType]
             lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if cbor2:
+    if cbor2 is not None:
         __serializers__["cbor"] = (
             lambda x: cbor2.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: cbor2.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if yaml:
+    if yaml is not None:
         __serializers__["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
             lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
         )
-    if cloudpickle:
+    if cloudpickle is not None:
         __serializers__["cloudpickle"] = (
             lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
@@ -285,7 +284,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def name(self) -> str:
-        """The name of the cache manager."""
+        """The name of the cache instance."""
         return self._name
 
     @name.setter
@@ -309,7 +308,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def maxsize(self) -> int:
-        """The cache's maximum size."""
+        """The cache's maximum capacity size."""
         return self._maxsize
 
     @maxsize.setter
@@ -320,7 +319,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def ttl(self) -> int:
-        """The time-to-live (in seconds) for cache items."""
+        """The time-to-live (in seconds) of the whole cache structure."""
         return self._ttl
 
     @ttl.setter
@@ -331,7 +330,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @property
     def update_ttl(self) -> bool:
-        """Whether to update the TTL of cache items."""
+        """Whether to update the TTL of whole cache structure each time accessed."""
         return self._update_ttl
 
     @update_ttl.setter
@@ -373,8 +372,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Instance of the caching policy.
 
         Note:
-            This method returns an instance of the policy, not the type or class itself.
-            The `policy` :term:`argument` passed to the constructor, however, is expected to be a type or class.
+            The property returns an instance of the policy, not a type or class object.
+            While the :term:`argument` ``policy`` of constructor, however, is expected to be a type or class object, not an instance.
         """
         if self._policy_instance is None:
             self._policy_instance = self._policy_type(weakref.proxy(self))
@@ -390,7 +389,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         - If a :term:`callable` object that returns a redis client was passed to the cache constructor (factory pattern), it returns what returned by the factory function.
 
         Caution:
-            When using the factory pattern (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor), **the factory function will be invoked every time this method is called**, and its return value will be used as the method's return value.
+            When using the factory pattern
+            (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor),
+            the factory function will be invoked **every time** when this method is called, or the cache instance requires a redis client internally.
 
         .. versionadded:: 0.5
         """
@@ -443,7 +444,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def get(
         cls,
         script: redis.commands.core.Script,
-        key_pair: Tuple[KeyT, KeyT],
+        keys: Tuple[KeyT, KeyT],
         hash_value: KeyT,
         update_ttl: bool,
         ttl: int,
@@ -465,13 +466,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        return script(keys=key_pair, args=chain((int(update_ttl), ttl, hash_value, encoded_options), ext_args))
+        return script(keys=keys, args=chain((int(update_ttl), ttl, hash_value, encoded_options), ext_args))
 
     @classmethod
     async def aget(
         cls,
         script: redis.commands.core.AsyncScript,
-        key_pair: Tuple[KeyT, KeyT],
+        keys: Tuple[KeyT, KeyT],
         hash_: KeyT,
         update_ttl: bool,
         ttl: int,
@@ -481,13 +482,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Async version of :meth:`get`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
-        return await script(keys=key_pair, args=chain((int(update_ttl), ttl, hash_, encoded_options), ext_args))
+        return await script(keys=keys, args=chain((int(update_ttl), ttl, hash_, encoded_options), ext_args))
 
     @classmethod
     def put(
         cls,
         script: redis.commands.core.Script,
-        key_pair: Tuple[KeyT, KeyT],
+        keys: Tuple[KeyT, KeyT],
         hash_value: KeyT,
         value: EncodableT,
         maxsize: int,
@@ -514,7 +515,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         script(
-            keys=key_pair,
+            keys=keys,
             args=chain((maxsize, int(update_ttl), ttl, hash_value, value, field_ttl, encoded_options), ext_args),
         )
 
@@ -522,7 +523,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     async def aput(
         cls,
         script: redis.commands.core.AsyncScript,
-        key_pair: Tuple[KeyT, KeyT],
+        keys: Tuple[KeyT, KeyT],
         hash_: KeyT,
         value: EncodableT,
         maxsize: int,
@@ -536,8 +537,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
         await script(
-            keys=key_pair,
-            args=chain((maxsize, int(update_ttl), ttl, hash_, value, field_ttl, encoded_options), ext_args),
+            keys=keys, args=chain((maxsize, int(update_ttl), ttl, hash_, value, field_ttl, encoded_options), ext_args)
         )
 
     @classmethod
@@ -603,10 +603,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 - If it is not provided, the policy will use all arguments to calculate the cache key and hash value.
 
             field_ttl: Time-to-live (in seconds) for the cached field.
-
-            update_ttl: Whether to update the TTL of cached items when they are accessed.
-
-            options: Additional options passed from :meth:`decorate`'s `**kwargs`.
+            options: Additional options from :meth:`decorate`'s `**kwargs`.
 
         Returns:
             The cached return value if it exists in the cache; otherwise, the direct return value of the user function.
@@ -620,23 +617,28 @@ class RedisFuncCache(Generic[RedisClientTV]):
         script_0, script_1 = self.policy.lua_scripts
         if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
             raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
-        stats.count += 1
+        if stats:
+            stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
         cached = None
         if mode.read:
             cached = self.get(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
-            stats.read += 1
+            if stats:
+                stats.read += 1
             if cached is None:
-                stats.miss += 1
+                if stats:
+                    stats.miss += 1
             else:
-                stats.hit += 1
+                if stats:
+                    stats.hit += 1
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = user_function(*user_args, **user_kwds)
-        stats.exec += 1
+        if stats:
+            stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
@@ -652,7 +654,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 options,
                 ext_args,
             )
-            stats.write += 1
+            if stats:
+                stats.write += 1
         return user_retval
 
     async def aexec(
@@ -681,10 +684,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 - If it is not provided, the policy will use all arguments to calculate the cache key and hash value.
 
             field_ttl: Time-to-live (in seconds) for the cached field.
-
-            update_ttl: Whether to update the TTL of cached items when they are accessed.
-
-            options: Additional options passed from :meth:`decorate`'s `**kwargs`.
+            options: Additional options from :meth:`decorate`'s `**kwargs`.
         """
         mode = self._mode.get()
         stats = self._stats.get()
@@ -694,23 +694,28 @@ class RedisFuncCache(Generic[RedisClientTV]):
             and isinstance(script_1, redis.commands.core.AsyncScript)
         ):
             raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
-        stats.count += 1
+        if stats:
+            stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
         cached = None
         if mode.read:
             cached = await self.aget(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
-            stats.read += 1
+            if stats:
+                stats.read += 1
             if cached is None:
-                stats.miss += 1
+                if stats:
+                    stats.miss += 1
             else:
-                stats.hit += 1
+                if stats:
+                    stats.hit += 1
                 return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
         user_retval = await user_function(*user_args, **user_kwds)
-        stats.exec += 1
+        if stats:
+            stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
@@ -726,7 +731,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 options,
                 ext_args,
             )
-            stats.write += 1
+            if stats:
+                stats.write += 1
         return user_retval
 
     def decorate(
@@ -916,7 +922,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         The context manager is thread local and thread safe.
 
         Args:
-            mode: The cache mode to use within the context. Can be a combination of Mode bitwise flags.
+            mode(Mode): The cache mode to use within the context. Can be a combination of Mode bitwise flags.
 
         Example:
 
@@ -929,7 +935,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 mode = cache.get_mode()
                 mode.write = False
 
-                with cache.scoped_mode(mode):
+                with cache.mode_context(mode):
                     result = func()  # will be executed without cache write
 
         .. versionadded:: 0.5
@@ -1011,10 +1017,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @contextmanager
     def stats_context(self, stats: Optional[RedisFuncCache.Stats] = None) -> Generator[RedisFuncCache.Stats]:
-        """A context manager that yields a stats object.
+        """A context manager that yields a :class:`Stats` object.
 
         Args:
-            stats: The initial ``stats`` object to use. If ``None``, a new stats object will be created.
+            stats(Stats): The initial object to make the statistics. If ``None``, a new ``stats`` object will be created.
 
         .. versionadded:: 0.5
         """

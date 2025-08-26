@@ -25,7 +25,7 @@ How to Build the Documentation
 
    .. code:: sh
 
-      sphinx-apidoc -o docs/apidocs -f -e -H APIs src
+      sphinx-apidoc -H "" -feo docs/apidocs src
 
 #. Build HTML documentation:
 
