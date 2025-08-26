@@ -602,10 +602,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 - If it is not provided, the policy will use all arguments to calculate the cache key and hash value.
 
             field_ttl: Time-to-live (in seconds) for the cached field.
-
-            update_ttl: Whether to update the TTL of cached items when they are accessed.
-
-            options: Additional options passed from :meth:`decorate`'s `**kwargs`.
+            options: Additional options from :meth:`decorate`'s `**kwargs`.
 
         Returns:
             The cached return value if it exists in the cache; otherwise, the direct return value of the user function.
@@ -686,10 +683,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 - If it is not provided, the policy will use all arguments to calculate the cache key and hash value.
 
             field_ttl: Time-to-live (in seconds) for the cached field.
-
-            update_ttl: Whether to update the TTL of cached items when they are accessed.
-
-            options: Additional options passed from :meth:`decorate`'s `**kwargs`.
+            options: Additional options from :meth:`decorate`'s `**kwargs`.
         """
         mode = self._mode.get()
         stats = self._stats.get()
@@ -927,7 +921,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         The context manager is thread local and thread safe.
 
         Args:
-            mode: The cache mode to use within the context. Can be a combination of Mode bitwise flags.
+            mode(Mode): The cache mode to use within the context. Can be a combination of Mode bitwise flags.
 
         Example:
 
@@ -1022,10 +1016,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     @contextmanager
     def stats_context(self, stats: Optional[RedisFuncCache.Stats] = None) -> Generator[RedisFuncCache.Stats]:
-        """A context manager that yields a stats object.
+        """A context manager that yields a :class:`Stats` object.
 
         Args:
-            stats: The initial ``stats`` object to use. If ``None``, a new stats object will be created.
+            stats(Stats): The initial object to make the statistics. If ``None``, a new ``stats`` object will be created.
 
         .. versionadded:: 0.5
         """
