@@ -166,7 +166,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 Get the client via :meth:`get_client`.
 
                 Caution:
-                    If a :term:`callable` object is passed here, it will be executed **every time** :meth:`get_client` is called.
+                    When using the factory pattern
+                    (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor),
+                    the factory function will be invoked **every time** when :meth:`get_client` is called, or the cache instance requires a redis client internally.
 
             maxsize: The maximum size of the cache.
 
@@ -226,15 +228,12 @@ class RedisFuncCache(Generic[RedisClientTV]):
                   We can then pass the two callbacks to ``serializer`` parameter::
 
                       my_cache = RedisFuncCache(
-                        __name__,
-                        MyPolicy,
-                        redis_client,
-                        serializer=(my_serializer, my_deserializer)
-                    )
+                          __name__, MyPolicy, redis_client, serializer=(my_serializer, my_deserializer)
+                      )
 
         Attributes:
             __call__: Equivalent to the :meth:`decorate` method.
-            __serializers__: A dictionary of serializers.
+            __serializers__ (Dict[str, SerializerPairT]): A dictionary of serializers.
         """
         self.name = name
         self.prefix = prefix
@@ -373,8 +372,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Instance of the caching policy.
 
         Note:
-            This method returns an instance of the policy, not the type or class itself.
-            The `policy` :term:`argument` passed to the constructor, however, is expected to be a type or class.
+            The property returns an instance of the policy, not a type or class object.
+            While the :term:`argument` ``policy`` of constructor, however, is expected to be a type or class object, not an instance.
         """
         if self._policy_instance is None:
             self._policy_instance = self._policy_type(weakref.proxy(self))
@@ -390,7 +389,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         - If a :term:`callable` object that returns a redis client was passed to the cache constructor (factory pattern), it returns what returned by the factory function.
 
         Caution:
-            When using the factory pattern (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor), **the factory function will be invoked every time this method is called**, and its return value will be used as the method's return value.
+            When using the factory pattern
+            (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor),
+            the factory function will be invoked **every time** when this method is called, or the cache instance requires a redis client internally.
 
         .. versionadded:: 0.5
         """
