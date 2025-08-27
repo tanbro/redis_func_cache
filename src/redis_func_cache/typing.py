@@ -78,15 +78,15 @@ def is_redis_cluster_client(client: RedisClientT) -> TypeGuard[RedisClusterClien
     return isinstance(client, RedisClusterClientTypes)
 
 
-def is_redis_sync_script(scipt: RedisScriptT) -> TypeGuard[redis.commands.core.Script]:
+def is_redis_sync_script(script: RedisScriptT) -> TypeGuard[redis.commands.core.Script]:
     """
     Returns True if the given Redis script is a synchronous script.
     """
-    return isinstance(scipt, redis.commands.core.Script)
+    return isinstance(script, redis.commands.core.Script)
 
 
-def is_redis_async_script(scipt: RedisScriptT) -> TypeGuard[redis.commands.core.AsyncScript]:
+def is_redis_async_script(script: RedisScriptT) -> TypeGuard[redis.commands.core.AsyncScript]:
     """
     Returns True if the given Redis script is an asynchronous script.
     """
-    return isinstance(scipt, redis.commands.core.AsyncScript)
+    return isinstance(script, redis.commands.core.AsyncScript)
