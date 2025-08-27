@@ -22,6 +22,7 @@ import redis.asyncio.client
 import redis.asyncio.cluster
 import redis.client
 import redis.cluster
+import redis.commands.core
 
 CallableTV = TypeVar("CallableTV", bound=Callable)
 
@@ -41,6 +42,7 @@ RedisClientT = Union[
     redis.client.Redis, redis.asyncio.client.Redis, redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster
 ]
 RedisClientTV = TypeVar("RedisClientTV", bound=RedisClientT)
+RedisScriptT = Union[redis.commands.core.Script, redis.commands.core.AsyncScript]
 
 
 SerializerName = Literal["json", "pickle", "bson", "msgpack", "yaml", "cbor", "cloudpickle"]
@@ -55,14 +57,14 @@ if TYPE_CHECKING:  # pragma: no cover
         def copy(self) -> Self: ...
 
 
-def is_async_redis_client(client: RedisClientT) -> TypeGuard[RedisAsyncClientT]:
+def is_redis_async_client(client: RedisClientT) -> TypeGuard[RedisAsyncClientT]:
     """
     Returns True if the given Redis client is an asynchronous client.
     """
     return isinstance(client, RedisAsyncClientTypes)
 
 
-def is_sync_redis_client(client: RedisClientT) -> TypeGuard[RedisSyncClientT]:
+def is_redis_sync_client(client: RedisClientT) -> TypeGuard[RedisSyncClientT]:
     """
     Returns True if the given Redis client is a synchronous client.
     """
@@ -74,3 +76,17 @@ def is_redis_cluster_client(client: RedisClientT) -> TypeGuard[RedisClusterClien
     Returns True if the given Redis client is a cluster client.
     """
     return isinstance(client, RedisClusterClientTypes)
+
+
+def is_redis_sync_script(scipt: RedisScriptT) -> TypeGuard[redis.commands.core.Script]:
+    """
+    Returns True if the given Redis script is a synchronous script.
+    """
+    return isinstance(scipt, redis.commands.core.Script)
+
+
+def is_redis_async_script(scipt: RedisScriptT) -> TypeGuard[redis.commands.core.AsyncScript]:
+    """
+    Returns True if the given Redis script is an asynchronous script.
+    """
+    return isinstance(scipt, redis.commands.core.AsyncScript)

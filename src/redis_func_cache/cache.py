@@ -64,7 +64,7 @@ else:
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
 from .policies.abstract import AbstractPolicy
-from .typing import CallableTV, RedisClientTV, SerializerName
+from .typing import CallableTV, RedisClientTV, SerializerName, is_redis_async_script, is_redis_sync_script
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
@@ -256,27 +256,27 @@ class RedisFuncCache(Generic[RedisClientTV]):
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
         "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
     }
-    if bson is not None:
+    if bson is not None:  # pragma: no cover
         __serializers__["bson"] = (
             lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if msgpack is not None:
+    if msgpack is not None:  # pragma: no cover
         __serializers__["msgpack"] = (  # pyright: ignore[reportArgumentType]
             lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if cbor2 is not None:
+    if cbor2 is not None:  # pragma: no cover
         __serializers__["cbor"] = (
             lambda x: cbor2.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: cbor2.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if yaml is not None:
+    if yaml is not None:  # pragma: no cover
         __serializers__["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
             lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
         )
-    if cloudpickle is not None:
+    if cloudpickle is not None:  # pragma: no cover
         __serializers__["cloudpickle"] = (
             lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
@@ -615,8 +615,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         mode = self._mode.get()
         stats = self._stats.get()
         script_0, script_1 = self.policy.lua_scripts
-        if not (isinstance(script_0, redis.commands.core.Script) and isinstance(script_1, redis.commands.core.Script)):
-            raise TypeError("Can not eval redis lua script in asynchronous mode on a synchronous redis client")
+        if not is_redis_sync_script(script_0) or not is_redis_sync_script(script_1):
+            raise RuntimeError("Redis lua script must be in synchronous mode on a non async function")
         if stats:
             stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
@@ -689,11 +689,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         mode = self._mode.get()
         stats = self._stats.get()
         script_0, script_1 = self.policy.lua_scripts
-        if not (
-            isinstance(script_0, redis.commands.core.AsyncScript)
-            and isinstance(script_1, redis.commands.core.AsyncScript)
-        ):
-            raise TypeError("Can not eval redis lua script in synchronous mode on an asynchronous redis client")
+        if not is_redis_async_script(script_0) or not is_redis_async_script(script_1):
+            raise RuntimeError("Redis lua script must be in asynchronous mode on an async function")
         if stats:
             stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)

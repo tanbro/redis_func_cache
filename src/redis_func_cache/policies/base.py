@@ -13,7 +13,7 @@ else:  # pragma: no cover
     from typing import override
 
 from ..cache import RedisFuncCache
-from ..typing import is_async_redis_client, is_sync_redis_client
+from ..typing import is_redis_async_client, is_redis_sync_client
 from ..utils import b64digest, get_callable_bytecode
 from .abstract import AbstractPolicy
 
@@ -71,7 +71,7 @@ class BaseSinglePolicy(AbstractPolicy):
             Number of keys deleted.
         """
         client = self.cache.get_client()
-        if not is_sync_redis_client(client):
+        if not is_redis_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         return client.delete(*self.calc_keys())
 
@@ -84,7 +84,7 @@ class BaseSinglePolicy(AbstractPolicy):
             Number of keys deleted.
         """
         client = self.cache.get_client()
-        if not is_async_redis_client(client):
+        if not is_redis_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         return await client.delete(*self.calc_keys())  # type: ignore[union-attr]
 
@@ -97,7 +97,7 @@ class BaseSinglePolicy(AbstractPolicy):
             Number of items in the cache.
         """
         client = self.cache.get_client()
-        if not is_sync_redis_client(client):
+        if not is_redis_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         return client.hlen(self.calc_keys()[1])
 
@@ -110,7 +110,7 @@ class BaseSinglePolicy(AbstractPolicy):
             Number of items in the cache.
         """
         client = self.cache.get_client()
-        if not is_async_redis_client(client):
+        if not is_redis_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         keys = self.calc_keys()
         return await client.hlen(keys[1])  # type: ignore[union-attr, return-value]
@@ -193,7 +193,7 @@ class BaseMultiplePolicy(AbstractPolicy):
             Number of keys deleted.
         """
         client = self.cache.get_client()
-        if not is_sync_redis_client(client):
+        if not is_redis_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         if keys := client.keys(pat):
@@ -209,7 +209,7 @@ class BaseMultiplePolicy(AbstractPolicy):
             Number of keys deleted.
         """
         client = self.cache.get_client()
-        if not is_async_redis_client(client):
+        if not is_redis_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         if keys := await client.keys(pat):  # type: ignore[union-attr]
