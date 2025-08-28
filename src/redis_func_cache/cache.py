@@ -201,17 +201,19 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
             serializer: Optional serialize/deserialize name or function pair for return value of what decorated.
 
+                The decorated function‘s return value is serialized to string or bytes then stored in Redis when cached, deserialized to a Python object when retrieved.
+
                 If not provided, the cache will use :func:`json.dumps` and :func:`json.loads`.
 
                 - It could be a string, and must be one of the following:
 
                   - ``"json"``: Use :func:`json.dumps` and :func:`json.loads`
                   - ``"pickle"``: Use :func:`pickle.dumps` and :func:`pickle.loads`
-                  - ``"bson"``: Use :func:`bson.decode` and :func:`bson.encode`. Only available when ``pymongo`` is installed.
+                  - ``"bson"``: Use :func:`bson.decode` and :func:`bson.encode`. Only available when `pymongo <https://pypi.org/project/pymongo/>`_ is installed.
                   - ``"msgpack"``: Use :func:`msgpack.packb` and :func:`msgpack.unpackb`. Only available when :mod:`msgpack` is installed.
-                  - ``"cbor"``: Use :func:`cbor.dumps` and :func:`cbor.loads`. Only available when :mod:`cbor2` is installed.
-                  - ``"yaml"``: Use ``yaml.dump`` and ``yaml.load``. Only available when ``yaml`` is installed.
-                  - ``"cloudpickle"``: Use :func:`cloudpickle.dumps` and :func:`pickle.loads`. Only available when :mod:`cloudpickle` is installed.
+                  - ``"cbor"``: Use :func:`cbor2.dumps` and :func:`cbor2.loads`. Only available when `cbor2 <https://pypi.org/project/cbor2/>`_ is installed.
+                  - ``"yaml"``: Use ``yaml.dump`` and ``yaml.load``. Only available when `PyYAML <https://pypi.org/project/PyYAML/>`_ is installed.
+                  - ``"cloudpickle"``: Use :func:`cloudpickle.dumps` and :func:`pickle.loads`. Only available when `cloudpickle <https://pypi.org/project/cloudpickle/>`_ is installed.
 
                 - Or it could be **a PAIR of callbacks**, the first one is used to serialize return value, the second one is used to deserialize return value.
 
@@ -228,8 +230,15 @@ class RedisFuncCache(Generic[RedisClientTV]):
                   We can then pass the two callbacks to ``serializer`` parameter::
 
                       my_cache = RedisFuncCache(
-                          __name__, MyPolicy, redis_client, serializer=(my_serializer, my_deserializer)
+                          __name__,
+                          MyPolicy,
+                          redis_client,
+                          # here pass two callbacks to serializer
+                          serializer=(my_serializer, my_deserializer),
+                          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                       )
+
+                This argument is assigned to property :attr:`serializer`.
 
         Attributes:
             __call__: Equivalent to the :meth:`decorate` method.
@@ -414,6 +423,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
         """Serialize the return value of the decorated function.
+
+        The decorated function's return value is serialized to string or bytes and then stored in Redis when cached, and deserialized back to a Python object when retrieved.
 
         Args:
             value: The value to be serialized.
@@ -748,18 +759,23 @@ class RedisFuncCache(Generic[RedisClientTV]):
         Args:
             user_function: The function to be decorated.
 
-            serializer: serialize/deserialize name or function pair for return value of what decorated.
+            serializer: serialize/deserialize for the return value.
+
+                Serializer/deserializer name or function pair for the decorated function's return value.
+                The decorated function's return value is serialized to string or bytes and then stored in Redis when cached, and deserialized back to a Python object when retrieved.
 
                 It accepts either:
-                - A string key mapping to predefined serializers (like "yaml" or "json")
+
+                - A string key mapping to predefined serializers (like ``"yaml"``, ``"json"``)
                 - A tuple of (`serialize_func`, `deserialize_func`) functions
 
-                If assigned, it overwrite the :attr:`serializer` property of the cache instance on the decorated function.
+                Note:
+                    If assigned, it overwrite the :attr:`serializer` property of the cache instance on, and only affect the currently decorated function.
 
-            ttl: (_Experimental_) The time-to-live (in seconds) for the cached result.
+            ttl: (_Experimental_) The time-to-live (in seconds) for a single invocation.
 
                 Note:
-                    This parameter specifies the expiration time for a single invocation result, not for the entire cache.
+                    This parameter specifies the expiration time for a single invocation result inside the cached structures, not for the entire cache.
 
                 Caution:
                     The expiration is based on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration).
@@ -834,10 +850,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 def my_func(a, b):
                     return a + b
 
-        Note:
-            The `serializer` parameter only affect the currently decorated function.
+        .. versionadded:: 0.5
         """
-
         serialize_func: Optional[SerializerT] = None
         deserialize_func: Optional[DeserializerT] = None
         if isinstance(serializer, str):

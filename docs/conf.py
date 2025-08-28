@@ -110,6 +110,7 @@ intersphinx_mapping = {
     "pymongo": ("https://pymongo.readthedocs.io/en/stable/", None),
     "msgpack": ("https://msgpack-python.readthedocs.io/en/stable/", None),
     "pygments": ("https://pygments.org/", None),
+    "cbor2": ("https://cbor2.readthedocs.io/en/stable/", None)
 }
 
 # -- Options for Napoleon settings ---------------------------------------
