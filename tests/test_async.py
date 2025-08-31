@@ -106,7 +106,7 @@ def test_async_for_sync_type_error():
         def fn(x):
             return x
 
-        with pytest.raises(TypeError):
+        with pytest.raises(RuntimeError):
             fn(1)
 
 
@@ -119,5 +119,5 @@ async def test_sync_for_async_type_error():
             await asyncio.sleep(0)
             return x
 
-        with pytest.raises(TypeError):
+        with pytest.raises(RuntimeError):
             await fn(1)

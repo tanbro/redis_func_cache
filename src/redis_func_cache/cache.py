@@ -680,23 +680,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         field_ttl: int = 0,
         **options,
     ) -> Any:
-        """Asynchronous version of :meth:`.exec`
-
-        Args:
-            user_function: The user function to execute.
-            user_args: Positional arguments to pass to the user function.
-            user_kwds: Keyword arguments to pass to the user function.
-            serialize_func: Custom serializer passed from :meth:`decorate`.
-            deserialize_func: Custom deserializer passed from :meth:`decorate`.
-
-            bound: Filtered bound arguments which will be used by the policy of the cache.
-
-                - If it is provided, the policy will only use the filtered arguments to calculate the cache key and hash value.
-                - If it is not provided, the policy will use all arguments to calculate the cache key and hash value.
-
-            field_ttl: Time-to-live (in seconds) for the cached field.
-            options: Additional options from :meth:`decorate`'s `**kwargs`.
-        """
+        """Asynchronous version of :meth:`.exec`"""
         mode = self._mode.get()
         stats = self._stats.get()
         script_0, script_1 = self.policy.lua_scripts
