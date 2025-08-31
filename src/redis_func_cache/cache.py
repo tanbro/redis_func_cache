@@ -46,17 +46,17 @@ except ImportError:  # pragma: no cover
     msgpack = None  # type: ignore[assignment]
 try:
     import cbor2  # type: ignore[import-not-found]
-except ImportError:
+except ImportError:  # pragma: no cover
     cbor2 = None  # type: ignore[assignment]
 try:  # pragma: no cover
     import yaml  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     yaml = None  # type: ignore[assignment]
-else:
-    if yaml.__with_libyaml__:
+else:  # pragma: no cover
+    if yaml.__with_libyaml__:  # pragma: no cover
         from yaml import CSafeDumper as YamlDumper  # type: ignore[import-not-found]
         from yaml import CSafeLoader as YamlLoader  # type: ignore[import-not-found]
-    else:
+    else:  # pragma: no cover
         from yaml import SafeDumper as YamlDumper  # type: ignore[assignment, import-not-found]
         from yaml import SafeLoader as YamlLoader  # type: ignore[assignment, import-not-found]
 

@@ -72,7 +72,7 @@ class AbstractPolicy(ABC):
         Returns:
             Tuple of two Redis key names (e.g., for set and hash).
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
     def calc_hash(
@@ -92,7 +92,7 @@ class AbstractPolicy(ABC):
         Returns:
             The calculated hash value.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def calc_ext_args(
         self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
