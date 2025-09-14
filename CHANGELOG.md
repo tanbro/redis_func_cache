@@ -1,5 +1,12 @@
 # Changelog
 
+## Developing
+
+- 💔 **Breaking Changes:**
+  - Drop support for Python 3.8
+- 📦 **Build:**
+  - Update to `setuptools>=77.0`
+
 ## v0.5
 
 > 📅 2025-08-26

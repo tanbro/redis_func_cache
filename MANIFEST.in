@@ -1,18 +1,13 @@
 exclude .*
-exclude codecov.*
-exclude coverage.*
-exclude junit.*
-exclude qodana.*
+exclude codecov.yml
+exclude qodana.yaml
 exclude requirements.txt
 
 prune .*
 
-prune images
-
-prune build
-prune dist
 prune docs
 prune tests
 
 prune docker
 prune examples
+prune images
