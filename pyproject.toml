@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.0", "setuptools-scm>=8"]
+requires = ["setuptools>=80", "setuptools-scm>=8"]
 
 [project]
 authors = [{ name = "liu xue yan", email = "liu_xue_yan@foxmail.com" }]
