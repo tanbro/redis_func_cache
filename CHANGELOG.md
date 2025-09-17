@@ -5,7 +5,7 @@
 - 💔 **Breaking Changes:**
   - Drop support for Python 3.8
 - 📦 **Build:**
-  - Update to `setuptools>=77.0`
+  - Upgrade build backend to `setuptools>=80`
 
 ## v0.5
 
