@@ -13,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
     if sys.version_info < (3, 11):  # pragma: no cover
         from typing_extensions import Self
-    else:
+    else:  # pragma: no cover
         from typing import Self
 
     from _typeshed import ReadableBuffer
