@@ -37,23 +37,26 @@ We welcome feature requests and suggestions. To propose an enhancement:
    git clone https://github.com/your-username/redis_func_cache.git
    cd redis_func_cache
    ```
-3. Install [uv](https://docs.astral.sh/uv/) if you haven't already:
+3. Install [uv](https://docs.astral.sh/uv/) if you haven't already. Commonly install it using a package manager, or install it using one of the following commands:
+   - On macOS and Linux:
+     ```bash
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     ```
+   - On Windows:
+     ```powershell
+     irm https://astral.sh/uv/install.ps1 | iex
+     ```
+   - Or using pip:
+     ```bash
+     python -m pip install uv
+     ```
+   - Or any other way to install uv
+4. Sync the development environment and install dependencies:
    ```bash
-   # On macOS and Linux
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-
-   # On Windows
-   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-   # Or using pip
-   pip install uv
-   ```
-4. Create a virtual environment and install dependencies:
-   ```bash
-   uv venv
    uv sync --all-extras --dev
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
+
+A virtual environment is created at directory `.venv`. You can activate it by running `source .venv/bin/activate` or `.venv/Scripts/activate` on Windows.
 
 #### Running Tests
 
@@ -84,12 +87,12 @@ To run checks manually:
 
 ```bash
 # Run all pre-commit checks
-uv run pre-commit run --all-files
+uv run pre-commit run -a
 
 # Run specific checks
-uv run ruff check .
-uv run ruff format .
-uv run mypy src
+uv run ruff check
+uv run ruff format
+uv run mypy
 ```
 
 #### Making Changes
@@ -98,6 +101,7 @@ uv run mypy src
    ```bash
    git checkout -b feature/your-feature-name
    ```
+
 2. Make your changes, following the code style guidelines
 
 3. Add tests for new functionality
@@ -169,11 +173,7 @@ We maintain high test coverage and follow these practices:
 
 ### Versioning
 
-We follow [Semantic Versioning](https://semver.org/). Changes are categorized as:
-
-- **Major**: Breaking changes
-- **Minor**: New features (backward compatible)
-- **Patch**: Bug fixes (backward compatible)
+We follow [PEP 440](https://peps.python.org/pep-0440/).
 
 ## Getting Help
 
@@ -185,4 +185,4 @@ If you need help with your contribution:
 
 ## License
 
-By contributing to redis_func_cache, you agree that your contributions will be licensed under the BSD 3-Clause License.
+By contributing to redis_func_cache, you agree that your contributions will be licensed under what described in the LICENSE file.
