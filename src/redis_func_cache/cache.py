@@ -30,7 +30,7 @@ from typing import (
 )
 from warnings import warn
 
-import redis.commands.core
+from redis.commands.core import AsyncScript, Script
 
 try:  # pragma: no cover
     import bson  # type: ignore[import-not-found]
@@ -454,7 +454,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     @classmethod
     def get(
         cls,
-        script: redis.commands.core.Script,
+        script: Script,
         keys: Tuple[KeyT, KeyT],
         hash_value: KeyT,
         update_ttl: bool,
@@ -482,7 +482,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     @classmethod
     async def aget(
         cls,
-        script: redis.commands.core.AsyncScript,
+        script: AsyncScript,
         keys: Tuple[KeyT, KeyT],
         hash_: KeyT,
         update_ttl: bool,
@@ -498,7 +498,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     @classmethod
     def put(
         cls,
-        script: redis.commands.core.Script,
+        script: Script,
         keys: Tuple[KeyT, KeyT],
         hash_value: KeyT,
         value: EncodableT,
@@ -533,7 +533,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     @classmethod
     async def aput(
         cls,
-        script: redis.commands.core.AsyncScript,
+        script: AsyncScript,
         keys: Tuple[KeyT, KeyT],
         hash_: KeyT,
         value: EncodableT,
