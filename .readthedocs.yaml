@@ -16,7 +16,7 @@ build:
     - graphviz
   jobs:
     pre_install: # Avoid having a dirty Git index
-      - git update-index --assume-unchanged environment.yml docs/conf.py
+      - git update-index --assume-unchanged docs/conf.py
     pre_create_environment:
       - asdf plugin add uv
       - asdf install uv latest
