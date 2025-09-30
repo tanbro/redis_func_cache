@@ -15,19 +15,15 @@ build:
   apt_packages:
     - graphviz
   jobs:
-    post_checkout:
-      # Avoid setuptools-scm dirty Git index issues
-      - git reset --hard HEAD
-      - git clean -fdx
-      # Enforce fail_on_shallow for setuptools-scm
-      - export SETUPTOOLS_SCM_OVERRIDES_FOR_${READTHEDOCS_PROJECT//-/_}='{scm.git.pre_parse="fail_on_shallow"}'
-
+    pre_install: # Avoid having a dirty Git index
+      - git update-index --assume-unchanged environment.yml docs/conf.py
+    pre_create_environment:
+      - asdf plugin add uv
+      - asdf install uv latest
+      - asdf global uv latest
+    create_environment:
+      - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
+    install:
+        - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --all-extras --group docs
     pre_build:
       - sphinx-apidoc -o docs/apidocs -efH APIs src
-
-python:
-  install:
-    - requirements: docs/requirements.txt
-    - path: .
-      extra_requirements:
-        - all
