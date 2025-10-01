@@ -67,7 +67,7 @@ jobs:
 
       - name: Install the project
         run: |
-          uv sync --group test
+          uv sync --group test --all-extras
 
       - name: Run tests
         run: |
