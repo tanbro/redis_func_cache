@@ -71,16 +71,7 @@ dev = [
   { include-group = "ipykernel" },
 ]
 
-mypy = ["mypy", { include-group = "types-all" }]
-
-types-redis = ["types-redis>=3.5"]
-types-PyYAML = ["types-PyYAML>=5.4"]
-types-Pygments = ["types-Pygments>=2.9"]
-types-all = [
-  { include-group = "typing-redis" },
-  { include-group = "typing-PyYAML" },
-  { include-group = "typing-Pygments" },
-]
+mypy = ["mypy", "types-redis", "types-PyYAML", "types-Pygments"]
 
 docs = [
   "importlib_metadata;python_version<'3.8'",
@@ -95,6 +86,7 @@ docs = [
   "sphinx-version-warning",
   "sphinx-autodoc-typehints",
 ]
+
 test = [
   "pytest",
   "pytest-mock",
