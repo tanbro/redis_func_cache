@@ -83,13 +83,21 @@ class RedisFuncCache(Generic[RedisClientTV]):
     This class provides a decorator-based caching mechanism for functions, storing their results in Redis.
     It supports both synchronous and asynchronous Redis clients, customizable cache policies, and flexible serialization options.
 
-    ::
+    Example:
 
-        >>> from redis_func_cache import LruTPolicy, RedisFuncCache
-        >>> cache = RedisFuncCache("my_cache", LruTPolicy, redis_client)
-        >>> @cache
-        ... def my_func(a, b):
-        ...     return a + b
+        ::
+
+            import redis
+            from redis_func_cache import LruTPolicy, RedisFuncCache
+
+            pool = redis.ConnectionPool(...)
+            factory = redis.from_pool(pool)
+
+            cache = RedisFuncCache(__name__, LruTPolicy, factory)
+
+            @cache
+            def function_to_cache(...):
+                ...
 
     - The `serializer` parameter can be a string or a pair of callables.
     - If a callable is passed as the `redis_client`, it will be invoked every time the redis client is accessed.
@@ -163,7 +171,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 or a function that returns one of these objects.
 
-                Get the client via :meth:`get_client`.
+                Tip:
+                    Get the client via :meth:`get_client`.
+
+                Important:
+                    A pool based factory pattern is strongly recommended.
 
                 Caution:
                     When using the factory pattern
@@ -400,7 +412,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         Caution:
             When using the factory pattern
             (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor),
-            the factory function will be invoked **every time** when this method is called, or the cache instance requires a redis client internally.
+            the factory function will be invoked **every time** when this method is called.
+
+            Thus the cache class will invoke the factory function every time it is needed internally.
 
         .. versionadded:: 0.5
         """
@@ -418,7 +432,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. deprecated:: 0.5
             use :meth:`get_client` instead.
         """
-        warn("property `client` is deprecated, use `get_client()` instead", DeprecationWarning)
+        warn("property `client` is deprecated since 0.5, use `get_client()` instead", DeprecationWarning)
         return self.get_client()
 
     def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:

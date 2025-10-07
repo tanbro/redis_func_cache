@@ -941,16 +941,18 @@ def some_func(*args, **kwargs):
 
 ## Known Issues
 
-- Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries, but we can work around this issue by excluding the argument from the key and hash calculations with `excludes` and/or `excludes_positional` parameters.
+- Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries.
 
   - For a common method defined inside a class, the class must be serializable; otherwise, the first `self` argument cannot be serialized.
   - For a class method (decorated by [`@classmethod`](https://docs.python.org/3/library/functions.html#classmethod)), the class type itself, i.e., the first `cls` argument, must be serializable.
+
+  Anyhow, we can work around this issue by excluding the unsupported arguments from the key and hash calculations with `excludes` and/or `excludes_positional` parameters.
 
 - Compatibility with other [decorator][]s is not guaranteed.
 
 - It cannot hit cache across different Python versions by default. Because:
 
-  - The built-in policies in `policies` use [`pickle`][] to serialize function arguments and then calculate the cache key by hashing the serialized data with `md5` by default.
+  - The built-in policies use [`pickle`][] to serialize function arguments and then calculate the cache key by hashing the serialized data with `md5` by default.
 
     [`pickle`][] is chosen because only the hash bytes are stored in Redis, not the serialized data itself, making this approach safe. However, [`pickle`][] causes **incompatibility between different Python versions**.
 
