@@ -161,7 +161,7 @@ def test_cache_wrapper():
 
         # 检查 __wrapped__ 属性是否存在并且是函数
         assert hasattr(echo, "__wrapped__")
-        assert callable(echo.__wrapped__)
+        assert callable(getattr(echo, "__wrapped__"))
 
 
 def test_different_policies():
