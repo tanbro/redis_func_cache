@@ -77,6 +77,8 @@ jobs:
             ${{ runner.os }}-py${{ matrix.python-version }}-ruff-pytest-mypy-
 
       - name: Install the project
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: "0"
         run: uv sync --all-extras --no-dev --group test --group mypy
 
       - name: Lint check with ruff
