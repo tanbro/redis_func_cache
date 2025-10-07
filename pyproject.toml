@@ -61,7 +61,7 @@ dev = [
   { include-group = "mypy" },
   { include-group = "test" },
   { include-group = "docs" },
-  { include-group = "ipykernel" },
+  { include-group = "ipy" },
 ]
 
 mypy = ["mypy", "types-redis", "types-PyYAML", "types-Pygments"]
@@ -88,7 +88,7 @@ test = [
   "python-dotenv",
 ]
 
-ipykernel = ["ipykernel", "pip"]
+ipy = ["ipykernel", "pip"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
