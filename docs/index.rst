@@ -49,7 +49,7 @@ Contents
    :titlesonly:
    :maxdepth: 3
 
-   apidocs/modules
+   apidoc/modules
 
 Indices and tables
 ------------------

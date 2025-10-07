@@ -1021,7 +1021,7 @@ We can use either the traditional method (`venv` and `pip`) of standard library 
 
 - If using the traditional method, a virtual environment is recommended:
 
-  1. Install a Python development environment on your system. The minimum required Python version is 3.8.
+  1. Install a Python development environment on your system. The minimum required Python version is 3.9.
 
   1. Initialize a virtual environment at sub-directory `.venv`, then activate it:
 
@@ -1045,41 +1045,19 @@ We can use either the traditional method (`venv` and `pip`) of standard library 
         > 💡 **Tip:** \
         > On Windows, the command-line executable for Python may be either `python`, `python3` or `py`, depending on your installation method.
 
-  1. Install the project and its development dependencies:
+  1. Install the project with all extras and its development group dependencies:
 
      ```bash
-     pip install -r requirements.txt
+     pip install -e[all] . --group dev
      ```
 
-- If using [uv][], it should be installed before starting development.
+- If using [uv][], just the project with all extras and its development group dependencies:
 
-  After installing [uv][], follow these steps to set up the project:
+  ```bash
+  uv sync --all-groups --dev
+  ```
 
-  1. Prepare a suitable Python development environment:
-
-      If you do not already have Python installed, you can use [uv][] to install it. For example:
-
-      ```bash
-      uv python install 3.12
-      ```
-
-      Alternatively, you can use any other method to install Python development environments.
-
-  1. Sync the project with all extras and dependencies:
-
-      To install runtime, test, documentation, typing, and development dependencies:
-
-      ```bash
-      uv sync --all-groups --all-extras
-      ```
-
-      Or, to install only development dependencies:
-
-      ```bash
-      uv sync --only-dev
-      ```
-
-   A Python virtual environment is created in the `.venv` directory by [uv][] automatically.
+  A Python virtual environment is created in the `.venv` directory by [uv][] automatically.
 
 We suggest installing [pre-commit][] hooks:
 

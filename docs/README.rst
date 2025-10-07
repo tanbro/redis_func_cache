@@ -7,9 +7,9 @@ README
 How to Build the Documentation
 ==============================
 
-#. The documentation is built using `Sphinx <https://www.sphinx-doc.org/>`_.
+#. The documentation is built using `Sphinx`_.
 
-   We need to install the package, Sphinx and some extensions used in the documentation:
+   We need to install the package itself in editable mode, `Sphinx`_, and some of its extensions used in the documentation:
 
    * Using `pip`_:
 
@@ -25,11 +25,11 @@ How to Build the Documentation
 
 #. Generate API documentation.
 
-   If it's the first time building the documentation, or if the source tree has changed, you may need to clear the ``docs/apidocs`` directory and regenerate the API documentation:
+   If it's the first time building the documentation, or if the source tree has changed, you may need a clean ``docs/apidoc`` directory and regenerate the API documentation:
 
    .. code:: sh
 
-      sphinx-apidoc -H "" -feo docs/apidocs src
+      sphinx-apidoc -H "" -feo docs/apidoc src
 
 #. Build HTML documentation:
 
@@ -64,5 +64,6 @@ Then open http://localhost:8000/ in a web browser.
    .. seealso:: Python ``stdlib``'s :mod:`http.server`
 
 
+.. _sphinx: https://www.sphinx-doc.org/
 .. _pip: https://pip.pypa.io/en/stable/
 .. _uv: https://docs.astral.sh/uv/

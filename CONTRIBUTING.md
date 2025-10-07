@@ -32,26 +32,38 @@ We welcome feature requests and suggestions. To propose an enhancement:
 #### Development Setup
 
 1. Fork the repository
+
 2. Clone your fork:
+
    ```bash
    git clone https://github.com/your-username/redis_func_cache.git
    cd redis_func_cache
    ```
-3. Install [uv](https://docs.astral.sh/uv/) if you haven't already. Commonly install it using a package manager, or install it using one of the following commands:
-   - On macOS and Linux:
+
+3. [uv](https://docs.astral.sh/uv/) is the recommended package and project manager. Commonly install it using a package manager, or install it using one of the following commands:
+
+   - On Unix-like systems:
+
      ```bash
      curl -LsSf https://astral.sh/uv/install.sh | sh
      ```
+
    - On Windows:
+
      ```powershell
      irm https://astral.sh/uv/install.ps1 | iex
      ```
+
    - Or using pip:
+
      ```bash
      python -m pip install uv
      ```
-   - Or any other way to install uv
+
+   - Or any other way to install [uv][]
+
 4. Sync the development environment and install dependencies:
+
    ```bash
    uv sync --all-extras --dev
    ```
@@ -67,7 +79,7 @@ Before submitting changes, ensure all tests pass:
 uv run pytest
 
 # Run tests with coverage
-uv run pytest --cov=src
+uv run pytest --cov
 
 # Run specific test categories
 uv run pytest tests/test_basic.py
@@ -98,6 +110,7 @@ uv run mypy
 #### Making Changes
 
 1. Create a new branch for your feature or bugfix:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
