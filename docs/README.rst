@@ -8,22 +8,24 @@ How to Build the Documentation
 ==============================
 
 #. The documentation is built using `Sphinx <https://www.sphinx-doc.org/>`_.
+
    We need to install the package, Sphinx and some extensions used in the documentation:
 
-   * Using pip:
+   * Using `pip`_:
 
      .. code:: sh
 
         pip install -e . --group docs
 
-   * 3rd package managers, such like `uv`_, can be used:
+   * Using `uv`_:
 
      .. code:: sh
 
         uv sync --group docs
 
 #. Generate API documentation.
-   If the source tree has changed, you may clear the `docs/apidocs` directory and regenerate the API documentation:
+
+   If it's the first time building the documentation, or if the source tree has changed, you may need to clear the ``docs/apidocs`` directory and regenerate the API documentation:
 
    .. code:: sh
 
@@ -31,17 +33,17 @@ How to Build the Documentation
 
 #. Build HTML documentation:
 
-   * Using the Make tool (for Unix/Linux/macOS):
+   * Using the Make tool (on Unix-like systems):
 
-      .. code:: sh
+     .. code:: sh
 
-         make -C docs html
+        make -C docs html
 
    * On Windows:
 
-      .. code:: bat
+     .. code:: bat
 
-         docs\make html
+        docs\make html
 
 The built static website is located at ``docs/_build/html``. You can serve it with a simple HTTP server:
 
@@ -62,4 +64,5 @@ Then open http://localhost:8000/ in a web browser.
    .. seealso:: Python ``stdlib``'s :mod:`http.server`
 
 
+.. _pip: https://pip.pypa.io/en/stable/
 .. _uv: https://docs.astral.sh/uv/
