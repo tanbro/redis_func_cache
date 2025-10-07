@@ -8,17 +8,19 @@ How to Build the Documentation
 ==============================
 
 #. The documentation is built using `Sphinx <https://www.sphinx-doc.org/>`_.
-   We need to install the package and its testing requirements:
+   We need to install the package, Sphinx and some extensions used in the documentation:
 
-   .. code:: sh
+   * Using pip:
 
-      pip install -e . --group docs
+     .. code:: sh
 
-   3rd package managers, such like `uv`_, can be used:
+        pip install -e . --group docs
 
-   .. code:: sh
+   * 3rd package managers, such like `uv`_, can be used:
 
-      uv sync --group docs
+     .. code:: sh
+
+        uv sync --group docs
 
 #. Generate API documentation.
    If the source tree has changed, you may clear the `docs/apidocs` directory and regenerate the API documentation:
@@ -45,7 +47,7 @@ The built static website is located at ``docs/_build/html``. You can serve it wi
 
 .. code:: sh
 
-   python -m http.server --directory docs/_build/html
+   python -m http.server -d docs/_build/html
 
 Then open http://localhost:8000/ in a web browser.
 
@@ -55,7 +57,7 @@ Then open http://localhost:8000/ in a web browser.
 
    .. code:: sh
 
-      python -m http.server --directory docs/_build/html 8080
+      python -m http.server -d docs/_build/html 8080
 
    .. seealso:: Python ``stdlib``'s :mod:`http.server`
 
