@@ -12,7 +12,7 @@ How to Build the Documentation
 
    .. code:: sh
 
-      pip install -e . -r docs/requirements.txt
+      pip install -e . --group docs
 
    3rd package managers, such like `uv`_, can be used:
 
