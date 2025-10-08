@@ -64,28 +64,28 @@ else
     if maxsize > 0 then
         local n = redis.call('ZCARD', zset_key) - maxsize
         if n >= 0 then
-            local count
+            local evicted_keys
             if is_mru then
                 -- MRU eviction: remove highest scores (most recently used)
-                count = redis.call('ZREMRANGEBYSCORE', zset_key, '+inf', '-inf', 'LIMIT', 0, n + 1)
+                -- Get the evicted keys before removing them
+                evicted_keys = redis.call('ZRANGE', zset_key, -n-1, -1)
+                redis.call('ZREMRANGEBYRANK', zset_key, -n-1, -1)
             else
                 -- LRU eviction: remove lowest scores (least recently used)
-                count = redis.call('ZREMRANGEBYRANK', zset_key, 0, n)
+                -- Get the evicted keys before removing them
+                evicted_keys = redis.call('ZRANGE', zset_key, 0, n)
+                redis.call('ZREMRANGEBYRANK', zset_key, 0, n)
             end
-            if count > 0 then
-                -- Get the evicted keys
-                local evicted_keys = redis.call('ZRANGE', zset_key, 0, count - 1)
-                if #evicted_keys > 0 then
-                    redis.call('HDEL', hmap_key, unpack(evicted_keys))
-                end
-                c = count
+
+            -- Remove evicted keys from hash map and update eviction count
+            if #evicted_keys > 0 then
+                c = redis.call('HDEL', hmap_key, unpack(evicted_keys))
             end
         end
     end
 
     -- Find highest score and increment for new entry
-    local highest_with_score = redis.call('ZRANGE', zset_key, '+inf', '-inf', 'BYSCORE', 'REV', 'LIMIT', 0, 1,
-        'WITHSCORES')
+    local highest_with_score = redis.call('ZRANGE', zset_key, -1, -1, 'WITHSCORES')
     if rawequal(next(highest_with_score), nil) then
         redis.call('ZADD', zset_key, 1, hash)
     else
