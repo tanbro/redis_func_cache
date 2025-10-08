@@ -57,11 +57,14 @@ else
     -- Hash does not exist in zset
     if maxsize > 0 then
         local n = redis.call('ZCARD', zset_key) - maxsize
-        while n >= 0 do
-            local popped = redis.call('ZPOPMIN', zset_key) -- evict oldest
-            redis.call('HDEL', hmap_key, popped[1])
-            n = n - 1
-            c = c + 1
+        if n >= 0 then
+            -- Use batch ZPOPMIN instead of looping calls
+            local evicted_keys_data = redis.call('ZPOPMIN', zset_key, n + 1) -- evict oldest
+
+            -- Extract keys from returned data (ZPOPMIN returns [key,score,key,score,...] format)
+            if #evicted_keys_data > 0 then
+                c = redis.call('HDEL', hmap_key, unpack(evicted_keys_data, 1, #evicted_keys_data, 2))
+            end
         end
     end
     local time = redis.call('TIME')
