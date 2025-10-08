@@ -8,6 +8,12 @@
   - Upgrade build backend to `setuptools>=80`
 - 🧹 **Chore:**
   - Added Python 3.14 in CI and tests scripts
+- 🛠 **Improvements:**
+  - Optimized cache eviction logic in Lua scripts to improve performance and correctness
+  - Fixed issues with evicted keys handling in LRU cache implementation
+  - Improved consistency in cache TTL handling across all cache policies
+  - Simplified and unified code structure in all put scripts for better maintainability
+  - Enhanced efficiency by replacing loops with batch operations in FIFO_T policy
 
 ## v0.5
 
