@@ -64,7 +64,7 @@ run_test() {
     rm -rf "$TMPDIR"
 }
 
-PYTHON_LIST=(python3.9 python3.10 python3.11 python3.12 python3.13)
+PYTHON_LIST=(python3.9 python3.10 python3.11 python3.12 python3.13 python3.14)
 for PYTHON in "${PYTHON_LIST[@]}"
 do
     echo

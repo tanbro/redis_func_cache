@@ -6,6 +6,8 @@
   - Drop support for Python 3.8
 - 📦 **Build:**
   - Upgrade build backend to `setuptools>=80`
+- 🧹 **Chore:**
+  - Added Python 3.14 in CI and tests scripts
 
 ## v0.5
 
