@@ -48,13 +48,13 @@ __all__ = (
 class HashConfig:
     """A :func:`dataclasses.dataclass` Configurator for :class:`.AbstractHashMixin`"""
 
-    serializer: Callable[[Any], bytes]
-    """function to serialize function positional and keyword arguments."""
     algorithm: str
     """name for hashing algorithm
 
     The name must be supported by :mod:`hashlib`.
     """
+    serializer: Callable[[Any], bytes]
+    """function to serialize function positional and keyword arguments."""
     decoder: Optional[Callable[[Hash], KeyT]] = None
     """function to decode hash digest to member of a sorted/unsorted set and also field name of a hash map in redis.
 
