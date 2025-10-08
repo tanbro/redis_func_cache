@@ -68,8 +68,7 @@ else
             end
 
             if #popped_keys > 0 then
-                redis.call('HDEL', hmap_key, unpack(popped_keys))
-                c = #popped_keys
+                c = redis.call('HDEL', hmap_key, unpack(popped_keys))
             end
         end
     end

@@ -80,8 +80,7 @@ else
                 for i = 1, #popped_keys, 2 do
                     table.insert(keys, popped_keys[i])
                 end
-                redis.call('HDEL', hmap_key, unpack(keys))
-                c = #keys
+                c = redis.call('HDEL', hmap_key, unpack(keys))
             end
         end
     end

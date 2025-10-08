@@ -67,8 +67,7 @@ else
                 c = 1
             elseif type(popped_keys) == "table" and #popped_keys > 0 then
                 -- what returned by SPOP is a table when multiple elements are popped
-                redis.call('HDEL', hmap_key, unpack(popped_keys))
-                c = #popped_keys
+                c = redis.call('HDEL', hmap_key, unpack(popped_keys))
             end
         end
     end
