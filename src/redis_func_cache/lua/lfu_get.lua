@@ -25,10 +25,8 @@ local val = redis.call('HGET', hmap_key, hash)
 
 -- If found, increment frequency; else clean up stale entries
 if rnk and val then
-    -- Only increment frequency if update_ttl_flag is set
-    if update_ttl_flag == "1" then
-        redis.call('ZINCRBY', zset_key, 1, hash)
-    end
+    -- Increment frequency (always update frequency regardless of update_ttl_flag)
+    redis.call('ZINCRBY', zset_key, 1, hash)
     return val
 elseif rnk then
     redis.call('ZREM', zset_key, hash) -- remove stale zset member

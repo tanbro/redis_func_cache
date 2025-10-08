@@ -14,6 +14,10 @@
   - Improved consistency in cache TTL handling across all cache policies
   - Simplified and unified code structure in all put scripts for better maintainability
   - Enhanced efficiency by replacing loops with batch operations in FIFO_T policy
+- 🐛 **Bug Fixes:**
+  - Fixed LRU cache score update logic that could cause incorrect eviction order
+  - Corrected cache access frequency update logic in LFU policy
+  - Fixed timestamp update logic in LRU-T policy
 
 ## v0.5
 

@@ -25,17 +25,13 @@ local val = redis.call('HGET', hmap_key, hash)
 
 -- If found, update order; else clean up stale entries
 if rnk and val then
-    -- Only update LRU score if update_ttl_flag is set
-    if update_ttl_flag == "1" then
-        local highest_with_score = redis.call('ZRANGE', zset_key, '+inf', '-inf', 'BYSCORE', 'REV', 'LIMIT', 0, 1,
-            'WITHSCORES')
-        if not rawequal(next(highest_with_score), nil) then
-            if hash ~= highest_with_score[1] then
-                redis.call('ZADD', zset_key, 1 + highest_with_score[2], hash)
-            end
-        else
-            redis.call('ZADD', zset_key, 1, hash)
-        end
+    -- Update LRU score (always update order regardless of update_ttl_flag)
+    local highest_with_score = redis.call('ZRANGE', zset_key, '+inf', '-inf', 'BYSCORE', 'REV', 'LIMIT', 0, 1,
+        'WITHSCORES')
+    if rawequal(next(highest_with_score), nil) then
+        redis.call('ZADD', zset_key, 1, hash)
+    else
+        redis.call('ZADD', zset_key, 1 + highest_with_score[2], hash)
     end
     return val
 elseif rnk then
