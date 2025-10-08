@@ -1,4 +1,6 @@
-"""Least Recently Used cache policies."""
+"""Least Recently Used eviction cache policies."""
+
+from typing import final
 
 from ..mixins.hash import PickleMd5HashMixin
 from ..mixins.scripts import LruScriptsMixin, LruTScriptsMixin
@@ -16,6 +18,7 @@ __all__ = (
 )
 
 
+@final
 class LruPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
     LRU eviction policy, single key pair.
@@ -29,6 +32,7 @@ class LruPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     __key__ = "lru"
 
 
+@final
 class LruMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
     LRU eviction policy, multiple key pairs.
@@ -42,6 +46,7 @@ class LruMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy)
     __key__ = "lru-m"
 
 
+@final
 class LruClusterPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
     LRU eviction policy with Redis cluster support, single key pair.
@@ -55,6 +60,7 @@ class LruClusterPolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePol
     __key__ = "lru-c"
 
 
+@final
 class LruClusterMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
     LRU eviction policy with Redis cluster support, multiple key pairs.
@@ -68,6 +74,7 @@ class LruClusterMultiplePolicy(LruScriptsMixin, PickleMd5HashMixin, BaseClusterM
     __key__ = "lru-cm"
 
 
+@final
 class LruTPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
     LRU-T (timestamp-based pseudo LRU) eviction policy, single key pair.
@@ -81,6 +88,7 @@ class LruTPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     __key__ = "lru_t"
 
 
+@final
 class LruTMultiplePolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
     LRU-T (timestamp-based pseudo LRU) eviction policy, multiple key pairs.
@@ -94,6 +102,7 @@ class LruTMultiplePolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseMultiplePolic
     __key__ = "lru_t-m"
 
 
+@final
 class LruTClusterPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
     LRU-T (timestamp-based pseudo LRU) eviction policy with Redis cluster support, single key pair.
@@ -107,6 +116,7 @@ class LruTClusterPolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseClusterSingleP
     __key__ = "lru_t-c"
 
 
+@final
 class LruTClusterMultiplePolicy(LruTScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
     LRU-T (timestamp-based pseudo LRU) eviction policy with Redis cluster support, multiple key pairs.

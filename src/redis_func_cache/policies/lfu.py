@@ -1,4 +1,6 @@
-"""LFU policy."""
+"""LFU eviction policy."""
+
+from typing import final
 
 from ..mixins.hash import PickleMd5HashMixin
 from ..mixins.scripts import LfuScriptsMixin
@@ -7,6 +9,7 @@ from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultip
 __all__ = ("LfuPolicy", "LfuMultiplePolicy", "LfuClusterPolicy", "LfuClusterMultiplePolicy")
 
 
+@final
 class LfuPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
     LFU eviction policy, single key pair.
@@ -20,6 +23,7 @@ class LfuPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     __key__ = "lfu"
 
 
+@final
 class LfuMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
     LFU eviction policy, multiple key pairs.
@@ -33,6 +37,7 @@ class LfuMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy)
     __key__ = "lfu-m"
 
 
+@final
 class LfuClusterPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
     LFU eviction policy with Redis cluster support, single key pair.
@@ -46,6 +51,7 @@ class LfuClusterPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePol
     __key__ = "lfu-c"
 
 
+@final
 class LfuClusterMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
     LFU eviction policy with Redis cluster support, multiple key pairs.

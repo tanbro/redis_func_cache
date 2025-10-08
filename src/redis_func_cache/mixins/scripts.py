@@ -20,6 +20,9 @@ class AbstractScriptsMixin(ABC):
 
     .. inheritance-diagram:: AbstractScriptsMixin
         :parts: 1
+
+    Attributes:
+        __scripts__ (Tuple[str, str]): A pair of file name for ‘get’ and ‘put’ Lua scripts to be used by the policy.
     """
 
     __scripts__: Tuple[str, str]

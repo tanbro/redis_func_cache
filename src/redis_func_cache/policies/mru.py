@@ -1,3 +1,7 @@
+"""Most Recently Used eviction cache policies."""
+
+from typing import final
+
 from ..mixins.hash import PickleMd5HashMixin
 from ..mixins.scripts import MruScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
@@ -10,6 +14,7 @@ class _MruPolicyExtArgsMixin:
         return ("mru",)
 
 
+@final
 class MruPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
     MRU eviction policy, single key pair.
@@ -23,6 +28,7 @@ class MruPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, Bas
     __key__ = "mru"
 
 
+@final
 class MruMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
     MRU eviction policy, multiple key pairs.
@@ -36,6 +42,7 @@ class MruMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMi
     __key__ = "mru-m"
 
 
+@final
 class MruClusterPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
     MRU eviction policy with Redis cluster support, single key pair.
@@ -49,6 +56,7 @@ class MruClusterPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMix
     __key__ = "mru-c"
 
 
+@final
 class MruClusterMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
     MRU eviction policy with Redis cluster support, multiple key pairs.

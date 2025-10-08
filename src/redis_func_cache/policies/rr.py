@@ -1,4 +1,6 @@
-"""Random replacement cache policy."""
+"""Random replacement eviction cache policy."""
+
+from typing import final
 
 from ..mixins.hash import PickleMd5HashMixin
 from ..mixins.scripts import RrScriptsMixin
@@ -7,6 +9,7 @@ from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultip
 __all__ = ("RrPolicy", "RrMultiplePolicy", "RrClusterPolicy", "RrClusterMultiplePolicy")
 
 
+@final
 class RrPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
     Random replacement (RR) eviction policy, single key pair.
@@ -20,6 +23,7 @@ class RrPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     __key__ = "rr"
 
 
+@final
 class RrMultiplePolicy(RrScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
     Random replacement (RR) eviction policy, multiple key pairs.
@@ -33,6 +37,7 @@ class RrMultiplePolicy(RrScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     __key__ = "rr-m"
 
 
+@final
 class RrClusterPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
     Random replacement (RR) eviction policy with Redis cluster support, single key pair.
@@ -46,6 +51,7 @@ class RrClusterPolicy(RrScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolic
     __key__ = "rr-c"
 
 
+@final
 class RrClusterMultiplePolicy(RrScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
     Random replacement (RR) eviction policy with Redis cluster support, multiple key pairs.

@@ -1,4 +1,6 @@
-"""FIFO policies"""
+"""FIFO eviction policies"""
+
+from typing import final
 
 from ..mixins.hash import PickleMd5HashMixin
 from ..mixins.scripts import FifoScriptsMixin, FifoTScriptsMixin
@@ -16,6 +18,7 @@ __all__ = (
 )
 
 
+@final
 class FifoPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
     FIFO eviction policy, single key pair.
@@ -29,6 +32,7 @@ class FifoPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     __key__ = "fifo"
 
 
+@final
 class FifoMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
     FIFO eviction policy, multiple key pairs.
@@ -42,6 +46,7 @@ class FifoMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseMultiplePolic
     __key__ = "fifo-m"
 
 
+@final
 class FifoClusterPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
     FIFO eviction policy with Redis cluster support, single key pair.
@@ -55,6 +60,7 @@ class FifoClusterPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterSingleP
     __key__ = "fifo-c"
 
 
+@final
 class FifoClusterMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
     FIFO eviction policy with Redis cluster support, multiple key pairs.
@@ -68,6 +74,7 @@ class FifoClusterMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseCluste
     __key__ = "fifo-cm"
 
 
+@final
 class FifoTPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     """
     FIFO eviction policy (timestamp variant), single key pair.
@@ -81,6 +88,7 @@ class FifoTPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
     __key__ = "fifo_t"
 
 
+@final
 class FifoTMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
     """
     FIFO eviction policy (timestamp variant), multiple key pairs.
@@ -94,6 +102,7 @@ class FifoTMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseMultiplePol
     __key__ = "fifo_t-m"
 
 
+@final
 class FifoTClusterPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
     """
     FIFO eviction policy (timestamp variant) with Redis cluster support, single key pair.
@@ -107,6 +116,7 @@ class FifoTClusterPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterSingl
     __key__ = "fifo_t-c"
 
 
+@final
 class FifoTClusterMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
     """
     FIFO eviction policy (timestamp variant) with Redis cluster support, multiple key pairs.
