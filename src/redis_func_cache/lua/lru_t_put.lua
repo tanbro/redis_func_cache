@@ -68,19 +68,15 @@ else
         local n = redis.call('ZCARD', zset_key) - maxsize
         if n >= 0 then
             local count = n + 1
-            local popped_keys
+            local evicted_keys
             if is_mru then
-                popped_keys = redis.call('ZPOPMAX', zset_key, count) -- MRU eviction with batch pop
+                evicted_keys = redis.call('ZPOPMAX', zset_key, count) -- MRU eviction with batch pop
             else
-                popped_keys = redis.call('ZPOPMIN', zset_key, count) -- LRU eviction with batch pop
+                evicted_keys = redis.call('ZPOPMIN', zset_key, count) -- LRU eviction with batch pop
             end
 
-            if #popped_keys > 0 then
-                local keys = {}
-                for i = 1, #popped_keys, 2 do
-                    table.insert(keys, popped_keys[i])
-                end
-                c = redis.call('HDEL', hmap_key, unpack(keys))
+            if #evicted_keys > 0 then
+                c = redis.call('HDEL', hmap_key, unpack(evicted_keys, 1, #evicted_keys, 2))
             end
         end
     end

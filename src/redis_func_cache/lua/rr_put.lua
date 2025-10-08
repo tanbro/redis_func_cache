@@ -59,15 +59,11 @@ else
         local n = redis.call('SCARD', set_key) - maxsize
         if n >= 0 then
             -- SPOP: Removes and returns one or more random members from the set value store at key
-            local popped_keys = redis.call('SPOP', set_key, n + 1) -- evict random members
+            local evicted_keys = redis.call('SPOP', set_key, n + 1) -- evict random members
 
-            if type(popped_keys) == "string" then
-                -- What returned by SPOP is a string when only one element is popped
-                redis.call('HDEL', hmap_key, popped_keys)
-                c = 1
-            elseif type(popped_keys) == "table" and #popped_keys > 0 then
-                -- what returned by SPOP is a table when multiple elements are popped
-                c = redis.call('HDEL', hmap_key, unpack(popped_keys))
+            -- Remove evicted keys from hash map and update eviction count
+            if #evicted_keys > 0 then
+                c = redis.call('HDEL', hmap_key, unpack(evicted_keys))
             end
         end
     end
