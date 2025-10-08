@@ -3,7 +3,7 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools>=80", "setuptools-scm>=8"]
 
 [project]
-authors = [{ name = "liu xue yan", email = "liu_xue_yan@foxmail.com" }]
+authors = [{ name = "Liu Xue-Yan", email = "liu_xue_yan@foxmail.com" }]
 description = "A Python library that provides decorators for caching function results in Redis, supporting multiple serialization formats and caching strategies, as well as asynchronous operations."
 name = "redis_func_cache"
 readme = "README.md"
@@ -18,9 +18,15 @@ license-files = ["LICENSE.md"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "Topic :: Software Development :: Libraries :: Python Modules",
-  "Programming Language :: Python",
   "Programming Language :: Lua",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
 ]
 
 dynamic = ["version"]
