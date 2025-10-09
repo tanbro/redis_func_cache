@@ -72,9 +72,7 @@ jobs:
             .ruff_cache
             .pytest_cache
             .mypy_cache
-          key: ${{ runner.os }}-py${{ matrix.python-version }}-ruff-pytest-mypy-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-py${{ matrix.python-version }}-ruff-pytest-mypy-
+          key: cache
 
       - name: Install the project
         env:
