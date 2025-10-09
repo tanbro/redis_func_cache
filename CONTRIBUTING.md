@@ -40,7 +40,7 @@ We welcome feature requests and suggestions. To propose an enhancement:
    cd redis_func_cache
    ```
 
-3. [uv](https://docs.astral.sh/uv/) is the recommended package and project manager. Commonly install it using a package manager, or install it using one of the following commands:
+3. (_optional_) [uv](https://docs.astral.sh/uv/) is the recommended package and project manager. Commonly install it using a package manager, or install it using one of the following commands:
 
    - On Unix-like systems:
 
@@ -62,10 +62,20 @@ We welcome feature requests and suggestions. To propose an enhancement:
 
    - Or any other way to install [uv][]
 
-4. Sync the development environment and install dependencies:
+4. initialize the development environment
+
+   If you are using [uv][], run:
 
    ```bash
-   uv sync --all-extras --dev
+   uv sync --all-extras
+   ```
+
+   or if you are using pip:
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -e .[all] --group dev
    ```
 
 A virtual environment is created at directory `.venv`. You can activate it by running `source .venv/bin/activate` or `.venv/Scripts/activate` on Windows.
@@ -73,17 +83,6 @@ A virtual environment is created at directory `.venv`. You can activate it by ru
 #### Running Tests
 
 Before submitting changes, ensure all tests pass:
-
-```bash
-# Run all tests
-uv run pytest
-
-# Run tests with coverage
-uv run pytest --cov
-
-# Run specific test categories
-uv run pytest tests/test_basic.py
-```
 
 #### Code Style
 
@@ -99,12 +98,14 @@ To run checks manually:
 
 ```bash
 # Run all pre-commit checks
-uv run pre-commit run -a
+pre-commit run -a
 
-# Run specific checks
-uv run ruff check
-uv run ruff format
-uv run mypy
+# Run lint and format
+ruff check --fix
+ruff format
+
+# Run static type checking
+mypy
 ```
 
 #### Making Changes
@@ -119,17 +120,17 @@ uv run mypy
 
 3. Add tests for new functionality
 
-4. Ensure all tests pass (you shall run redis server on localhost:6379 before running tests):
+4. Ensure all tests pass (you may run redis server on localhost:6379 before running tests):
 
    ```bash
-   uv run pytest
+   pytest -xv --cov
    ```
 
    If the changes are concerned with Redis cluster, it is recommended to run the tests against a Redis cluster by docker compose:
 
    ```bash
    cd docker
-   docker compose up
+   docker compose up --abort-on-container-exit
    ```
 
    If you have standalone Redis server(s) running, you can run the tests against it/them by setting the environment variables
@@ -198,4 +199,4 @@ If you need help with your contribution:
 
 ## License
 
-By contributing to redis_func_cache, you agree that your contributions will be licensed under what described in the LICENSE file.
+By contributing to redis_func_cache, you agree that your contributions will be licensed under what described in the `LICENSE.md` file.
