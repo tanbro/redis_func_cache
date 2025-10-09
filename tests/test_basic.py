@@ -263,3 +263,59 @@ def test_json_serializer():
         mock_put.assert_not_called()
 
     json_cache.policy.purge()
+
+
+def test_lru_eviction_correctness():
+    """测试LRU缓存淘汰的正确性。"""
+    maxsize = 3
+    lru_cache = RedisFuncCache(__name__, LruPolicy, client=redis_factory, maxsize=maxsize)
+    lru_cache.policy.purge()
+
+    @lru_cache
+    def echo(x):
+        return _echo(x)
+
+    # 填充缓存到最大容量
+    for i in range(maxsize):
+        assert echo(i) == i
+
+    assert lru_cache.maxsize == lru_cache.policy.get_size()
+
+    # 访问第一个元素，使其变为最近使用
+    assert echo(0) == 0
+
+    # 添加新元素，应该淘汰第二个元素(1)，而不是第一个元素(0)
+    result = echo(maxsize)
+    assert result == maxsize
+
+    # 验证缓存大小仍然正确
+    assert lru_cache.maxsize == lru_cache.policy.get_size()
+
+    lru_cache.policy.purge()
+
+
+def test_eviction_count_accuracy():
+    """测试缓存淘汰数量的准确性。"""
+    maxsize = 3
+    lru_cache = RedisFuncCache(__name__, LruPolicy, client=redis_factory, maxsize=maxsize)
+    lru_cache.policy.purge()
+
+    @lru_cache
+    def echo(x):
+        return _echo(x)
+
+    # 填充缓存
+    for i in range(maxsize):
+        assert echo(i) == i
+
+    # 验证缓存已满
+    assert lru_cache.policy.get_size() == maxsize
+
+    # 添加超出缓存大小的元素，触发淘汰
+    result = echo(maxsize)
+    assert result == maxsize
+
+    # 验证淘汰后缓存大小仍然正确
+    assert lru_cache.policy.get_size() == maxsize
+
+    lru_cache.policy.purge()
