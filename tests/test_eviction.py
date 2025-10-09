@@ -3,6 +3,8 @@ from unittest.mock import patch
 import pytest
 
 from redis_func_cache import LruPolicy, RedisFuncCache
+from redis_func_cache.policies.fifo import FifoPolicy
+from redis_func_cache.policies.lfu import LfuPolicy
 from redis_func_cache.policies.mru import MruPolicy
 
 from ._catches import CACHES, redis_factory
@@ -56,6 +58,83 @@ def test_lru_order_correctness():
     with patch.object(cache, "get", return_value=None) as mock_get:
         with patch.object(cache, "put") as mock_put:
             assert echo(1) == 1  # 应该未命中
+            mock_get.assert_called_once()
+            mock_put.assert_called_once()
+
+    cache.policy.purge()
+
+
+def test_fifo_order_correctness():
+    """测试FIFO缓存顺序的正确性。"""
+    maxsize = 3
+    cache = RedisFuncCache(__name__, FifoPolicy, client=redis_factory, maxsize=maxsize)
+    cache.policy.purge()
+
+    @cache
+    def echo(x):
+        return _echo(x)
+
+    # 按顺序访问元素填充缓存
+    for i in range(maxsize):
+        assert echo(i) == i
+
+    # 再次访问元素不会改变FIFO顺序
+    assert echo(0) == 0
+    assert echo(1) == 1
+
+    # 添加新元素，应该淘汰第一个元素(0)，因为FIFO按插入顺序淘汰
+    assert echo(maxsize) == maxsize
+
+    # 验证缓存中包含正确的元素: 1, 2, 3
+    with patch.object(cache, "put") as mock_put:
+        assert echo(1) == 1  # 应该命中
+        assert echo(2) == 2  # 应该命中
+        assert echo(3) == 3  # 应该命中
+        mock_put.assert_not_called()
+
+    # 访问已淘汰的元素0应该未命中
+    with patch.object(cache, "get", return_value=None) as mock_get:
+        with patch.object(cache, "put") as mock_put:
+            assert echo(0) == 0  # 应该未命中
+            mock_get.assert_called_once()
+            mock_put.assert_called_once()
+
+    cache.policy.purge()
+
+
+def test_lfu_order_correctness():
+    """测试LFU缓存顺序的正确性。"""
+    maxsize = 3
+    cache = RedisFuncCache(__name__, LfuPolicy, client=redis_factory, maxsize=maxsize)
+    cache.policy.purge()
+
+    @cache
+    def echo(x):
+        return _echo(x)
+
+    # 填充缓存
+    for i in range(maxsize):
+        assert echo(i) == i
+
+    # 多次访问某些元素以增加它们的访问频率
+    assert echo(0) == 0  # 第二次访问0
+    assert echo(0) == 0  # 第三次访问0
+    assert echo(1) == 1  # 第二次访问1
+
+    # 添加新元素，应该淘汰访问频率最低的元素(2)
+    assert echo(maxsize) == maxsize
+
+    # 验证缓存中包含正确的元素: 0, 1, 3
+    with patch.object(cache, "put") as mock_put:
+        assert echo(0) == 0  # 应该命中
+        assert echo(1) == 1  # 应该命中
+        assert echo(3) == 3  # 应该命中
+        mock_put.assert_not_called()
+
+    # 访问已淘汰的元素2应该未命中
+    with patch.object(cache, "get", return_value=None) as mock_get:
+        with patch.object(cache, "put") as mock_put:
+            assert echo(2) == 2  # 应该未命中
             mock_get.assert_called_once()
             mock_put.assert_called_once()
 
