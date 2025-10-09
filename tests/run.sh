@@ -32,7 +32,7 @@ run_test() {
     fi
 
     log "Installing dependencies..."
-    if ! "$TMPDIR/bin/pip" install --no-compile -e .[all] --group test ruff mypy types-redis types-PyYAML types-Pygments; then
+    if ! "$TMPDIR/bin/pip" install --no-compile -e .[all] --group test --group mypy ruff ; then
         log "Error: Failed to install dependencies"
         return 1
     fi
@@ -50,7 +50,7 @@ run_test() {
     fi
 
     log "Unit test:"
-    if ! "$TMPDIR/bin/pytest" -x --cov --cov-report=xml --junitxml=junit.xml; then
+    if ! "$TMPDIR/bin/pytest" -x --cov; then
         log "Error: Unit test failed"
         return 1
     fi
