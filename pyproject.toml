@@ -64,14 +64,11 @@ all = [
 
 [dependency-groups]
 dev = [
-  { include-group = "mypy" },
+  { include-group = "typed" },
   { include-group = "test" },
   { include-group = "docs" },
-  { include-group = "ipy" },
 ]
-
-mypy = ["mypy", "types-redis", "types-PyYAML", "types-Pygments"]
-
+typed = ["mypy", "types-redis", "types-PyYAML", "types-Pygments"]
 docs = [
   "importlib_metadata;python_version<'3.8'",
   "Sphinx>=7",
@@ -85,7 +82,6 @@ docs = [
   "sphinx-version-warning",
   "sphinx-autodoc-typehints",
 ]
-
 test = [
   "pytest",
   "pytest-mock",
@@ -94,7 +90,7 @@ test = [
   "python-dotenv",
 ]
 
-ipy = ["ipykernel", "pip"]
+ipy = ["ipykernel"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
