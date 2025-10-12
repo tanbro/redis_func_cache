@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import sys
 from base64 import b64encode
+from collections.abc import Callable
 from textwrap import dedent
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 from warnings import warn
 
 if sys.version_info < (3, 9):  # pragma: no cover
@@ -68,6 +69,8 @@ def get_callable_bytecode(obj: Callable) -> bytes:
     Returns:
         The bytecode of the function, or `b""` if the function has no `__code__` attribute.
     """
+    if not callable(obj):
+        raise TypeError("obj must be callable")
     try:
         return obj.__code__.co_code
     except AttributeError:
