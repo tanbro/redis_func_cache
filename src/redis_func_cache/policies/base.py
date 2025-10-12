@@ -4,21 +4,23 @@ from __future__ import annotations
 
 import hashlib
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
-from weakref import CallableProxyType
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional
 
 if sys.version_info < (3, 12):  # pragma: no cover
     from typing_extensions import override
 else:  # pragma: no cover
     from typing import override
 
-from ..cache import RedisFuncCache
+if TYPE_CHECKING:  # pragma: no cover
+    from weakref import CallableProxyType
+
 from ..typing import is_redis_async_client, is_redis_sync_client
 from ..utils import b64digest, get_callable_bytecode
 from .abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
-    pass
+    from ..cache import RedisFuncCache
 
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
 
@@ -42,15 +44,15 @@ class BaseSinglePolicy(AbstractPolicy):
         if not isinstance(cache, CallableProxyType) or not bool(cache):
             raise TypeError("The 'cache' parameter must be a valid weak reference proxy to a RedisFuncCache instance.")
         super().__init__(cache)
-        self._keys: Optional[Tuple[str, str]] = None
+        self._keys: Optional[tuple[str, str]] = None
 
     @override
     def calc_keys(
         self,
         f: Optional[Callable] = None,
-        args: Optional[Tuple[Any, ...]] = None,
-        kwds: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, str]:
+        args: Optional[tuple[Any, ...]] = None,
+        kwds: Optional[dict[str, Any]] = None,
+    ) -> tuple[str, str]:
         """
         Return the static Redis key pair for this cache policy.
 
@@ -132,9 +134,9 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
     def calc_keys(
         self,
         f: Optional[Callable] = None,
-        args: Optional[Tuple[Any, ...]] = None,
-        kwds: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, str]:
+        args: Optional[tuple[Any, ...]] = None,
+        kwds: Optional[dict[str, Any]] = None,
+    ) -> tuple[str, str]:
         """
         Return the static Redis key pair for this cache policy, using cluster hash tags.
 
@@ -163,9 +165,9 @@ class BaseMultiplePolicy(AbstractPolicy):
     def calc_keys(
         self,
         f: Optional[Callable] = None,
-        args: Optional[Tuple[Any, ...]] = None,
-        kwds: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, str]:
+        args: Optional[tuple[Any, ...]] = None,
+        kwds: Optional[dict[str, Any]] = None,
+    ) -> tuple[str, str]:
         """
         Calculate a unique Redis key pair for the given function.
 
@@ -233,9 +235,9 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     def calc_keys(
         self,
         f: Optional[Callable] = None,
-        args: Optional[Tuple[Any, ...]] = None,
-        kwds: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, str]:
+        args: Optional[tuple[Any, ...]] = None,
+        kwds: Optional[dict[str, Any]] = None,
+    ) -> tuple[str, str]:
         """
         Calculate a unique Redis key pair for the given function, using cluster hash tags.
 

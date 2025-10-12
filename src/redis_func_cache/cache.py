@@ -4,6 +4,7 @@ import json
 import pickle
 import weakref
 from collections import OrderedDict
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from copy import copy
@@ -11,23 +12,7 @@ from dataclasses import dataclass, replace
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Coroutine,
-    Dict,
-    Generator,
-    Generic,
-    Iterable,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Coroutine, Generic, Optional, Type, Union, cast
 from warnings import warn
 
 from redis.commands.core import AsyncScript, Script
@@ -71,7 +56,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
-    SerializerPairT = Tuple[SerializerT, DeserializerT]
+    SerializerPairT = tuple[SerializerT, DeserializerT]
     SerializerSetterValueT = Union[SerializerName, SerializerPairT]
 
 __all__ = ("RedisFuncCache",)
@@ -254,7 +239,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         Attributes:
             __call__: Equivalent to the :meth:`decorate` method.
-            __serializers__ (Dict[str, SerializerPairT]): A dictionary of serializers.
+            __serializers__ (dict[str, SerializerPairT]): A dictionary of serializers.
         """
         self.name = name
         self.prefix = prefix
@@ -273,7 +258,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=RedisFuncCache.Mode())
         self._stats: ContextVar[Optional[RedisFuncCache.Stats]] = ContextVar("stats", default=None)
 
-    __serializers__: Dict[str, SerializerPairT] = {
+    __serializers__: dict[str, SerializerPairT] = {
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
         "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
     }
@@ -469,7 +454,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def get(
         cls,
         script: Script,
-        keys: Tuple[KeyT, KeyT],
+        keys: tuple[KeyT, KeyT],
         hash_value: KeyT,
         update_ttl: bool,
         ttl: int,
@@ -497,7 +482,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     async def aget(
         cls,
         script: AsyncScript,
-        keys: Tuple[KeyT, KeyT],
+        keys: tuple[KeyT, KeyT],
         hash_: KeyT,
         update_ttl: bool,
         ttl: int,
@@ -513,7 +498,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def put(
         cls,
         script: Script,
-        keys: Tuple[KeyT, KeyT],
+        keys: tuple[KeyT, KeyT],
         hash_value: KeyT,
         value: EncodableT,
         maxsize: int,
@@ -548,7 +533,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     async def aput(
         cls,
         script: AsyncScript,
-        keys: Tuple[KeyT, KeyT],
+        keys: tuple[KeyT, KeyT],
         hash_: KeyT,
         value: EncodableT,
         maxsize: int,
@@ -569,8 +554,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def make_bound(
         cls,
         user_func: Callable,
-        user_args: Tuple[Any, ...],
-        user_kwds: Dict[str, Any],
+        user_args: tuple[Any, ...],
+        user_kwds: dict[str, Any],
         excludes: Sequence[str] | None = None,
         excludes_positional: Sequence[int] | None = None,
     ) -> Optional[BoundArguments]:
@@ -589,10 +574,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def prepare(
         self,
         user_function: Callable,
-        user_args: Tuple[Any, ...],
-        user_kwds: Dict[str, Any],
+        user_args: tuple[Any, ...],
+        user_kwds: dict[str, Any],
         bound: Optional[BoundArguments] = None,
-    ) -> Tuple[Tuple[KeyT, KeyT], KeyT, Iterable[EncodableT]]:
+    ) -> tuple[tuple[KeyT, KeyT], KeyT, Iterable[EncodableT]]:
         if bound is None:
             args, kwds = user_args, user_kwds
         else:
@@ -605,8 +590,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def exec(
         self,
         user_function: Callable,
-        user_args: Tuple[Any, ...],
-        user_kwds: Dict[str, Any],
+        user_args: tuple[Any, ...],
+        user_kwds: dict[str, Any],
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
         bound: Optional[BoundArguments] = None,
@@ -686,8 +671,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
     async def aexec(
         self,
         user_function: Callable[..., Coroutine],
-        user_args: Tuple[Any, ...],
-        user_kwds: Dict[str, Any],
+        user_args: tuple[Any, ...],
+        user_kwds: dict[str, Any],
         serialize_func: Optional[SerializerT] = None,
         deserialize_func: Optional[DeserializerT] = None,
         bound: Optional[BoundArguments] = None,

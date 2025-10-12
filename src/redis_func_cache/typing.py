@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Callable, Literal, TypeVar, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Literal, TypeVar, Union
 
 if sys.version_info < (3, 10):  # pragma: no cover
     from typing_extensions import TypeGuard

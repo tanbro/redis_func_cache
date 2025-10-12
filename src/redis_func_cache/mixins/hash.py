@@ -4,8 +4,9 @@ import hashlib
 import json
 import pickle
 from abc import ABC
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from ..utils import b64digest, get_callable_bytecode
 
@@ -98,8 +99,8 @@ class AbstractHashMixin(ABC):
     def calc_hash(
         self,
         f: Optional[Callable] = None,
-        args: Optional[Tuple[Any, ...]] = None,
-        kwds: Optional[Dict[str, Any]] = None,
+        args: Optional[tuple[Any, ...]] = None,
+        kwds: Optional[dict[str, Any]] = None,
     ) -> KeyT:
         """Mixin method to overwrite :meth:`redis_func_cache.policies.abstract.AbstractPolicy.calc_hash`
 

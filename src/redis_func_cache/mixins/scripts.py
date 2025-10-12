@@ -1,7 +1,6 @@
 """Some mixins with lua scripts defined for policies."""
 
 from abc import ABC
-from typing import Tuple
 
 __all__ = (
     "AbstractScriptsMixin",
@@ -22,10 +21,10 @@ class AbstractScriptsMixin(ABC):
         :parts: 1
 
     Attributes:
-        __scripts__ (Tuple[str, str]): A pair of file name for ‘get’ and ‘put’ Lua scripts to be used by the policy.
+        __scripts__ (tuple[str, str]): A pair of file name for ‘get’ and ‘put’ Lua scripts to be used by the policy.
     """
 
-    __scripts__: Tuple[str, str]
+    __scripts__: tuple[str, str]
 
 
 class FifoScriptsMixin(AbstractScriptsMixin):
