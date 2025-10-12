@@ -41,8 +41,6 @@ class BaseSinglePolicy(AbstractPolicy):
 
     @override
     def __init__(self, cache: CallableProxyType[RedisFuncCache]):
-        if not isinstance(cache, CallableProxyType) or not bool(cache):
-            raise TypeError("The 'cache' parameter must be a valid weak reference proxy to a RedisFuncCache instance.")
         super().__init__(cache)
         self._keys: Optional[tuple[str, str]] = None
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import weakref
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Optional, Union
+
+if TYPE_CHECKING:  # pragma: no cover
+    from weakref import CallableProxyType
 
 from redis.commands.core import AsyncScript, Script
 
@@ -39,7 +41,7 @@ class AbstractPolicy(ABC):
     __key__: str
     __scripts__: tuple[str, str]
 
-    def __init__(self, cache: weakref.CallableProxyType[RedisFuncCache]):
+    def __init__(self, cache: CallableProxyType[RedisFuncCache]):
         """
         Args:
             cache: A weakref proxy to the :class:`RedisFuncCache` instance using this policy.
@@ -48,12 +50,12 @@ class AbstractPolicy(ABC):
         self._lua_scripts: Union[None, tuple[Script, Script], tuple[AsyncScript, AsyncScript]] = None
 
     @property
-    def cache(self) -> RedisFuncCache:
+    def cache(self) -> CallableProxyType[RedisFuncCache]:
         """
         Returns:
             The :class:`RedisFuncCache` instance (via weakref proxy) that uses this policy.
         """
-        return self._cache  # type: ignore
+        return self._cache
 
     @abstractmethod
     def calc_keys(
