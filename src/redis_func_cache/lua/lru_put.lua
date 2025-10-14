@@ -74,7 +74,11 @@ else
 
             -- Remove evicted keys from hash map and update eviction count
             if #evicted_keys_data > 0 then
-                c = redis.call('HDEL', hmap_key, unpack(evicted_keys_data, 1, #evicted_keys_data, 2))
+                local keys_only = {}
+                for i = 1, #evicted_keys_data, 2 do
+                    keys_only[#keys_only + 1] = evicted_keys_data[i]
+                end
+                c = redis.call('HDEL', hmap_key, unpack(keys_only))
             end
         end
     end
