@@ -34,7 +34,7 @@ local hmap_exists = redis.call('EXISTS', hmap_key)
 
 -- If either zset or hash doesn't exist, clean up the other one
 if zset_exists == 0 or hmap_exists == 0 then
-      if zset_exists == 1 then
+    if zset_exists == 1 then
         redis.call('UNLINK', zset_key)
     end
     if hmap_exists == 1 then
