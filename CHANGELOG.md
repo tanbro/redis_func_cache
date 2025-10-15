@@ -4,10 +4,7 @@
 
 - 💔 **Breaking Changes:**
   - Drop support for Python 3.8
-- 📦 **Build:**
   - Upgrade build backend to `setuptools>=80`
-- 🧹 **Chore:**
-  - Added Python 3.14 in CI and tests scripts
 - 🛠 **Improvements:**
   - Optimized cache eviction logic in Lua scripts to improve performance and correctness
   - Fixed issues with evicted keys handling in LRU cache implementation
@@ -18,6 +15,9 @@
   - Fixed LRU cache score update logic that could cause incorrect eviction order
   - Corrected cache access frequency update logic in LFU policy
   - Fixed timestamp update logic in LRU-T policy
+  - Fixed wrong usages of table unpack in Lua scripts
+- 🧹 **Chore:**
+  - Added Python 3.14 in CI and tests scripts
 
 ## v0.5
 
