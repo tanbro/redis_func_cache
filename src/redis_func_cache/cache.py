@@ -755,17 +755,22 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 Note:
                     If assigned, it overwrite the :attr:`serializer` property of the cache instance on, and only affect the currently decorated function.
 
-            ttl: (_Experimental_) The time-to-live (in seconds) for a single invocation.
+            ttl: (**Experimental**) The time-to-live (in seconds) for a single invocation's result cache.
 
                 Note:
                     This parameter specifies the expiration time for a single invocation result inside the cached structures, not for the entire cache.
 
                 Caution:
-                    The expiration is based on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration).
-                    Therefore, expiration only applies to the hash field and does not decrease the total item count in the cache when a field expires.
+                    This experimental expiration mechanism relies on `Redis Hashes Field expiration <https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration)>`_.
+                    Expiration only applies to the `HASH` field (the cached return value), and does **not** reduce the total number of items in the cache when a field expires.
+
+                    Typically, the cached return value in the `HASH` portion is automatically released after expiration.
+                    However, the corresponding hash key in the `ZSET` portion is **not** removed automatically.
+                    Instead, it is only "lazily" cleaned up when accessed, or removed by the eviction policy when a new value is added.
+                    During this period, the `ZSET` portion continues to occupy memory, and the reported number of cache items does not decrease.
 
                 Warning:
-                    Experimental and only available in Redis versions above 7.4`
+                    This feature is **experimental** and requires Redis 7.4 or above.
 
                 .. versionadded:: 0.5
 
@@ -989,6 +994,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
 
                 with cache.read_only():
+                    # `func()` will NOT be executed, result is read from cache, and dose not write to cache
                     result = func()
 
         .. versionadded:: 0.5
@@ -1010,7 +1016,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
 
                 with cache.disable_read():
-                    result = func()  # will be executed and result stored in cache, but not read from cache
+                    # `func()` will be executed and result stored in cache, but not read from cache
+                    result = func()
 
         .. versionadded:: 0.5
         """

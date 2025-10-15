@@ -462,6 +462,7 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
 
   > ⚠️ **Warning:**\
   > This feature is experimental and requires [Redis][] 7.4 or above.
+  > See [Redis hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration) for more details.
 
 ### Complex return types
 
