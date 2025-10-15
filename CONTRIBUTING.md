@@ -40,42 +40,18 @@ We welcome feature requests and suggestions. To propose an enhancement:
    cd redis_func_cache
    ```
 
-3. (_optional_) [uv](https://docs.astral.sh/uv/) is the recommended package and project manager. Commonly install it using a package manager, or install it using one of the following commands:
-
-   - On Unix-like systems:
-
-     ```bash
-     curl -LsSf https://astral.sh/uv/install.sh | sh
-     ```
-
-   - On Windows:
-
-     ```powershell
-     irm https://astral.sh/uv/install.ps1 | iex
-     ```
-
-   - Or using pip:
-
-     ```bash
-     python -m pip install uv
-     ```
-
-   - Or any other way to install [uv][]
-
-4. initialize the development environment
-
-   If you are using [uv][], run:
-
-   ```bash
-   uv sync --all-extras
-   ```
-
-   or if you are using pip:
+3. initialize the development environment
 
    ```bash
    python -m venv .venv
    source .venv/bin/activate
    pip install -e .[all] --group dev
+   ```
+
+   Or if you are using [uv][]:
+
+   ```bash
+   uv sync --all-extras
    ```
 
 A virtual environment is created at directory `.venv`. You can activate it by running `source .venv/bin/activate` or `.venv/Scripts/activate` on Windows.

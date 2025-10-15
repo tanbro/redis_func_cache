@@ -417,7 +417,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. deprecated:: 0.5
             use :meth:`get_client` instead.
         """
-        warn("property `client` is deprecated since 0.5, use `get_client()` instead", DeprecationWarning)
+        warn("property ‘client’ is deprecated since 0.5, use ‘get_client()’ instead", DeprecationWarning)
         return self.get_client()
 
     def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
@@ -767,6 +767,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 Warning:
                     Experimental and only available in Redis versions above 7.4`
 
+                .. versionadded:: 0.5
+
             excludes: Optional sequence of parameter names specifying keyword arguments to exclude from cache key generation.
 
                 Example:
@@ -775,6 +777,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                         @cache(excludes=["session", "token"])
                         def update_user(user_id: int, session: Session, token: str) -> None: ...
+
+                .. versionadded:: 0.5
+
 
             excludes_positional: Optional sequence of indices specifying positional arguments to exclude from cache key generation.
 
@@ -785,7 +790,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
                         @cache(excludes_positional=[1, 2])
                         def update_user(user_id: int, session: Session, token: str) -> None: ...
 
-            options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
+                options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
+
+                .. versionadded:: 0.5
 
         This method is equivalent to :attr:`__call__`.
 
@@ -832,8 +839,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 @cache.decorate(serializer="yaml")
                 def my_func(a, b):
                     return a + b
-
-        .. versionadded:: 0.5
         """
         serialize_func: Optional[SerializerT] = None
         deserialize_func: Optional[DeserializerT] = None
@@ -842,6 +847,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
         elif serializer is not None:
             serialize_func, deserialize_func = serializer
         field_ttl = 0 if ttl is None else int(ttl)
+        if field_ttl:
+            warn("The ‘ttl’ parameter is experimental and only available in Redis versions above 7.4")
+            if field_ttl < 0:
+                raise ValueError("ttl must be a positive integer")
 
         def decorator(user_func: CallableTV) -> CallableTV:
             @wraps(user_func)
