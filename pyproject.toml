@@ -19,12 +19,7 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Lua",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
@@ -38,11 +33,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tanbro/redis_func_cache"
-Documentation = "https://redis-func-cache.readthedocs.io/"
-Repository = "https://github.com/tanbro/redis_func_cache"
-"Bug Tracker" = "https://github.com/tanbro/redis_func_cache/issues"
-Changelog = "https://github.com/tanbro/redis_func_cache/main/CHANGELOG.md"
+homepage = "https://github.com/tanbro/redis_func_cache"
+changelog = "https://github.com/tanbro/redis_func_cache/main/CHANGELOG.md"
+documentation = "https://redis-func-cache.readthedocs.io/"
+issues = "https://github.com/tanbro/redis_func_cache/issues"
+source = "https://github.com/tanbro/redis_func_cache.git"
 
 [project.optional-dependencies]
 hiredis = ["redis[hiredis]"]
