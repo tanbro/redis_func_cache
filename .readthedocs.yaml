@@ -26,4 +26,4 @@ build:
     install: # install by uv
       - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --all-extras --group docs --no-dev
     pre_build:
-      - sphinx-apidoc -H "" -feo docs/apidocs src
+      - sphinx-apidoc -H "" -feo docs/apidoc src
