@@ -1,6 +1,6 @@
 # Changelog
 
-## Developing
+## v0.6.0
 
 - 💔 **Breaking Changes:**
   - Drop support for Python 3.8
