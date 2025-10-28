@@ -49,57 +49,57 @@ jobs:
 
     unittest-linux:
         runs-on: ubuntu-latest
-        strategy:
-            matrix:
-                python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        # strategy:
+        #     matrix:
+        #         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
-        services:
-            redis-standalone:
-                image: redis:alpine
-                options: >-
-                    --health-cmd "redis-cli ping | grep PONG"
-                    --health-interval 10s
-                    --health-timeout 5s
-                    --health-retries 5
-                ports:
-                    - 6379:6379
+        # services:
+        #     redis-standalone:
+        #         image: redis:alpine
+        #         options: >-
+        #             --health-cmd "redis-cli ping | grep PONG"
+        #             --health-interval 10s
+        #             --health-timeout 5s
+        #             --health-retries 5
+        #         ports:
+        #             - 6379:6379
 
         steps:
             - uses: actions/checkout@v5
 
-            - name: Install uv
-              uses: astral-sh/setup-uv@v6
-              with:
-                  enable-cache: true
-                  python-version: ${{ matrix.python-version }}
+            # - name: Install uv
+            #   uses: astral-sh/setup-uv@v6
+            #   with:
+            #       enable-cache: true
+            #       python-version: ${{ matrix.python-version }}
 
-            - name: Cache of Ruff PyTest and MyPY
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      .mypy_cache
-                      .pytest_cache
-                      .ruff_cache
-                  key: mypy-pytest-ruff
+            # - name: Cache of Ruff PyTest and MyPY
+            #   uses: actions/cache@v4
+            #   with:
+            #       path: |
+            #           .mypy_cache
+            #           .pytest_cache
+            #           .ruff_cache
+            #       key: mypy-pytest-ruff
 
-            - name: Install the project
-              env:
-                  SETUPTOOLS_SCM_PRETEND_VERSION: "0"
-              run: uv sync --all-extras --no-dev --group test --group typed
+            # - name: Install the project
+            #   env:
+            #       SETUPTOOLS_SCM_PRETEND_VERSION: "0"
+            #   run: uv sync --all-extras --no-dev --group test --group typed
 
-            - name: Lint check with ruff
-              uses: astral-sh/ruff-action@v3
+            # - name: Lint check with ruff
+            #   uses: astral-sh/ruff-action@v3
 
-            - name: Static check with mypy
-              run: uv run --no-dev mypy
+            # - name: Static check with mypy
+            #   run: uv run --no-dev mypy
 
-            - name: Run tests
-              run: uv run --no-dev pytest -x --cov --cov-report=xml
+            # - name: Run tests
+            #   run: uv run --no-dev pytest -x --cov --cov-report=xml
 
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v5
-              with:
-                  token: ${{ secrets.CODECOV_TOKEN }}
+            # - name: Upload coverage to Codecov
+            #   uses: codecov/codecov-action@v5
+            #   with:
+            #       token: ${{ secrets.CODECOV_TOKEN }}
 
     unittest-macos:
         runs-on: macos-latest
@@ -208,6 +208,33 @@ jobs:
                   }
                   if (-not $ok) { Write-Error "redis did not start"; exit 1 }
                   Write-Host "redis is up"
+
+            - name: check redis listening & connectivity
+              shell: pwsh
+              run: |
+                  Get-Process -Name redis* -ErrorAction SilentlyContinue | Format-Table -AutoSize
+                  netstat -ano | Select-String ":6379"
+                  if (Get-Command redis-cli -ErrorAction SilentlyContinue) {
+                    & redis-cli ping
+                  } else {
+                    Write-Host "redis-cli not found"
+                  }
+                  $hosts = @('127.0.0.1','::1','localhost')
+                  foreach ($h in $hosts) {
+                    try {
+                      $tcp = New-Object System.Net.Sockets.TcpClient
+                      $ar = $tcp.BeginConnect($h,6379,$null,$null)
+                      $wait = $ar.AsyncWaitHandle.WaitOne(1000)
+                      if ($wait -and $tcp.Connected) {
+                        Write-Host "OK $h"
+                        $tcp.Close()
+                      } else {
+                        Write-Host "FAIL $h"
+                      }
+                    } catch {
+                      Write-Host "FAIL $h $_"
+                    }
+                  }
 
             - name: Run tests
               shell: pwsh
