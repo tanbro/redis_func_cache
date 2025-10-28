@@ -29,8 +29,8 @@ def get_candidate_from_ref(ref: str) -> str:
     prefix = "refs/tags/"
     if not ref.startswith(prefix):
         return ""
-    tag = ref[len(prefix) :]
-    if tag.startswith("v") and len(tag) > 1:
+    tag = ref[len(prefix) :].strip()
+    if len(tag) > 1 and tag.startswith(("v", "V")):
         return tag[1:]
     return tag
 
