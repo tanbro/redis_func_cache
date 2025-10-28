@@ -93,9 +93,9 @@ jobs:
           $errFile = Join-Path $env:RUNNER_TEMP 'redis.stderr.log'
           $pidFile = Join-Path $env:RUNNER_TEMP 'redis.pid'
           if (Test-Path $pidFile) {
-            $pid = (Get-Content $pidFile -ErrorAction SilentlyContinue).Trim()
-            Write-Host "Redis pid (from file): $pid"
-            try { Get-Process -Id $pid -ErrorAction SilentlyContinue | Format-Table -AutoSize } catch {}
+            $redisPid = (Get-Content $pidFile -ErrorAction SilentlyContinue).Trim()
+            Write-Host "Redis pid (from file): $redisPid"
+            try { Get-Process -Id $redisPid -ErrorAction SilentlyContinue | Format-Table -AutoSize } catch {}
           } else {
             Write-Host "Redis pid file not found: $pidFile"
           }
