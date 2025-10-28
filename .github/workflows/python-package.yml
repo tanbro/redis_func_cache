@@ -4,279 +4,133 @@
 name: Python package
 
 on:
-    push:
-        branches: [main]
-        tags: ["*"]
-        paths:
-            - .github/**
-            - src/**
-            - tests/**
-            - pyproject.toml
-    pull_request:
-        branches: [main]
-        paths:
-            - .github/**
-            - src/**
-            - tests/**
-            - pyproject.toml
+  push:
+    branches: [main]
+    tags: ["*"]
+    paths:
+      - .github/**
+      - src/**
+      - tests/**
+      - pyproject.toml
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/**
+      - src/**
+      - tests/**
+      - pyproject.toml
 
 jobs:
-    get-version:
-        runs-on: ubuntu-latest
-        outputs:
-            version: ${{ steps.get-version.outputs.version }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v5
-              with:
-                  fetch-depth: 0
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-            - name: Cache pip downloads
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cache/pip
-                  key: pip
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip
 
-            - name: Install packaging (no deps)
-              run: python3 -m pip install --no-deps --disable-pip-version-check packaging
+      - name: Install packaging (no deps)
+        run: python3 -m pip install --disable-pip-version-check packaging
 
-            - name: Validate PEP-440 tag (extract & check) and set output
-              id: get-version
-              run: |
-                  set -euo pipefail
-                  # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
-                  python3 .github/scripts/validate_version.py
+      - name: Validate PEP-440 tag (extract & check) and set output
+        id: get-version
+        run: |
+          set -euo pipefail
+          # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
+          python3 .github/scripts/validate_version.py
 
-    unittest-linux:
-        runs-on: ubuntu-latest
-        # strategy:
-        #     matrix:
-        #         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+  unittest-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
-        # services:
-        #     redis-standalone:
-        #         image: redis:alpine
-        #         options: >-
-        #             --health-cmd "redis-cli ping | grep PONG"
-        #             --health-interval 10s
-        #             --health-timeout 5s
-        #             --health-retries 5
-        #         ports:
-        #             - 6379:6379
+    services:
+      redis-standalone:
+        image: redis:alpine
+        options: >-
+          --health-cmd "redis-cli ping | grep PONG"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
 
-        steps:
-            - uses: actions/checkout@v5
+    steps:
+      - uses: actions/checkout@v5
 
-            # - name: Install uv
-            #   uses: astral-sh/setup-uv@v6
-            #   with:
-            #       enable-cache: true
-            #       python-version: ${{ matrix.python-version }}
+      - name: Run shared test steps (Linux matrix)
+        uses: ./.github/actions/run-tests
+        with:
+          python-version: ${{ matrix.python-version }}
+          upload-codecov: "true"
 
-            # - name: Cache of Ruff PyTest and MyPY
-            #   uses: actions/cache@v4
-            #   with:
-            #       path: |
-            #           .mypy_cache
-            #           .pytest_cache
-            #           .ruff_cache
-            #       key: mypy-pytest-ruff
+  unittest-macos:
+    runs-on: macos-latest
+    env:
+      REDIS_HOST: "${{ secrets.REDIS_HOST }}"
 
-            # - name: Install the project
-            #   env:
-            #       SETUPTOOLS_SCM_PRETEND_VERSION: "0"
-            #   run: uv sync --all-extras --no-dev --group test --group typed
+    steps:
+      - uses: actions/checkout@v5
 
-            # - name: Lint check with ruff
-            #   uses: astral-sh/ruff-action@v3
+      - name: Install & start Redis on macOS (Homebrew)
+        shell: bash
+        run: |
+          # Use the repository script to install and start redis on macOS.
+          # The script should handle an external REDIS_HOST if set.
+          bash .github/scripts/install_start_redis-macos.bash
 
-            # - name: Static check with mypy
-            #   run: uv run --no-dev mypy
+      - name: Run shared test steps (macOS)
+        uses: ./.github/actions/run-tests
+        with:
+          upload-codecov: "false"
 
-            # - name: Run tests
-            #   run: uv run --no-dev pytest -x --cov --cov-report=xml
+  # Windows CI job removed per repository decision (Windows CI is disabled)
 
-            # - name: Upload coverage to Codecov
-            #   uses: codecov/codecov-action@v5
-            #   with:
-            #       token: ${{ secrets.CODECOV_TOKEN }}
+  build:
+    runs-on: ubuntu-latest
+    needs: [get-version, unittest-linux, unittest-macos]
+    if: needs.get-version.outputs.version != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Build
+        run: uv build
+      - name: Upload package distributions to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: redis_func_cache-dist-${{ needs.get-version.outputs.version }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 1
 
-    unittest-macos:
-        runs-on: macos-latest
-        env:
-            REDIS_HOST: "${{ secrets.REDIS_HOST }}"
+  publish:
+    runs-on: ubuntu-latest
+    needs: [get-version, build]
+    if: needs.get-version.outputs.version != ''
 
-        steps:
-            - uses: actions/checkout@v5
-
-            # - name: Install uv
-            #   uses: astral-sh/setup-uv@v6
-            #   with:
-            #       enable-cache: true
-
-            # - name: Cache of Ruff PyTest and MyPY
-            #   uses: actions/cache@v4
-            #   with:
-            #       path: |
-            #           .ruff_cache
-            #           .pytest_cache
-            #           .mypy_cache
-            #       key: mypy-pytest-ruff
-
-            # - name: Install the project
-            #   env:
-            #       SETUPTOOLS_SCM_PRETEND_VERSION: "0"
-            #   run: uv sync --all-extras --no-dev --group test --group typed
-
-            # - name: Lint check with ruff
-            #   uses: astral-sh/ruff-action@v3
-
-            # - name: Static check with mypy
-            #   run: uv run --no-dev mypy
-
-            # - name: Install & start Redis on macOS (Homebrew)
-            #   run: |
-            #       if [ -n "${REDIS_HOST}" ]; then
-            #         echo "Using external REDIS_HOST=${REDIS_HOST}"
-            #         exit 0
-            #       fi
-            #       echo "Installing redis via Homebrew"
-            #       brew update
-            #       brew install redis
-            #       brew services start redis
-            #       for i in {1..30}; do
-            #         if redis-cli ping | grep -q PONG; then
-            #           echo "redis is up"
-            #           break
-            #         fi
-            #         sleep 1
-            #       done
-
-            # - name: Run tests
-            #   run: uv run --no-dev pytest -x --cov --cov-report=xml
-
-    unittest-windows:
-        runs-on: windows-latest
-        env:
-            REDIS_HOST: "${{ secrets.REDIS_HOST }}"
-
-        steps:
-            - uses: actions/checkout@v5
-
-            - name: Install uv
-              uses: astral-sh/setup-uv@v6
-              with:
-                  enable-cache: true
-
-            - name: Cache of Ruff PyTest and MyPY (Windows)
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      .ruff_cache
-                      .pytest_cache
-                      .mypy_cache
-                  key: mypy-pytest-ruff
-
-            - name: Install the project
-              env:
-                  SETUPTOOLS_SCM_PRETEND_VERSION: "0"
-              run: uv sync --all-extras --no-dev --group test --group typed
-
-            - name: Lint check with ruff
-              uses: astral-sh/ruff-action@v3
-
-            - name: Static check with mypy
-              run: uv run --no-dev mypy
-
-            - name: Install & start Redis on Windows (Chocolatey)
-              shell: pwsh
-              run: |
-                  if ($env:REDIS_HOST) {
-                    Write-Host "Using external REDIS_HOST=$env:REDIS_HOST"
-                    exit 0
-                  }
-                  choco install -y redis
-                  # Start redis-server in background, bind to all interfaces to avoid IPv6/IPv4 localhost resolution issues
-                  Start-Process -FilePath redis-server -ArgumentList "--port 6379 --bind 0.0.0.0" -NoNewWindow
-                  $ok = $false
-                  for ($i=0; $i -lt 30; $i++) {
-                    try {
-                      $out = & redis-cli ping 2>$null
-                      if ($out -match "PONG") { $ok = $true; break }
-                    } catch { }
-                    Start-Sleep -Seconds 1
-                  }
-                  if (-not $ok) { Write-Error "redis did not start"; exit 1 }
-                  Write-Host "redis is up"
-
-            - name: check redis listening & connectivity
-              shell: pwsh
-              run: |
-                  Get-Process -Name redis* -ErrorAction SilentlyContinue | Format-Table -AutoSize
-                  netstat -ano | Select-String ":6379"
-                  if (Get-Command redis-cli -ErrorAction SilentlyContinue) {
-                    & redis-cli ping
-                  } else {
-                    Write-Host "redis-cli not found"
-                  }
-                  $hosts = @('127.0.0.1','::1','localhost')
-                  foreach ($h in $hosts) {
-                    try {
-                      $tcp = New-Object System.Net.Sockets.TcpClient
-                      $ar = $tcp.BeginConnect($h,6379,$null,$null)
-                      $wait = $ar.AsyncWaitHandle.WaitOne(1000)
-                      if ($wait -and $tcp.Connected) {
-                        Write-Host "OK $h"
-                        $tcp.Close()
-                      } else {
-                        Write-Host "FAIL $h"
-                      }
-                    } catch {
-                      Write-Host "FAIL $h $_"
-                    }
-                  }
-
-            - name: Run tests
-              shell: pwsh
-              run: |
-                  uv run --no-dev pytest -x --cov --cov-report=xml
-
-    build:
-        runs-on: ubuntu-latest
-        needs: [get-version, unittest-linux, unittest-macos, unittest-windows]
-        if: needs.get-version.outputs.version != ''
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v5
-              with:
-                  fetch-depth: 0
-            - name: Install uv
-              uses: astral-sh/setup-uv@v6
-              with:
-                  enable-cache: true
-            - name: Build
-              run: uv build
-            - name: Upload package distributions to artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: redis_func_cache-dist-${{ needs.get-version.outputs.version }}
-                  path: dist
-                  if-no-files-found: error
-                  retention-days: 1
-
-    publish:
-        runs-on: ubuntu-latest
-        needs: [get-version, build]
-        if: needs.get-version.outputs.version != ''
-
-        steps:
-            - name: Download package distributions from artifact
-              uses: actions/download-artifact@v4
-              with:
-                  name: redis_func_cache-dist-${{needs.get-version.outputs.version}}
-                  path: dist
-            - name: Publish package distributions to PyPI
-              uses: pypa/gh-action-pypi-publish@release/v1
-              with:
-                  user: __token__
-                  password: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - name: Download package distributions from artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: redis_func_cache-dist-${{needs.get-version.outputs.version}}
+          path: dist
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

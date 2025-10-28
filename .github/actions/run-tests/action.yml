@@ -1,0 +1,58 @@
+name: run-tests
+description: Composite action to install uv, install project, lint, mypy and run pytest
+inputs:
+  python-version:
+    description: 'Python version to install (optional)'
+    required: false
+    default: ''
+  upload-codecov:
+    description: 'Whether to upload coverage to codecov (true/false)'
+    required: false
+    default: 'false'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install uv (python-version specified)
+      if: ${{ inputs.python-version != '' }}
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv (no python-version)
+      if: ${{ inputs.python-version == '' }}
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+
+    - name: Cache of Ruff PyTest and MyPY
+      uses: actions/cache@v4
+      with:
+        path: |
+          .mypy_cache
+          .pytest_cache
+          .ruff_cache
+        key: mypy-pytest-ruff-${{ inputs.python-version }}-${{ runner.os }}
+
+    - name: Install the project
+      env:
+        SETUPTOOLS_SCM_PRETEND_VERSION: '0'
+      shell: bash
+      run: uv sync --all-extras --no-dev --group test --group typed
+
+    - name: Lint check with ruff
+      uses: astral-sh/ruff-action@v3
+
+    - name: Static check with mypy
+      shell: bash
+      run: uv run --no-dev mypy
+
+    - name: Run tests
+      shell: bash
+      run: uv run --no-dev pytest -x --cov --cov-report=xml
+
+    - name: Upload coverage to Codecov
+      if: ${{ inputs.upload-codecov == 'true' }}
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
