@@ -9,6 +9,10 @@ inputs:
     description: 'Whether to upload coverage to codecov (true/false)'
     required: false
     default: 'false'
+  codecov-token:
+    description: 'Codecov token (pass secrets.CODECOV_TOKEN from workflow)'
+    required: false
+    default: ''
 runs:
   using: 'composite'
   steps:
@@ -52,7 +56,7 @@ runs:
       run: uv run --no-dev pytest -x --cov --cov-report=xml
 
     - name: Upload coverage to Codecov
-      if: ${{ inputs.upload-codecov == 'true' }}
+      if: ${{ inputs.upload-codecov == 'true' && inputs.codecov-token != '' }}
       uses: codecov/codecov-action@v5
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
+        token: ${{ inputs.codecov-token }}

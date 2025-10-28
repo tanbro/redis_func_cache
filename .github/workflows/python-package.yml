@@ -72,6 +72,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           upload-codecov: "true"
+          codecov-token: ${{ secrets.CODECOV_TOKEN }}
 
   unittest-macos:
     runs-on: macos-latest
