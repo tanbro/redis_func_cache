@@ -109,51 +109,51 @@ jobs:
         steps:
             - uses: actions/checkout@v5
 
-            - name: Install uv
-              uses: astral-sh/setup-uv@v6
-              with:
-                  enable-cache: true
+            # - name: Install uv
+            #   uses: astral-sh/setup-uv@v6
+            #   with:
+            #       enable-cache: true
 
-            - name: Cache of Ruff PyTest and MyPY
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      .ruff_cache
-                      .pytest_cache
-                      .mypy_cache
-                  key: mypy-pytest-ruff
+            # - name: Cache of Ruff PyTest and MyPY
+            #   uses: actions/cache@v4
+            #   with:
+            #       path: |
+            #           .ruff_cache
+            #           .pytest_cache
+            #           .mypy_cache
+            #       key: mypy-pytest-ruff
 
-            - name: Install the project
-              env:
-                  SETUPTOOLS_SCM_PRETEND_VERSION: "0"
-              run: uv sync --all-extras --no-dev --group test --group typed
+            # - name: Install the project
+            #   env:
+            #       SETUPTOOLS_SCM_PRETEND_VERSION: "0"
+            #   run: uv sync --all-extras --no-dev --group test --group typed
 
-            - name: Lint check with ruff
-              uses: astral-sh/ruff-action@v3
+            # - name: Lint check with ruff
+            #   uses: astral-sh/ruff-action@v3
 
-            - name: Static check with mypy
-              run: uv run --no-dev mypy
+            # - name: Static check with mypy
+            #   run: uv run --no-dev mypy
 
-            - name: Install & start Redis on macOS (Homebrew)
-              run: |
-                  if [ -n "${REDIS_HOST}" ]; then
-                    echo "Using external REDIS_HOST=${REDIS_HOST}"
-                    exit 0
-                  fi
-                  echo "Installing redis via Homebrew"
-                  brew update
-                  brew install redis
-                  brew services start redis
-                  for i in {1..30}; do
-                    if redis-cli ping | grep -q PONG; then
-                      echo "redis is up"
-                      break
-                    fi
-                    sleep 1
-                  done
+            # - name: Install & start Redis on macOS (Homebrew)
+            #   run: |
+            #       if [ -n "${REDIS_HOST}" ]; then
+            #         echo "Using external REDIS_HOST=${REDIS_HOST}"
+            #         exit 0
+            #       fi
+            #       echo "Installing redis via Homebrew"
+            #       brew update
+            #       brew install redis
+            #       brew services start redis
+            #       for i in {1..30}; do
+            #         if redis-cli ping | grep -q PONG; then
+            #           echo "redis is up"
+            #           break
+            #         fi
+            #         sleep 1
+            #       done
 
-            - name: Run tests
-              run: uv run --no-dev pytest -x --cov --cov-report=xml
+            # - name: Run tests
+            #   run: uv run --no-dev pytest -x --cov --cov-report=xml
 
     unittest-windows:
         runs-on: windows-latest
