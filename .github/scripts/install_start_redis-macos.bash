@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -n "${REDIS_HOST-}" ]; then
-    echo "Using external REDIS_HOST=${REDIS_HOST}"
-    exit 0
-fi
-
 echo "Installing redis via Homebrew"
 if ! command -v brew >/dev/null 2>&1; then
     echo "Homebrew not found in PATH; cannot install redis." >&2

@@ -75,8 +75,6 @@ jobs:
 
   unittest-macos:
     runs-on: macos-latest
-    env:
-      REDIS_HOST: "${{ secrets.REDIS_HOST }}"
 
     steps:
       - uses: actions/checkout@v5
