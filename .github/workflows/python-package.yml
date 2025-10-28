@@ -26,11 +26,16 @@ jobs:
         outputs:
             version: ${{ steps.get-version.outputs.version }}
         steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with:
+                fetch-depth: 0
+
             - name: Cache pip downloads
               uses: actions/cache@v4
               with:
-                  path: ~/.cache/pip
-                  key: pip
+                path: ~/.cache/pip
+                key: pip
 
             - name: Install packaging (no deps)
               run: python3 -m pip install --no-deps --disable-pip-version-check packaging
@@ -38,9 +43,9 @@ jobs:
             - name: Validate PEP-440 tag (extract & check) and set output
               id: get-version
               run: |
-                  set -euo pipefail
-                  # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
-                  python3 .github/scripts/validate_version.py
+                set -euo pipefail
+                # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
+                python3 .github/scripts/validate_version.py
 
     unittest-linux:
         runs-on: ubuntu-latest
