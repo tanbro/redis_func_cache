@@ -4,131 +4,188 @@
 name: Python package
 
 on:
-  push:
-    branches: [main]
-    tags: ["*"]
-    paths:
-      - .github/**
-      - src/**
-      - tests/**
-      - pyproject.toml
-  pull_request:
-    branches: [main]
-    paths:
-      - .github/**
-      - src/**
-      - tests/**
-      - pyproject.toml
+    push:
+        branches: [main]
+        tags: ["*"]
+        paths:
+            - .github/**
+            - src/**
+            - tests/**
+            - pyproject.toml
+    pull_request:
+        branches: [main]
+        paths:
+            - .github/**
+            - src/**
+            - tests/**
+            - pyproject.toml
 
 jobs:
-  get-version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get-version.outputs.version }}
-    steps:
-      - name: Check PEP-440 style version
-        id: get-version
-        run: |
-          PEP440_VERSION=""
-          VERSION_PREFIX="v"
-          BRANCH_OR_TAG="$(echo ${{ github.event.ref }} | cut -d / -f 3)"
-          if [[ "${BRANCH_OR_TAG}" =~ ^v?(([1-9][0-9]*!)?(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*(\.?(a|b|rc)(0|[1-9][0-9]*))?(\.post(0|[1-9][0-9]*))?(\.dev(0|[1-9][0-9]*))?)$ ]]
-          then
-            PEP440_VERSION="${BRANCH_OR_TAG#$VERSION_PREFIX}"
-          fi
-          echo "PEP440_VERSION: ${PEP440_VERSION}"
-          echo "version=${PEP440_VERSION}" >> $GITHUB_OUTPUT
+    get-version:
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.get-version.outputs.version }}
+        steps:
+            - name: Cache pip downloads
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cache/pip
+                  key: pip
 
-  unittest:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+            - name: Install packaging (no deps)
+              run: python3 -m pip install --no-deps --disable-pip-version-check packaging
 
-    services:
-      redis-standalone:
-        image: redis:alpine
-        options: >-
-          --health-cmd "redis-cli ping | grep PONG"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
+            - name: Validate PEP-440 tag (extract & check) and set output
+              id: get-version
+              run: |
+                  set -euo pipefail
+                  # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
+                  python3 .github/scripts/validate_version.py
 
-    steps:
-      - uses: actions/checkout@v5
+    unittest-linux:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          python-version: ${{ matrix.python-version }}
+        services:
+            redis-standalone:
+                image: redis:alpine
+                options: >-
+                    --health-cmd "redis-cli ping | grep PONG"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+                ports:
+                    - 6379:6379
 
-      - name: Cache of Ruff PyTest and MyPY
-        uses: actions/cache@v4
-        with:
-          path: |
-            .ruff_cache
-            .pytest_cache
-            .mypy_cache
-          key: cache
+        steps:
+            - uses: actions/checkout@v5
 
-      - name: Install the project
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
+                  python-version: ${{ matrix.python-version }}
+
+            - name: Cache of Ruff PyTest and MyPY
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      .mypy_cache
+                      .pytest_cache
+                      .ruff_cache
+                  key: mypy-pytest-ruff
+
+            - name: Install the project
+              env:
+                  SETUPTOOLS_SCM_PRETEND_VERSION: "0"
+              run: uv sync --all-extras --no-dev --group test --group typed
+
+            - name: Lint check with ruff
+              uses: astral-sh/ruff-action@v3
+
+            - name: Static check with mypy
+              run: uv run --no-dev mypy
+
+            - name: Run tests
+              run: uv run --no-dev pytest -x --cov --cov-report=xml
+
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v5
+              with:
+                  token: ${{ secrets.CODECOV_TOKEN }}
+
+    unittest-macos:
+        runs-on: macos-latest
         env:
-          SETUPTOOLS_SCM_PRETEND_VERSION: "0"
-        run: uv sync --all-extras --no-dev --group test --group typed
+            REDIS_HOST: "${{ secrets.REDIS_HOST }}"
 
-      - name: Lint check with ruff
-        uses: astral-sh/ruff-action@v3
+        steps:
+            - uses: actions/checkout@v5
 
-      - name: Static check with mypy
-        run: uv run --no-dev mypy
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
 
-      - name: Run tests
-        run: uv run --no-dev pytest -x --cov --cov-report=xml
+            - name: Cache of Ruff PyTest and MyPY
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      .ruff_cache
+                      .pytest_cache
+                      .mypy_cache
+                  key: mypy-pytest-ruff
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+            - name: Install the project
+              env:
+                  SETUPTOOLS_SCM_PRETEND_VERSION: "0"
+              run: uv sync --all-extras --no-dev --group test --group typed
 
-  build:
-    runs-on: ubuntu-latest
-    needs: [get-version, unittest]
-    if: needs.get-version.outputs.version != ''
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-      - name: Build
-        run: uv build
-      - name: Upload package distributions to artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: redis_func_cache-dist-${{ needs.get-version.outputs.version }}
-          path: dist
-          if-no-files-found: error
-          retention-days: 1
+            - name: Lint check with ruff
+              uses: astral-sh/ruff-action@v3
 
-  publish:
-    runs-on: ubuntu-latest
-    needs: [get-version, build]
-    if: needs.get-version.outputs.version != ''
+            - name: Static check with mypy
+              run: uv run --no-dev mypy
 
-    steps:
-      - name: Download package distributions from artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: redis_func_cache-dist-${{needs.get-version.outputs.version}}
-          path: dist
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+            - name: Install & start Redis on macOS (Homebrew)
+              run: |
+                  if [ -n "${REDIS_HOST}" ]; then
+                    echo "Using external REDIS_HOST=${REDIS_HOST}"
+                    exit 0
+                  fi
+                  echo "Installing redis via Homebrew"
+                  brew update
+                  brew install redis
+                  brew services start redis
+                  for i in {1..30}; do
+                    if redis-cli ping | grep -q PONG; then
+                      echo "redis is up"
+                      break
+                    fi
+                    sleep 1
+                  done
+
+            - name: Run tests
+              run: uv run --no-dev pytest -x --cov --cov-report=xml
+
+    build:
+        runs-on: ubuntu-latest
+        needs: [get-version, unittest-linux]
+        if: needs.get-version.outputs.version != ''
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
+            - name: Build
+              run: uv build
+            - name: Upload package distributions to artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: redis_func_cache-dist-${{ needs.get-version.outputs.version }}
+                  path: dist
+                  if-no-files-found: error
+                  retention-days: 1
+
+    publish:
+        runs-on: ubuntu-latest
+        needs: [get-version, build]
+        if: needs.get-version.outputs.version != ''
+
+        steps:
+            - name: Download package distributions from artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: redis_func_cache-dist-${{needs.get-version.outputs.version}}
+                  path: dist
+            - name: Publish package distributions to PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                  user: __token__
+                  password: ${{ secrets.PYPI_API_TOKEN }}
