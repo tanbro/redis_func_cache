@@ -54,8 +54,12 @@ jobs:
           Write-Host "redis-server executable: $exe"
           if (-not $exe) { Write-Error "redis-server not found; cannot start"; exit 1 }
           # Start redis, bind both IPv4 and IPv6 addresses to reduce localhost mismatch
-          Start-Process -FilePath $exe -ArgumentList '--port 6379 --bind 127.0.0.1 ::1' -NoNewWindow
-          Write-Host "Started redis-server, waiting for it to accept connections..."
+          $outFile = Join-Path $env:RUNNER_TEMP 'redis.stdout.log'
+          $errFile = Join-Path $env:RUNNER_TEMP 'redis.stderr.log'
+          Write-Host "Redirecting redis stdout to: $outFile"
+          Write-Host "Redirecting redis stderr to: $errFile"
+          $proc = Start-Process -FilePath $exe -ArgumentList '--port 6379 --bind 127.0.0.1 ::1' -RedirectStandardOutput $outFile -RedirectStandardError $errFile -WindowStyle Hidden -PassThru
+          Write-Host "Started redis-server (pid=$($proc.Id)), waiting for it to accept connections..."
           $ok = $false
           for ($i=0; $i -lt 30; $i++) {
             Start-Sleep -Seconds 1
@@ -69,12 +73,13 @@ jobs:
               if ($tnc -and $tnc.TcpTestSucceeded) { $ok = $true; break }
             } catch {}
           }
-          if (-not $ok) {
+            if (-not $ok) {
             Write-Host "=== Redis failed to become reachable; dumping diagnostics ==="
+            Get-Process -Id $proc.Id -ErrorAction SilentlyContinue | Format-Table -AutoSize
             Get-Process -Name redis* -ErrorAction SilentlyContinue | Format-Table -AutoSize
             netstat -ano | Select-String ":6379"
-            if (Test-Path "$env:USERPROFILE\redis.out") { Get-Content "$env:USERPROFILE\redis.out" -ErrorAction SilentlyContinue | Select-Object -Last 200 }
-            if (Test-Path "$env:USERPROFILE\redis.err") { Get-Content "$env:USERPROFILE\redis.err" -ErrorAction SilentlyContinue | Select-Object -Last 200 }
+            if (Test-Path $outFile) { Write-Host "--- redis stdout ---"; Get-Content $outFile -ErrorAction SilentlyContinue | Select-Object -Last 200 }
+            if (Test-Path $errFile) { Write-Host "--- redis stderr ---"; Get-Content $errFile -ErrorAction SilentlyContinue | Select-Object -Last 200 }
             Write-Error "redis did not start or accept connections"
           }
           Write-Host "redis is up"
