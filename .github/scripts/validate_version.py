@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Validate a tag in GITHUB_REF against PEP 440 and write `version=...` to GITHUB_OUTPUT.
 
 This script is intentionally small and dependency-free except for `packaging`, which the
@@ -34,7 +35,7 @@ def get_candidate_from_ref(ref: str) -> str:
     return tag
 
 
-def write_github_output(key: str, value: str) -> None:
+def write_github_output(key: str, value: str):
     out_line = f"{key}={value}\n"
     g = os.environ.get("GITHUB_OUTPUT")
     if g:
@@ -49,7 +50,7 @@ def write_github_output(key: str, value: str) -> None:
     sys.stdout.write(out_line)
 
 
-def main() -> int:
+def main():
     ref = os.environ.get("GITHUB_REF", "")
     cand = get_candidate_from_ref(ref)
     version = ""
@@ -59,6 +60,7 @@ def main() -> int:
             version = cand
         except InvalidVersion:
             version = ""
+    print(f"GITHUB_REF={ref!r} -> version={version!r}")
     write_github_output("version", version)
     return 0
 
