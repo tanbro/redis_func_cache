@@ -196,8 +196,8 @@ jobs:
                     exit 0
                   }
                   choco install -y redis
-                  # Start redis-server in background
-                  Start-Process -FilePath redis-server -ArgumentList "--port 6379" -NoNewWindow
+                  # Start redis-server in background, bind to all interfaces to avoid IPv6/IPv4 localhost resolution issues
+                  Start-Process -FilePath redis-server -ArgumentList "--port 6379 --bind 0.0.0.0" -NoNewWindow
                   $ok = $false
                   for ($i=0; $i -lt 30; $i++) {
                     try {
