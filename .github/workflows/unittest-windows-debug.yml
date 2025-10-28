@@ -58,8 +58,10 @@ jobs:
           $errFile = Join-Path $env:RUNNER_TEMP 'redis.stderr.log'
           Write-Host "Redirecting redis stdout to: $outFile"
           Write-Host "Redirecting redis stderr to: $errFile"
-          $proc = Start-Process -FilePath $exe -ArgumentList '--port 6379 --bind 127.0.0.1 ::1' -RedirectStandardOutput $outFile -RedirectStandardError $errFile -WindowStyle Hidden -PassThru
-          Write-Host "Started redis-server (pid=$($proc.Id)), waiting for it to accept connections..."
+          $proc = Start-Process -FilePath $exe -ArgumentList '--port 6379 --bind 127.0.0.1' -RedirectStandardOutput $outFile -RedirectStandardError $errFile -WindowStyle Hidden -PassThru
+          $pidFile = Join-Path $env:RUNNER_TEMP 'redis.pid'
+          $proc.Id | Out-File -FilePath $pidFile -Encoding ascii
+          Write-Host "Started redis-server (pid=$($proc.Id)), pid written to $pidFile, waiting for it to accept connections..."
           $ok = $false
           for ($i=0; $i -lt 30; $i++) {
             Start-Sleep -Seconds 1
@@ -87,9 +89,25 @@ jobs:
       - name: "Diagnostics: print redis status (quick)"
         shell: pwsh
         run: |
-          Get-Process -Name redis* -ErrorAction SilentlyContinue | Format-Table -AutoSize
-          netstat -ano | Select-String ":6379"
-          if (Get-Command redis-cli -ErrorAction SilentlyContinue) { & redis-cli ping } else { Write-Host "redis-cli not found" }
+          $outFile = Join-Path $env:RUNNER_TEMP 'redis.stdout.log'
+          $errFile = Join-Path $env:RUNNER_TEMP 'redis.stderr.log'
+          $pidFile = Join-Path $env:RUNNER_TEMP 'redis.pid'
+          if (Test-Path $pidFile) {
+            $pid = (Get-Content $pidFile -ErrorAction SilentlyContinue).Trim()
+            Write-Host "Redis pid (from file): $pid"
+            try { Get-Process -Id $pid -ErrorAction SilentlyContinue | Format-Table -AutoSize } catch {}
+          } else {
+            Write-Host "Redis pid file not found: $pidFile"
+          }
+          Write-Host "Netstat (port 6379):"
+          netstat -ano | Select-String ":6379" || Write-Host "no netstat output"
+          if (Get-Command redis-cli -ErrorAction SilentlyContinue) {
+            try { $out = & redis-cli ping 2>&1; Write-Host "redis-cli ping -> $out" } catch { Write-Host "redis-cli ping failed: $_" }
+          } else {
+            Write-Host "redis-cli not found"
+          }
+          if (Test-Path $outFile) { Write-Host "--- redis stdout (tail) ---"; Get-Content $outFile -ErrorAction SilentlyContinue | Select-Object -Last 200 } else { Write-Host "redis stdout log not found: $outFile" }
+          if (Test-Path $errFile) { Write-Host "--- redis stderr (tail) ---"; Get-Content $errFile -ErrorAction SilentlyContinue | Select-Object -Last 200 } else { Write-Host "redis stderr log not found: $errFile" }
 
       - name: Run tests
         shell: pwsh
