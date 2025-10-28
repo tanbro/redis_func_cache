@@ -89,6 +89,7 @@ jobs:
       - name: "Diagnostics: print redis status (quick)"
         shell: pwsh
         run: |
+          # diagnostics: show pid/netstat/redis logs (updated)
           $outFile = Join-Path $env:RUNNER_TEMP 'redis.stdout.log'
           $errFile = Join-Path $env:RUNNER_TEMP 'redis.stderr.log'
           $pidFile = Join-Path $env:RUNNER_TEMP 'redis.pid'
