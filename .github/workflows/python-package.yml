@@ -29,13 +29,13 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v5
               with:
-                fetch-depth: 0
+                  fetch-depth: 0
 
             - name: Cache pip downloads
               uses: actions/cache@v4
               with:
-                path: ~/.cache/pip
-                key: pip
+                  path: ~/.cache/pip
+                  key: pip
 
             - name: Install packaging (no deps)
               run: python3 -m pip install --no-deps --disable-pip-version-check packaging
@@ -43,9 +43,9 @@ jobs:
             - name: Validate PEP-440 tag (extract & check) and set output
               id: get-version
               run: |
-                set -euo pipefail
-                # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
-                python3 .github/scripts/validate_version.py
+                  set -euo pipefail
+                  # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
+                  python3 .github/scripts/validate_version.py
 
     unittest-linux:
         runs-on: ubuntu-latest
@@ -155,9 +155,68 @@ jobs:
             - name: Run tests
               run: uv run --no-dev pytest -x --cov --cov-report=xml
 
+    unittest-windows:
+        runs-on: windows-latest
+        env:
+            REDIS_HOST: "${{ secrets.REDIS_HOST }}"
+
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
+
+            - name: Cache of Ruff PyTest and MyPY (Windows)
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      .ruff_cache
+                      .pytest_cache
+                      .mypy_cache
+                  key: mypy-pytest-ruff
+
+            - name: Install the project
+              env:
+                  SETUPTOOLS_SCM_PRETEND_VERSION: "0"
+              run: uv sync --all-extras --no-dev --group test --group typed
+
+            - name: Lint check with ruff
+              uses: astral-sh/ruff-action@v3
+
+            - name: Static check with mypy
+              run: uv run --no-dev mypy
+
+            - name: Install & start Redis on Windows (Chocolatey)
+              shell: pwsh
+              run: |
+                  if ($env:REDIS_HOST) {
+                    Write-Host "Using external REDIS_HOST=$env:REDIS_HOST"
+                    exit 0
+                  }
+                  choco install -y redis
+                  # Start redis-server in background
+                  Start-Process -FilePath redis-server -ArgumentList "--port 6379" -NoNewWindow
+                  $ok = $false
+                  for ($i=0; $i -lt 30; $i++) {
+                    try {
+                      $out = & redis-cli ping 2>$null
+                      if ($out -match "PONG") { $ok = $true; break }
+                    } catch { }
+                    Start-Sleep -Seconds 1
+                  }
+                  if (-not $ok) { Write-Error "redis did not start"; exit 1 }
+                  Write-Host "redis is up"
+
+            - name: Run tests
+              shell: pwsh
+              run: |
+                  uv run --no-dev pytest -x --cov --cov-report=xml
+
     build:
         runs-on: ubuntu-latest
-        needs: [get-version, unittest-linux]
+        needs: [get-version, unittest-linux, unittest-macos, unittest-windows]
         if: needs.get-version.outputs.version != ''
         steps:
             - name: Checkout
