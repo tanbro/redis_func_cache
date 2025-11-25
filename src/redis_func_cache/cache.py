@@ -78,14 +78,15 @@ class RedisFuncCache(Generic[RedisClientTV]):
             pool = redis.ConnectionPool(...)
             factory = redis.from_pool(pool)
 
-            cache = RedisFuncCache(__name__, LruTPolicy, factory)
+            # supply a client instance and (optionally) a factory
+            cache = RedisFuncCache(__name__, LruTPolicy, redis_instance=redis.Redis(), redis_factory=factory)
 
             @cache
             def function_to_cache(...):
                 ...
 
     - The `serializer` parameter can be a string or a pair of callables.
-    - If a callable is passed as the `redis_client`, it will be invoked every time the redis client is accessed.
+    - If a callable factory is provided via the `factory` parameter, it will be invoked every time the redis client is accessed.
     - The cache supports both synchronous and asynchronous Redis clients, but the decorated function must match the redis client's async/sync nature.
     """
 
@@ -129,7 +130,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self,
         name: str,
         policy: AbstractPolicy,
-        client: Union[RedisClientTV, Callable[[], RedisClientTV]],
+        *,
+        redis_instance: Optional[RedisClientTV] = None,
+        redis_factory: Optional[Callable[[], RedisClientTV]] = None,
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
         update_ttl: bool = True,
@@ -152,27 +155,28 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     and pass it here. Reusing the same policy instance across multiple
                     caches is discouraged as policies commonly hold cache-specific state.
 
-            client: Redis client to use.
+            redis_instance: Optional Redis client instance to use.
 
-                You can pass either an object of one of the following types:
+                This argument may be an already-created Redis client instance (for
+                simple scripts/tests), or ``None`` when a ``redis_factory`` is supplied.
+
+                Examples of a client instance:
 
                 - :class:`redis.Redis`
                 - :class:`redis.asyncio.client.Redis`
                 - :class:`redis.cluster.RedisCluster`
                 - :class:`redis.asyncio.cluster.RedisCluster`
 
-                or a function that returns one of these objects.
-
                 Tip:
-                    Get the client via :meth:`get_client`.
+                    Prefer providing a ``redis_factory`` for concurrent/production use;
+                    use ``redis_instance`` only for simple cases or compatibility.
 
-                Important:
-                    A pool based factory pattern is strongly recommended.
+            redis_factory: Optional callable that returns a Redis client instance.
 
-                Caution:
-                    When using the factory pattern
-                    (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor),
-                    the factory function will be invoked **every time** when :meth:`get_client` is called, or the cache instance requires a redis client internally.
+                If provided, the callable will be invoked every time :meth:`get_client`
+                is called or the cache instance requires a redis client internally.
+                When both ``redis_factory`` and ``redis_instance`` are provided,
+                ``redis_factory`` takes precedence and will be used to obtain clients.
 
             maxsize: The maximum size of the cache.
 
@@ -236,7 +240,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                       my_cache = RedisFuncCache(
                           __name__,
                           MyPolicy,
-                          redis_client,
+                          redis_instance=redis_client,
                           # here pass two callbacks to serializer
                           serializer=(my_serializer, my_deserializer),
                           # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -266,12 +270,27 @@ class RedisFuncCache(Generic[RedisClientTV]):
         except Exception:
             # if rebinding fails, raise a clear error
             raise RuntimeError("Failed to bind provided policy instance to the cache")
+        # Accept both a concrete client instance and an optional factory.
+        # Prefer `factory` when present. Keep compatibility for callers that
+        # accidentally passed a callable as `client` by emitting a DeprecationWarning
+        # and treating it as a factory.
         self._redis_instance: Optional[RedisClientTV] = None
         self._redis_factory: Optional[Callable[[], RedisClientTV]] = None
-        if callable(client):
-            self._redis_factory = client
-        else:
-            self._redis_instance = client
+        if redis_instance is not None:
+            if callable(redis_instance):
+                warn(
+                    "Passing a callable as `redis_instance` is deprecated; use `redis_factory=` instead",
+                    DeprecationWarning,
+                )
+                # type: ignore[assignment]
+                self._redis_factory = redis_instance  # backward compatibility
+            else:
+                self._redis_instance = redis_instance
+        # explicit redis_factory parameter overrides instance when present
+        if redis_factory is not None:
+            self._redis_factory = redis_factory
+        if self._redis_factory is None and self._redis_instance is None:
+            raise RuntimeError("Either `client` or `factory` must be provided.")
         self.serializer = serializer  # type: ignore[assignment]
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=RedisFuncCache.Mode())
         self._stats: ContextVar[Optional[RedisFuncCache.Stats]] = ContextVar("stats", default=None)
@@ -406,22 +425,23 @@ class RedisFuncCache(Generic[RedisClientTV]):
         Returns:
             The redis client instance used in the cache.
 
-        - If a redis client instance was passed to the cache constructor, it will be returned.
-        - If a :term:`callable` object that returns a redis client was passed to the cache constructor (factory pattern), it returns what returned by the factory function.
+                - If a redis client instance was passed to the cache constructor, it will be returned.
+                - If a `factory` callable was provided to the constructor, the factory will be invoked
+                    and its result returned.
 
-        Caution:
-            When using the factory pattern
-            (a :term:`callable` object is passed to the ``client`` :term:`argument` of the constructor),
-            the factory function will be invoked **every time** when this method is called.
+                Caution:
+                        When using the factory pattern (providing a ``factory`` callable), the factory
+                        function will be invoked **every time** when this method is called.
 
-            Thus the cache class will invoke the factory function every time it is needed internally.
+                        Thus the cache class will call the factory every time it needs a client internally.
 
         .. versionadded:: 0.5
         """
-        if self._redis_instance:
-            return self._redis_instance
+        # Prefer factory when available (recommended for concurrent use).
         if self._redis_factory:
             return self._redis_factory()
+        if self._redis_instance:
+            return self._redis_instance
         raise RuntimeError("No redis client or factory provided.")
 
     @property
@@ -821,7 +841,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 from redis_func_cache import RedisFuncCache
 
-                cache = RedisFuncCache("my_cache", MyPolicy, redis_client)
+                cache = RedisFuncCache("my_cache", MyPolicy, redis_instance=redis_client)
 
             We can use it as a decorator, either the instance itself or the :meth:`decorate` method, with or without parentheses::
 

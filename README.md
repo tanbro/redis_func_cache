@@ -35,11 +35,14 @@ Here is a simple example:
    import redis.asyncio
    from redis_func_cache import LruTPolicy, RedisFuncCache as Cache
 
-   # Create a redis client
-   rc = redis.asyncio.Redis.from_url("redis://")
+# Create a redis client (simple example)
+rc = redis.asyncio.Redis.from_url("redis://")
 
-   # Create an LRU cache, connecting to Redis using the previously created redis client
-   cache = Cache(__name__, LruTPolicy, rc)
+# Preferred: provide a factory for production/concurrent use
+redis_factory = lambda: redis.asyncio.Redis.from_url("redis://")
+
+# Create an LRU cache. Note: policy must be an instance and we prefer a factory.
+cache = Cache(__name__, LruTPolicy(), redis_factory=redis_factory)
 
    # Decorate a function to cache its result
    @cache
@@ -224,6 +227,44 @@ Next, we use the `@lru_cache` [decorator][] to decorate the `fib` function.
 This way, each computed result is cached, and subsequent calls with the same parameters retrieve the result directly from the cache, thereby improving performance.
 
 It works almost the same as the standard library's `functools.lru_cache`, except that it uses [Redis][] as the backend instead of the local machine's memory.
+
+## Migration guide (v1.0.0)
+
+This release introduces breaking changes to the `RedisFuncCache` constructor and policy handling. Summary:
+
+- The Redis client parameters have been renamed to `redis_instance` and `redis_factory`. `redis_factory` is preferred in concurrent/production scenarios.
+- The `policy` parameter must now be a pre-instantiated `AbstractPolicy` instance (e.g. `LruTPolicy()`), not a policy *class*.
+- Passing a callable as the `redis_instance` positional argument is deprecated. Use `redis_factory=` instead; a `DeprecationWarning` will be raised for the old usage.
+
+Migration examples:
+
+Old (pre-v1.0.0):
+
+```python
+from redis import Redis
+from redis_func_cache import RedisFuncCache, LruTPolicy
+
+redis_client = Redis.from_url("redis://")
+# previously: passing policy class and client positional arg
+cache = RedisFuncCache("my-first-lru-cache", LruTPolicy, redis_client)
+```
+
+New (v1.0.0+):
+
+```python
+from redis import Redis
+from redis_func_cache import RedisFuncCache, LruTPolicy
+
+# prefer a factory for concurrency; policy must be instantiated
+redis_factory = lambda: Redis.from_url("redis://")
+cache = RedisFuncCache("my-first-lru-cache", LruTPolicy(), redis_factory=redis_factory)
+```
+
+If you have been passing a callable as the third positional argument (the old behavior that allowed a factory to be passed as the client), change it to `redis_factory=`. The library will still accept the old callable-as-client usage temporarily but will emit a `DeprecationWarning`.
+
+If you previously passed a policy *class* (for example `LruTPolicy`), update call sites to instantiate the policy object: `LruTPolicy()`.
+
+If you want, I can run the test-suite and type-checker to find any remaining call sites that need updating.
 
 If we browse the [Redis][] database, we can find the pair of keys' names look like:
 

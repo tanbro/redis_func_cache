@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.7.0
+
+> 🚧 Developing
+
+- 💔 **Breaking Changes:**
+  - Constructor parameter rename: the Redis client parameters have been renamed to `redis_instance` and `redis_factory` (keyword-only). `redis_factory` is preferred for concurrent/production usage.
+  - Policy must be an instance: the `policy` argument to `RedisFuncCache` now requires a pre-instantiated `AbstractPolicy` instance (e.g. `LruTPolicy()`), previously callers might have passed the policy class.
+  - Passing a callable as the `redis_instance` positional argument is deprecated. Use `redis_factory=` instead. The library will emit a `DeprecationWarning` when detecting the old pattern.
+
+  Migration example:
+
+  ```python
+  # OLD (pre-v1.0.0)
+  cache = RedisFuncCache("my-cache", LruTPolicy, redis_client)
+
+  # NEW (v1.0.0+)
+  cache = RedisFuncCache("my-cache", LruTPolicy(), redis_factory=lambda: Redis.from_url("redis://"))
+  ```
+
+- 🛠 **Notes:**
+  - The change to require policy instances was made to ensure policy objects can be bound to the cache (policies hold cache-specific state). Reuse of the same policy instance across multiple caches is discouraged; create a new policy object per cache if independent state is required.
+
+  - Please update any code that relied on passing policy classes or that passed a callable as the `client` positional argument. If you want, I can scan the repository for remaining occurrences and update examples/tests accordingly.
+
+
 ## v0.6.0
 
 - 💔 **Breaking Changes:**
