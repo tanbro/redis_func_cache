@@ -13,14 +13,14 @@ else:  # pragma: no cover
     from typing import override
 
 if TYPE_CHECKING:  # pragma: no cover
-    from weakref import CallableProxyType
+    pass
 
 from ..typing import is_redis_async_client, is_redis_sync_client
 from ..utils import b64digest, get_callable_bytecode
 from .abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..cache import RedisFuncCache
+    pass
 
 __all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
 
@@ -40,8 +40,8 @@ class BaseSinglePolicy(AbstractPolicy):
     __key__: str
 
     @override
-    def __init__(self, cache: CallableProxyType[RedisFuncCache]):
-        super().__init__(cache)
+    def __init__(self) -> None:
+        super().__init__()
         self._keys: Optional[tuple[str, str]] = None
 
     @override

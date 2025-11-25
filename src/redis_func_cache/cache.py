@@ -12,7 +12,7 @@ from dataclasses import dataclass, replace
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Coroutine, Generic, Optional, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Coroutine, Generic, Optional, Union, cast
 from warnings import warn
 
 from redis.commands.core import AsyncScript, Script
@@ -128,7 +128,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def __init__(
         self,
         name: str,
-        policy: Type[AbstractPolicy],
+        policy: AbstractPolicy,
         client: Union[RedisClientTV, Callable[[], RedisClientTV]],
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
@@ -143,7 +143,14 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 It is assigned to property :attr:`name`.
 
-            policy: The **class (NOT instance)** for the caching policy
+            policy: A pre-instantiated :class:`AbstractPolicy` instance to use for
+                    eviction and key/hash calculation.
+
+                    The provided policy instance will be bound to this cache by setting
+                    its internal cache reference to a weakref proxy of this cache. If you
+                    need a fresh policy instance per cache, create a new policy object
+                    and pass it here. Reusing the same policy instance across multiple
+                    caches is discouraged as policies commonly hold cache-specific state.
 
             client: Redis client to use.
 
@@ -246,8 +253,19 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self.maxsize = maxsize
         self.ttl = ttl
         self.update_ttl = update_ttl
-        self._policy_type = policy
-        self._policy_instance: Optional[AbstractPolicy] = None
+        # Only accept a policy instance. Bind its internal cache reference
+        # to a weakref proxy of this RedisFuncCache instance so policy methods
+        # can access the cache via `self.cache`.
+        if not isinstance(policy, AbstractPolicy):
+            raise TypeError("policy must be an instance of AbstractPolicy")
+        self._policy_instance = policy
+        try:
+            # rebind policy's cache to this cache (weakref proxy)
+            # Use object.__setattr__ to avoid mypy/attribute type-check failures
+            object.__setattr__(policy, "_cache", weakref.proxy(self))
+        except Exception:
+            # if rebinding fails, raise a clear error
+            raise RuntimeError("Failed to bind provided policy instance to the cache")
         self._redis_instance: Optional[RedisClientTV] = None
         self._redis_factory: Optional[Callable[[], RedisClientTV]] = None
         if callable(client):
@@ -378,11 +396,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Instance of the caching policy.
 
         Note:
-            The property returns an instance of the policy, not a type or class object.
-            While the :term:`argument` ``policy`` of constructor, however, is expected to be a type or class object, not an instance.
+            The property returns the policy instance bound to this cache.
         """
-        if self._policy_instance is None:
-            self._policy_instance = self._policy_type(weakref.proxy(self))
         return self._policy_instance
 
     def get_client(self) -> RedisClientTV:

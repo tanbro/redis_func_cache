@@ -164,7 +164,7 @@ The library guarantees thread safety and concurrency security through the follow
    redis_pool = redis.ConnectionPool(...)  # Use a pool, not a single client
    redis_factory = lambda: redis.from_pool(redis_pool)  # Use factory, not a static client
 
-   cache = RedisFuncCache(__name__, LruPolicy, redis_factory)
+    cache = RedisFuncCache(__name__, LruPolicy(), redis_factory)
 
    @cache
    def your_concurrent_func(...):
@@ -270,7 +270,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache, FifoPolicy
 
 redis_client = Redis.from_url("redis://")
-fifo_cache = RedisFuncCache("my-cache-2", FifoPolicy, redis_client)
+fifo_cache = RedisFuncCache("my-cache-2", FifoPolicy(), redis_client)
 
 @fifo_cache
 def func1(x):
@@ -284,7 +284,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache, RrPolicy
 
 redis_client = Redis.from_url("redis://")
-rr_cache = RedisFuncCache("my-cache-3", RrPolicy, redis_client)
+rr_cache = RedisFuncCache("my-cache-3", RrPolicy(), redis_client)
 
 @rr_cache
 def func2(x):
@@ -528,7 +528,7 @@ The `excludes` parameter takes a sequence of parameter names to exclude from cac
 ```python
 from redis_func_cache import RedisFuncCache
 
-cache = RedisFuncCache("my_cache", LruPolicy, redis_client)
+cache = RedisFuncCache("my_cache", LruPolicy(), redis_client)
 
 @cache(excludes=["session", "config"])
 def get_user_data(session, user_id: int, config=None):

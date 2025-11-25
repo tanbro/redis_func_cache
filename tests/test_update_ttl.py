@@ -27,7 +27,7 @@ def test_update_ttl_default_behavior():
         # 创建一个短TTL的缓存实例来测试
         short_ttl_cache = RedisFuncCache(
             __name__,
-            cache._policy_type,
+            type(cache.policy)(),
             client=redis_factory,
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL
@@ -72,7 +72,7 @@ def test_update_ttl_false_behavior():
         # 创建一个不更新TTL的缓存实例
         no_update_ttl_cache = RedisFuncCache(
             __name__,
-            cache._policy_type,
+            type(cache.policy)(),
             client=redis_factory,
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL

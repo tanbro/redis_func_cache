@@ -41,12 +41,17 @@ class AbstractPolicy(ABC):
     __key__: str
     __scripts__: tuple[str, str]
 
-    def __init__(self, cache: CallableProxyType[RedisFuncCache]):
+    def __init__(self) -> None:
         """
         Args:
-            cache: A weakref proxy to the :class:`RedisFuncCache` instance using this policy.
+            cache: Optional weakref proxy to the :class:`RedisFuncCache` instance using this policy.
+
+        Note:
+            The cache argument may be omitted when instantiating a policy. The
+            `RedisFuncCache` will bind itself to the policy instance by setting
+            this attribute to a weakref proxy during cache construction.
         """
-        self._cache = cache
+        self._cache: Optional[CallableProxyType[RedisFuncCache]] = None
         self._lua_scripts: Union[None, tuple[Script, Script], tuple[AsyncScript, AsyncScript]] = None
 
     @property
@@ -55,6 +60,8 @@ class AbstractPolicy(ABC):
         Returns:
             The :class:`RedisFuncCache` instance (via weakref proxy) that uses this policy.
         """
+        if self._cache is None:
+            raise RuntimeError("Policy instance is not bound to a RedisFuncCache")
         return self._cache
 
     @abstractmethod
