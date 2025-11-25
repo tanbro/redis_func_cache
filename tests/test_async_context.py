@@ -28,7 +28,7 @@ def async_redis_client():
 @pytest.fixture
 def cache(async_redis_client):
     """创建独立的缓存实例"""
-    cache_instance = RedisFuncCache(__name__, LruTPolicy(), client=lambda: async_redis_client, maxsize=8)
+    cache_instance = RedisFuncCache(__name__, LruTPolicy(), redis_factory=lambda: async_redis_client, maxsize=8)
     yield cache_instance
     # 清理缓存
     try:

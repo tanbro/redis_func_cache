@@ -167,7 +167,7 @@ def test_cache_wrapper():
 def test_different_policies():
     """测试不同缓存策略。"""
     # test LRU policy
-    lru_cache = RedisFuncCache(__name__, LruPolicy(), client=redis_factory, maxsize=MAXSIZE)
+    lru_cache = RedisFuncCache(__name__, LruPolicy(), redis_factory=redis_factory, maxsize=MAXSIZE)
     lru_cache.policy.purge()
 
     @lru_cache
@@ -220,7 +220,7 @@ def test_multiple_decorators():
 def test_custom_maxsize():
     """测试自定义最大缓存大小。"""
     maxsize = 3
-    custom_cache = RedisFuncCache(__name__, LruPolicy(), client=redis_factory, maxsize=maxsize)
+    custom_cache = RedisFuncCache(__name__, LruPolicy(), redis_factory=redis_factory, maxsize=maxsize)
     custom_cache.policy.purge()
 
     @custom_cache
@@ -245,7 +245,7 @@ def test_custom_maxsize():
 
 def test_json_serializer():
     """测试JSON序列化。"""
-    json_cache = RedisFuncCache(__name__, LruPolicy(), serializer="json", client=redis_factory, maxsize=MAXSIZE)
+    json_cache = RedisFuncCache(__name__, LruPolicy(), serializer="json", redis_factory=redis_factory, maxsize=MAXSIZE)
     json_cache.policy.purge()
 
     @json_cache
@@ -268,7 +268,7 @@ def test_json_serializer():
 def test_lru_eviction_correctness():
     """测试LRU缓存淘汰的正确性。"""
     maxsize = 3
-    lru_cache = RedisFuncCache(__name__, LruPolicy(), client=redis_factory, maxsize=maxsize)
+    lru_cache = RedisFuncCache(__name__, LruPolicy(), redis_factory=redis_factory, maxsize=maxsize)
     lru_cache.policy.purge()
 
     @lru_cache
@@ -297,7 +297,7 @@ def test_lru_eviction_correctness():
 def test_eviction_count_accuracy():
     """测试缓存淘汰数量的准确性。"""
     maxsize = 3
-    lru_cache = RedisFuncCache(__name__, LruPolicy(), client=redis_factory, maxsize=maxsize)
+    lru_cache = RedisFuncCache(__name__, LruPolicy(), redis_factory=redis_factory, maxsize=maxsize)
     lru_cache.policy.purge()
 
     @lru_cache
