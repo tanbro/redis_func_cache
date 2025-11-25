@@ -35,30 +35,30 @@ Here is a simple example:
    import redis.asyncio
    from redis_func_cache import LruTPolicy, RedisFuncCache as Cache
 
-# Create a redis client (simple example)
-rc = redis.asyncio.Redis.from_url("redis://")
+    # Create a redis client (simple example)
+    rc = redis.asyncio.Redis.from_url("redis://")
 
-# Preferred: provide a factory for production/concurrent use
-redis_factory = lambda: redis.asyncio.Redis.from_url("redis://")
+    # Preferred: provide a factory for production/concurrent use
+    redis_factory = lambda: redis.asyncio.Redis.from_url("redis://")
 
-# Create an LRU cache. Note: policy must be an instance and we prefer a factory.
-cache = Cache(__name__, LruTPolicy(), redis_factory=redis_factory)
+    # Create an LRU cache. Note: policy must be an instance and we prefer a factory.
+    cache = Cache(__name__, LruTPolicy(), redis_factory=redis_factory)
 
-   # Decorate a function to cache its result
-   @cache
-   async def a_slow_func():
-       t = time()
-       await asyncio.sleep(10)  # Sleep to simulate a slow operation
-       return f"actual duration: {time() - t}"
+    # Decorate a function to cache its result
+    @cache
+    async def a_slow_func():
+        t = time()
+        await asyncio.sleep(10)  # Sleep to simulate a slow operation
+        return f"actual duration: {time() - t}"
 
-   with asyncio.Runner() as runner:
-       t = time()
-       r = runner.run(a_slow_func())
-       print(f"duration={time() - t}, {r=}")
+    with asyncio.Runner() as runner:
+        t = time()
+        r = runner.run(a_slow_func())
+        print(f"duration={time() - t}, {r=}")
 
-       t = time()
-       r = runner.run(a_slow_func())
-       print(f"duration={time() - t}, {r=}")
+        t = time()
+        r = runner.run(a_slow_func())
+        print(f"duration={time() - t}, {r=}")
    ```
 
 The output should look like:
