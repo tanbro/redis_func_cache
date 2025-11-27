@@ -79,7 +79,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             factory = redis.from_pool(pool)
 
             # supply a client instance and (optionally) a factory
-            cache = RedisFuncCache(__name__, LruTPolicy, redis_instance=redis.Redis(), redis_factory=factory)
+            cache = RedisFuncCache(__name__, LruTPolicy(), client=redis.Redis(), redis_factory=factory)
 
             @cache
             def function_to_cache(...):
@@ -244,8 +244,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                       my_cache = RedisFuncCache(
                           __name__,
-                          MyPolicy,
-                          redis_instance=redis_client,
+                          MyPolicy(),
+                          client=redis_client,
                           # here pass two callbacks to serializer
                           serializer=(my_serializer, my_deserializer),
                           # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -840,7 +840,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 from redis_func_cache import RedisFuncCache
 
-                cache = RedisFuncCache("my_cache", MyPolicy, redis_instance=redis_client)
+                cache = RedisFuncCache("my_cache", MyPolicy(), client=redis_client)
 
             We can use it as a decorator, either the instance itself or the :meth:`decorate` method, with or without parentheses::
 
