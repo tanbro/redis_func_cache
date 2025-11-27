@@ -155,7 +155,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     and pass it here. Reusing the same policy instance across multiple
                     caches is discouraged as policies commonly hold cache-specific state.
 
-                .. version-changed:: 0.7
+                .. versionchanged:: 0.7
                     The ``policy`` argument now accepts a pre-instantiated policy instance, **NOT a class**.
 
             client: Optional Redis client instance to use.
@@ -170,7 +170,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 - :class:`redis.cluster.RedisCluster`
                 - :class:`redis.asyncio.cluster.RedisCluster`
 
-                .. version-changed:: 0.7
+                .. versionchanged:: 0.7
                     Prefer providing a ``factory`` for concurrent/production use;
                     use ``client`` only for simple cases or compatibility.
 
@@ -181,7 +181,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 When both ``factory`` and ``client`` are provided,
                 ``factory`` takes precedence and will be used to obtain clients.
 
-                .. version-added:: 0.7
+                .. versionadded:: 0.7
 
             maxsize: The maximum size of the cache.
 
@@ -204,7 +204,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 Assigned to property :attr:`update_ttl`.
 
-                .. version-added:: 0.5
+                .. versionadded:: 0.5
 
             prefix: The prefix for cache keys.
 
