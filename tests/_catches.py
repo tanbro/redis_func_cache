@@ -86,70 +86,60 @@ if REDIS_CLUSTER_NODES:
     REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # type: ignore[abstract]  # noqa: E731
 
     CLUSTER_CACHES = {
-        "tlru": RedisFuncCache(__name__, LruTClusterPolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "lru": RedisFuncCache(__name__, LruClusterPolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "mru": RedisFuncCache(__name__, MruClusterPolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "rr": RedisFuncCache(__name__, RrClusterPolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "fifo": RedisFuncCache(__name__, FifoClusterPolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "lfu": RedisFuncCache(__name__, LfuClusterPolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "tlru": RedisFuncCache(__name__, LruTClusterPolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "lru": RedisFuncCache(__name__, LruClusterPolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "mru": RedisFuncCache(__name__, MruClusterPolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "rr": RedisFuncCache(__name__, RrClusterPolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "fifo": RedisFuncCache(__name__, FifoClusterPolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "lfu": RedisFuncCache(__name__, LfuClusterPolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
     }
 
     CLUSTER_MULTI_CACHES = {
-        "tlru": RedisFuncCache(
-            __name__, LruTClusterMultiplePolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE
-        ),
-        "lru": RedisFuncCache(
-            __name__, LruClusterMultiplePolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE
-        ),
-        "mru": RedisFuncCache(
-            __name__, MruClusterMultiplePolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE
-        ),
-        "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
-        "fifo": RedisFuncCache(
-            __name__, FifoClusterMultiplePolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE
-        ),
-        "lfu": RedisFuncCache(
-            __name__, LfuClusterMultiplePolicy(), redis_factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE
-        ),
+        "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
+        "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
     }
 
 
 CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTPolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruPolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruPolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrPolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoPolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuPolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTPolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruPolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruPolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrPolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoPolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuPolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 MULTI_CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTMultiplePolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruMultiplePolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruMultiplePolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrMultiplePolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy(), redis_factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTMultiplePolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruMultiplePolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruMultiplePolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrMultiplePolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoMultiplePolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuMultiplePolicy(), factory=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 
 ASYNC_CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTPolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruPolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruPolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrPolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoPolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuPolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTPolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruPolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruPolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrPolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoPolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuPolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 
 ASYNC_MULTI_CACHES = {
-    "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
-    "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy(), redis_factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "rr": RedisFuncCache(__name__, RrClusterMultiplePolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "fifo": RedisFuncCache(__name__, FifoClusterMultiplePolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "lfu": RedisFuncCache(__name__, LfuClusterMultiplePolicy(), factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 

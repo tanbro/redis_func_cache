@@ -28,7 +28,7 @@ def test_update_ttl_default_behavior():
         short_ttl_cache = RedisFuncCache(
             __name__,
             type(cache.policy)(),
-            redis_factory=redis_factory,
+            factory=redis_factory,
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL
         )
@@ -73,7 +73,7 @@ def test_update_ttl_false_behavior():
         no_update_ttl_cache = RedisFuncCache(
             __name__,
             type(cache.policy)(),
-            redis_factory=redis_factory,
+            factory=redis_factory,
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL
             update_ttl=False,  # 不更新TTL

@@ -8,7 +8,7 @@ from redis_func_cache import LruTPolicy, RedisFuncCache
 redis_instance = Redis.from_url("redis://")
 
 # Create an lru cache, it connects Redis by previous created redis client
-lru_cache = RedisFuncCache(__name__, LruTPolicy(), redis_instance=redis_instance)
+lru_cache = RedisFuncCache(__name__, LruTPolicy(), client=redis_instance)
 
 
 @lru_cache  # Decorate a function to cache its result

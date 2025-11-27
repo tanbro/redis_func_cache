@@ -29,7 +29,7 @@ def clean_caches():
 def test_lru_order_correctness():
     """测试LRU缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy(), redis_factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
     cache.policy.purge()
 
     @cache
@@ -67,7 +67,7 @@ def test_lru_order_correctness():
 def test_fifo_order_correctness():
     """测试FIFO缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, FifoPolicy(), redis_factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, FifoPolicy(), factory=redis_factory, maxsize=maxsize)
     cache.policy.purge()
 
     @cache
@@ -105,7 +105,7 @@ def test_fifo_order_correctness():
 def test_lfu_order_correctness():
     """测试LFU缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LfuPolicy(), redis_factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, LfuPolicy(), factory=redis_factory, maxsize=maxsize)
     cache.policy.purge()
 
     @cache
@@ -144,7 +144,7 @@ def test_lfu_order_correctness():
 def test_eviction_edge_cases():
     """测试缓存淘汰的边界情况。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy(), redis_factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
     cache.policy.purge()
 
     @cache
@@ -170,7 +170,7 @@ def test_eviction_edge_cases():
 def test_mru_eviction():
     """测试MRU淘汰策略。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, MruPolicy(), redis_factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, MruPolicy(), factory=redis_factory, maxsize=maxsize)
     cache.policy.purge()
 
     @cache
@@ -210,7 +210,7 @@ def test_mru_eviction():
 def test_cache_data_consistency():
     """测试缓存数据的一致性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy(), redis_factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
     cache.policy.purge()
 
     @cache

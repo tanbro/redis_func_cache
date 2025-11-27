@@ -131,8 +131,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         name: str,
         policy: AbstractPolicy,
         *,
-        redis_instance: Optional[RedisClientTV] = None,
-        redis_factory: Optional[Callable[[], RedisClientTV]] = None,
+        client: Optional[RedisClientTV] = None,
+        factory: Optional[Callable[[], RedisClientTV]] = None,
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
         update_ttl: bool = True,
@@ -155,7 +155,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     and pass it here. Reusing the same policy instance across multiple
                     caches is discouraged as policies commonly hold cache-specific state.
 
-            redis_instance: Optional Redis client instance to use.
+                .. version-changed:: 0.7
+                    The ``policy`` argument now accepts a pre-instantiated policy instance, **NOT a class**.
+
+            client: Optional Redis client instance to use.
 
                 This argument may be an already-created Redis client instance (for
                 simple scripts/tests), or ``None`` when a ``redis_factory`` is supplied.
@@ -167,16 +170,18 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 - :class:`redis.cluster.RedisCluster`
                 - :class:`redis.asyncio.cluster.RedisCluster`
 
-                Tip:
-                    Prefer providing a ``redis_factory`` for concurrent/production use;
-                    use ``redis_instance`` only for simple cases or compatibility.
+                .. version-changed:: 0.7
+                    Prefer providing a ``factory`` for concurrent/production use;
+                    use ``client`` only for simple cases or compatibility.
 
-            redis_factory: Optional callable that returns a Redis client instance.
+            factory: Optional callable that returns a Redis client instance.
 
                 If provided, the callable will be invoked every time :meth:`get_client`
                 is called or the cache instance requires a redis client internally.
-                When both ``redis_factory`` and ``redis_instance`` are provided,
-                ``redis_factory`` takes precedence and will be used to obtain clients.
+                When both ``factory`` and ``client`` are provided,
+                ``factory`` takes precedence and will be used to obtain clients.
+
+                .. version-added:: 0.7
 
             maxsize: The maximum size of the cache.
 
@@ -199,7 +204,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 Assigned to property :attr:`update_ttl`.
 
-                .. versionadded:: 0.5
+                .. version-added:: 0.5
 
             prefix: The prefix for cache keys.
 
@@ -262,36 +267,30 @@ class RedisFuncCache(Generic[RedisClientTV]):
         # can access the cache via `self.cache`.
         if not isinstance(policy, AbstractPolicy):
             raise TypeError("policy must be an instance of AbstractPolicy")
-        self._policy_instance = policy
-        try:
-            # rebind policy's cache to this cache (weakref proxy)
-            # Use object.__setattr__ to avoid mypy/attribute type-check failures
-            object.__setattr__(policy, "_cache", weakref.proxy(self))
-        except Exception:
-            # if rebinding fails, raise a clear error
-            raise RuntimeError("Failed to bind provided policy instance to the cache")
+        self._policy = policy
+        self._policy._cache = weakref.proxy(self)
         # Accept both a concrete client instance and an optional factory.
         # Prefer `factory` when present. Keep compatibility for callers that
         # accidentally passed a callable as `client` by emitting a DeprecationWarning
         # and treating it as a factory.
-        self._redis_instance: Optional[RedisClientTV] = None
-        self._redis_factory: Optional[Callable[[], RedisClientTV]] = None
-        if redis_instance is not None:
-            if callable(redis_instance):
+        self._redis_client_instance: Optional[RedisClientTV] = None
+        self._redis_client_factory: Optional[Callable[[], RedisClientTV]] = None
+        if client is not None:  # pragma: no cover
+            if callable(client):
                 warn(
-                    "Passing a callable as `redis_instance` is deprecated; use `redis_factory=` instead",
+                    "Passing a callable as `client` is deprecated; use `factory=` instead",
                     DeprecationWarning,
                 )
                 # type: ignore[assignment]
-                self._redis_factory = redis_instance  # backward compatibility
+                self._redis_client_factory = client  # backward compatibility
             else:
-                self._redis_instance = redis_instance
+                self._redis_client_instance = client
         # explicit redis_factory parameter overrides instance when present
-        if redis_factory is not None:
-            self._redis_factory = redis_factory
-        if self._redis_factory is None and self._redis_instance is None:
+        if factory is not None:
+            self._redis_client_factory = factory
+        if self._redis_client_factory is None and self._redis_client_instance is None:
             raise RuntimeError("Either `client` or `factory` must be provided.")
-        self.serializer = serializer  # type: ignore[assignment]
+        self.serializer = serializer
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=RedisFuncCache.Mode())
         self._stats: ContextVar[Optional[RedisFuncCache.Stats]] = ContextVar("stats", default=None)
 
@@ -417,7 +416,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         Note:
             The property returns the policy instance bound to this cache.
         """
-        return self._policy_instance
+        return self._policy
 
     def get_client(self) -> RedisClientTV:
         """Get the redis client instance used in the cache.
@@ -438,10 +437,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
         .. versionadded:: 0.5
         """
         # Prefer factory when available (recommended for concurrent use).
-        if self._redis_factory:
-            return self._redis_factory()
-        if self._redis_instance:
-            return self._redis_instance
+        if self._redis_client_factory:
+            return self._redis_client_factory()
+        if self._redis_client_instance:
+            return self._redis_client_instance
         raise RuntimeError("No redis client or factory provided.")
 
     @property

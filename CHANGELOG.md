@@ -5,19 +5,22 @@
 > 🚧 Developing
 
 - 💔 **Breaking Changes:**
-  - Constructor parameter rename: the Redis client parameters have been renamed to `redis_instance` and `redis_factory` (keyword-only). `redis_factory` is preferred for concurrent/production usage.
+
+  - Constructor parameter rename: the Redis client parameters have been renamed to `client` and `factory` (keyword-only). `factory` is preferred for concurrent/production usage.
+
   - Policy must be an instance: the `policy` argument to `RedisFuncCache` now requires a pre-instantiated `AbstractPolicy` instance (e.g. `LruTPolicy()`), previously callers might have passed the policy class.
-  - Passing a callable as the `redis_instance` positional argument is deprecated. Use `redis_factory=` instead. The library will emit a `DeprecationWarning` when detecting the old pattern.
 
-  Migration example:
+  - Passing a callable as the `client` positional argument is deprecated. Use `factory=` instead. The library will emit a `DeprecationWarning` when detecting the old pattern.
 
-  ```python
-  # OLD (pre-v1.0.0)
-  cache = RedisFuncCache("my-cache", LruTPolicy, redis_client)
+    Migration example:
 
-  # NEW (v1.0.0+)
-  cache = RedisFuncCache("my-cache", LruTPolicy(), redis_factory=lambda: Redis.from_url("redis://"))
-  ```
+    ```python
+    # OLD
+    cache = RedisFuncCache("my-cache", LruTPolicy, client=redis_client)
+
+    # NEW (v0.7+)
+    cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.from_pool(redis.ConnectionPool(...)))
+    ```
 
 - 🛠 **Notes:**
   - The change to require policy instances was made to ensure policy objects can be bound to the cache (policies hold cache-specific state). Reuse of the same policy instance across multiple caches is discouraged; create a new policy object per cache if independent state is required.
