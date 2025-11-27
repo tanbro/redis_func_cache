@@ -129,7 +129,7 @@ def test_excludes_with_different_values(cache_name, cache):
 
 def test_excludes_with_custom_cache():
     """测试在自定义缓存实例中使用 excludes 参数。"""
-    custom_cache = RedisFuncCache(__name__, LruPolicy(), client=redis_factory, maxsize=10)
+    custom_cache = RedisFuncCache(__name__, LruPolicy(), redis_factory=redis_factory, maxsize=10)
     custom_cache.policy.purge()
 
     @custom_cache(excludes=["session"])

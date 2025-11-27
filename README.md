@@ -154,8 +154,8 @@ The library guarantees thread safety and concurrency security through the follow
 
 1. Redis Concurrency
 
-   - The underlying redis-py client is not thread-safe. Each thread should use a separate client instance or a connection pool (`redis.ConnectionPool`) to avoid resource contention.
-   - It is recommended to use a factory pattern with thread-safe locking for client instantiation, preventing race conditions during connection creation. A pre-configured connection pool helps manage Redis connections efficiently and prevents exhaustion under high concurrency.
+   - The underlying redis-py client is not thread-safe. Each thread should use a separate client instance or a connection pool (`redis.ConnectionPool`) which is advised to avoid resource contention.
+   - It is recommended to use a **factory and pool** pattern for client instantiation, preventing race conditions during connection creation. A pre-configured connection pool helps manage Redis connections efficiently and prevents exhaustion under high concurrency.
    - All Redis operations (e.g., get, put) are executed via Lua scripts to ensure atomicity, preventing race conditions during concurrent access.
 
    Here is an example using `redis.ConnectionPool` to avoid conflicts when the cache accesses Redis:
@@ -167,7 +167,7 @@ The library guarantees thread safety and concurrency security through the follow
    redis_pool = redis.ConnectionPool(...)  # Use a pool, not a single client
    redis_factory = lambda: redis.from_pool(redis_pool)  # Use factory, not a static client
 
-    cache = RedisFuncCache(__name__, LruPolicy(), redis_factory)
+   cache = RedisFuncCache(__name__, LruPolicy(), redis_factory)
 
    @cache
    def your_concurrent_func(...):
