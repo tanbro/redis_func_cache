@@ -78,8 +78,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
             pool = redis.ConnectionPool(...)
             factory = redis.from_pool(pool)
 
-            # supply a client instance and (optionally) a factory
-            cache = RedisFuncCache(__name__, LruTPolicy(), client=redis.Redis(), redis_factory=factory)
+            # supply a client instance by a factory
+            cache = RedisFuncCache(__name__, LruTPolicy(), factory=factory)
 
             @cache
             def function_to_cache(...):
@@ -161,7 +161,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             client: Optional Redis client instance to use.
 
                 This argument may be an already-created Redis client instance (for
-                simple scripts/tests), or ``None`` when a ``redis_factory`` is supplied.
+                simple scripts/tests), or ``None`` when a ``factory`` is supplied.
 
                 Examples of a client instance:
 
@@ -275,21 +275,24 @@ class RedisFuncCache(Generic[RedisClientTV]):
         # and treating it as a factory.
         self._redis_client_instance: Optional[RedisClientTV] = None
         self._redis_client_factory: Optional[Callable[[], RedisClientTV]] = None
-        if client is not None:  # pragma: no cover
+        # explicit factory parameter overrides instance when present
+        if factory is not None:
+            if not callable(factory):
+                raise TypeError("`factory` must be a callable")
+            self._redis_client_factory = factory
+        elif client is not None:  # pragma: no cover
+            # backward compatibility
             if callable(client):
                 warn(
                     "Passing a callable as `client` is deprecated; use `factory=` instead",
                     DeprecationWarning,
                 )
-                # type: ignore[assignment]
-                self._redis_client_factory = client  # backward compatibility
+                self._redis_client_factory = client  # type: ignore[assignment]
             else:
                 self._redis_client_instance = client
-        # explicit redis_factory parameter overrides instance when present
-        if factory is not None:
-            self._redis_client_factory = factory
-        if self._redis_client_factory is None and self._redis_client_instance is None:
+        else:
             raise RuntimeError("Either `client` or `factory` must be provided.")
+        # other arguments
         self.serializer = serializer
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=RedisFuncCache.Mode())
         self._stats: ContextVar[Optional[RedisFuncCache.Stats]] = ContextVar("stats", default=None)
