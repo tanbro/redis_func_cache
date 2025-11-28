@@ -237,26 +237,31 @@ This release introduces breaking changes to the `RedisFuncCache` constructor and
 
 Migration examples:
 
-Old (pre-v1.0.0):
+Old (pre-v0.7.0):
 
 ```python
-from redis import Redis
+import redis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
-redis_client = Redis.from_url("redis://")
+pool = redis.ConnectionPool.from_url("redis://")
+factory = lambda: redis.Redis.from_pool(pool)
 # previously: passing policy class and client positional arg
-cache = RedisFuncCache("my-first-lru-cache", LruTPolicy, client=redis_client)
+cache = RedisFuncCache("my-first-lru-cache", LruTPolicy, client=factory)
+# -------------------------------------------^^^^^^^^^^--^^^^^^^^^^^^^^-
 ```
 
-New (v1.0.0+):
+New (v0.7.0+):
 
 ```python
-from redis import Redis
+import redis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
+pool = redis.ConnectionPool.from_url("redis://")
+factory = lambda: redis.Redis.from_pool(pool)
+
 # prefer a factory for concurrency; policy must be instantiated
-factory = lambda: Redis.from_url("redis://")
 cache = RedisFuncCache("my-first-lru-cache", LruTPolicy(), factory=factory)
+# -------------------------------------------^^^^^^^^^^^^--^^^^^^^^^^^^^^^-
 ```
 
 If you have been passing a callable as the third positional argument (the old behavior that allowed a factory to be passed as the client), change it to `factory=`. The library will still accept the old callable-as-client usage temporarily but will emit a `DeprecationWarning`.
@@ -365,7 +370,7 @@ from redis import  Redis
 from redis_func_cache import RedisFuncCache, LruTMultiplePolicy
 
 redis_client = Redis.from_url("redis://")
-cache = RedisFuncCache("my-cache-4", LruTMultiplePolicy, client=redis_client)
+cache = RedisFuncCache("my-cache-4", LruTMultiplePolicy(), client=redis_client)
 
 @cache
 def func1(x):
@@ -414,7 +419,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache, LruTClusterPolicy
 
 redis_client = Redis.from_url("redis://")
-cache = RedisFuncCache("my-cluster-cache", LruTClusterPolicy, client=redis_client)
+cache = RedisFuncCache("my-cluster-cache", LruTClusterPolicy(), client=redis_client)
 
 @cache
 def my_func(x):
@@ -466,7 +471,7 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
     This argument can be set when creating a cache instance:
 
     ```python
-    cache = RedisFuncCache("my-cache-5", LruTPolicy, client=redis_client, maxsize=100)
+    cache = RedisFuncCache("my-cache-5", LruTPolicy(), client=redis_client, maxsize=100)
     ```
 
 - `ttl`: The expiration time (in seconds) for the cache data structure.
@@ -480,7 +485,7 @@ The [`RedisFuncCache`][] instance has two arguments to control the maximum size 
     You can set this argument when creating a cache instance:
 
     ```python
-    cache = RedisFuncCache("my-cache-5", LruTPolicy, client=redis_client, ttl=300)
+    cache = RedisFuncCache("my-cache-5", LruTPolicy(), client=redis_client, ttl=300)
     ```
 
 - per-invocation TTL: (Experimental) The expiration time (in seconds) for each cached item, not the entire cache.
@@ -519,7 +524,7 @@ However, we can still use [`pickle`][]. This can be achieved by specifying eithe
 > # like this:
 > my_pickle_cache = RedisFuncCache(
 >     __name__,
->     LruTPolicy,
+>     LruTPolicy(),
 >     factory=lambda: Redis.from_url("redis://"),
 >     serializer="pickle", # by string
 > )
@@ -527,13 +532,13 @@ However, we can still use [`pickle`][]. This can be achieved by specifying eithe
 > # or like this:
 > my_pickle_cache1 = RedisFuncCache(
 >     __name__,
->     LruTPolicy,
+>     LruTPolicy(),
 >     factory=lambda: Redis.from_url("redis://"),
 >     serializer=(pickle.dumps, pickle.loads) # by tuple of serializer/deserializer functions
 > )
 >
 > # or like this:
-> cache = RedisFuncCache(__name__, LruTPolicy, factory=lambda: Redis.from_url("redis://"))
+> cache = RedisFuncCache(__name__, LruTPolicy(), factory=lambda: Redis.from_url("redis://"))
 >
 > @cache(serializer=(pickle.loads, pickle.dumps)) # set serializer/deserializer in decorator, override that in cache instance
 > def my_func_with_complex_return_value(x):
@@ -619,10 +624,10 @@ You can set the `update_ttl` parameter at the cache instance level:
 
 ```python
 # Sliding TTL (default behavior)
-sliding_cache = RedisFuncCache("sliding-cache", LruTPolicy, client=redis_client, update_ttl=True)
+sliding_cache = RedisFuncCache("sliding-cache", LruTPolicy(), client=redis_client, update_ttl=True)
 
 # Fixed TTL
-fixed_cache = RedisFuncCache("fixed-cache", LruTPolicy, client=redis_client, update_ttl=False)
+fixed_cache = RedisFuncCache("fixed-cache", LruTPolicy(), client=redis_client, update_ttl=False)
 ```
 
 The `update_ttl` parameter controls the behavior of the cache data structures (sorted set and hash map) as a whole, not individual cached items. It is independent of the per-item TTL (set via the `ttl` parameter in the decorator), which controls the expiration of individual cached function results.
@@ -714,7 +719,7 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
 
    cache = RedisFuncCache(
        __name__,
-       LruTPolicy,
+       LruTPolicy(),
        factory=lambda: Redis.from_url("redis://"),
        serializer=(serialize, deserialize)
     )
@@ -738,7 +743,7 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
    from redis import Redis
    from redis_func_cache import RedisFuncCache, LruTPolicy
 
-   cache = RedisFuncCache(__name__, LruTPolicy, factory=lambda: Redis.from_url("redis://"))
+   cache = RedisFuncCache(__name__, LruTPolicy(), factory=lambda: Redis.from_url("redis://"))
 
    @cache(serializer=(msgpack.packb, msgpack.unpackb))
    def create_or_get_token(user: str) -> bytes:
@@ -824,7 +829,7 @@ class MyPolicy(LruScriptsMixin, PickleMd5HashMixin, AbstractPolicy):
         return f"{k}-set", f"{k}-map"
 
 
-my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy, factory=factory, prefix=MY_PREFIX)
+my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy(), factory=factory, prefix=MY_PREFIX)
 
 
 @my_cache
@@ -919,7 +924,7 @@ class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
 
 my_json_sha1_hex_cache = RedisFuncCache(
     name="json_sha1_hex",
-    policy=MyLruPolicy,
+    policy=MyLruPolicy(),
     factory=lambda: Redis.from_url("redis://")
 )
 ```
@@ -964,7 +969,7 @@ class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
 
 my_custom_hash_cache = RedisFuncCache(
     name=__name__,
-    policy=MyLruPolicy2,
+    policy=MyLruPolicy2(),
     client=redis_client
 )
 
