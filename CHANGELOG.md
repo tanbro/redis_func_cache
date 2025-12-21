@@ -20,7 +20,7 @@
 
   # NEW (v0.7+)
   cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.from_pool(redis.ConnectionPool(...)))
-    ```
+  ```
 
 - 🛠 **Notes:**
   - The change to require policy instances was made to ensure policy objects can be bound to the cache (policies hold cache-specific state). Reuse of the same policy instance across multiple caches is discouraged; create a new policy object per cache if independent state is required.
