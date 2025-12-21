@@ -12,14 +12,14 @@
 
   - Passing a callable as the `client` positional argument is deprecated. Use `factory=` instead. The library will emit a `DeprecationWarning` when detecting the old pattern.
 
-    Migration example:
+  Migration example:
 
-    ```python
-    # OLD
-    cache = RedisFuncCache("my-cache", LruTPolicy, client=redis_client)
+  ```python
+  # OLD
+  cache = RedisFuncCache("my-cache", LruTPolicy, client=redis_client)
 
-    # NEW (v0.7+)
-    cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.from_pool(redis.ConnectionPool(...)))
+  # NEW (v0.7+)
+  cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.from_pool(redis.ConnectionPool(...)))
     ```
 
 - 🛠 **Notes:**
