@@ -1,24 +1,86 @@
-digraph data_structure {
-    graph [
-        rankdir = "TB"
-    ];
-    node [
-        shape = "record"
-    ];
-    edge [
-        dir="none" style="dashed"
-    ];
+digraph DataStructure {
+    // Graph settings
+    rankdir=TB;
+    node [shape=none, margin=0, fontname="Arial, Helvetica, sans-serif"];
+    edge [fontname="Arial, Helvetica, sans-serif", style=dashed, color="#666"];
+    bgcolor=transparent;
+    splines=ortho;
 
-    "node0" [
-        label = "⬆️ Set | { <f1> 🆔 hash_1 | 🔢 score_1 } | { <f2> 🆔 hash_2 | 🔢 score_2 } | { <f3> 🆔 hash_3 | 🔢 score_3 } |... | { <fN> 🆔 hash_N | 🔢 score_N}"
-    ];
+    // Sorted Set (ZSET) node
+    zset [label=<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="8" BGCOLOR="white">
+            <TR><TD SIDES="B" BGCOLOR="#e3f2fd" COLSPAN="2">
+                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="2">
+                    <TR>
+                        <TD><FONT POINT-SIZE="16">⬆️</FONT></TD>
+                        <TD><FONT POINT-SIZE="14"><B>Sorted Set (ZSET)</B></FONT></TD>
+                    </TR>
+                </TABLE>
+            </TD></TR>
+            <TR><TD SIDES="B" COLSPAN="2" BGCOLOR="#f5f5f5"><FONT POINT-SIZE="10"><I>Tracks items with eviction scores</I></FONT></TD></TR>
+            <TR><TD BGCOLOR="#bbdefb" WIDTH="120" ALIGN="CENTER" PORT="f1">
+                <FONT POINT-SIZE="11"><B>hash_1</B></FONT>
+            </TD><TD BGCOLOR="#c8e6c9" WIDTH="80" ALIGN="CENTER">
+                <FONT POINT-SIZE="11" COLOR="#1b5e20"><B>score_1</B></FONT>
+            </TD></TR>
+            <TR><TD BGCOLOR="#bbdefb" ALIGN="CENTER" PORT="f2">
+                <FONT POINT-SIZE="11"><B>hash_2</B></FONT>
+            </TD><TD BGCOLOR="#c8e6c9" ALIGN="CENTER">
+                <FONT POINT-SIZE="11" COLOR="#1b5e20"><B>score_2</B></FONT>
+            </TD></TR>
+            <TR><TD BGCOLOR="#bbdefb" ALIGN="CENTER" PORT="f3">
+                <FONT POINT-SIZE="11"><B>hash_3</B></FONT>
+            </TD><TD BGCOLOR="#c8e6c9" ALIGN="CENTER">
+                <FONT POINT-SIZE="11" COLOR="#1b5e20"><B>score_3</B></FONT>
+            </TD></TR>
+            <TR><TD COLSPAN="2" ALIGN="CENTER" BGCOLOR="#f0f0f0"><FONT POINT-SIZE="10" COLOR="#666">...</FONT></TD></TR>
+            <TR><TD BGCOLOR="#bbdefb" ALIGN="CENTER" PORT="fN">
+                <FONT POINT-SIZE="11"><B>hash_N</B></FONT>
+            </TD><TD BGCOLOR="#c8e6c9" ALIGN="CENTER">
+                <FONT POINT-SIZE="11" COLOR="#1b5e20"><B>score_N</B></FONT>
+            </TD></TR>
+        </TABLE>
+    >];
 
-    "node1" [
-        label = "#️⃣ HashMap | {<f1> 🆔 hash_1: | <f2> 🆔 hash_2: | <f3> 🆔 hash_3: | ... | <fN> 🆔 hash_N:} | { 💾 value_1 | 💾 value_2 | 💾 value_3 | ... | 💾 value_N}"
-    ];
+    // HashMap node
+    hashmap [label=<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="8" BGCOLOR="white">
+            <TR><TD SIDES="B" BGCOLOR="#fff3e0" COLSPAN="2">
+                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="2">
+                    <TR>
+                        <TD><FONT POINT-SIZE="16">#️⃣</FONT></TD>
+                        <TD><FONT POINT-SIZE="14"><B>HashMap (HASH)</B></FONT></TD>
+                    </TR>
+                </TABLE>
+            </TD></TR>
+            <TR><TD SIDES="B" COLSPAN="2" BGCOLOR="#f5f5f5"><FONT POINT-SIZE="10"><I>Stores cached return values</I></FONT></TD></TR>
+            <TR><TD BGCOLOR="#ffe0b2" WIDTH="120" ALIGN="CENTER" PORT="f1">
+                <FONT POINT-SIZE="11" COLOR="#e65100"><B>hash_1</B></FONT>
+            </TD><TD BGCOLOR="#81c784" WIDTH="180" ALIGN="CENTER">
+                <FONT POINT-SIZE="11" COLOR="#1b5e20"><B>value_1</B></FONT>
+            </TD></TR>
+            <TR><TD BGCOLOR="#ffe0b2" ALIGN="CENTER" PORT="f2">
+                <FONT POINT-SIZE="11" COLOR="#e65100"><B>hash_2</B></FONT>
+            </TD><TD BGCOLOR="#81c784" ALIGN="CENTER">
+                <FONT POINT-SIZE="11" COLOR="#1b5e20"><B>value_2</B></FONT>
+            </TD></TR>
+            <TR><TD BGCOLOR="#ffe0b2" ALIGN="CENTER" PORT="f3">
+                <FONT POINT-SIZE="11" COLOR="#e65100"><B>hash_3</B></FONT>
+            </TD><TD BGCOLOR="#81c784" ALIGN="CENTER">
+                <FONT POINT-SIZE="11" COLOR="#1b5e20"><B>value_3</B></FONT>
+            </TD></TR>
+            <TR><TD COLSPAN="2" ALIGN="CENTER" BGCOLOR="#f0f0f0"><FONT POINT-SIZE="10" COLOR="#666">...</FONT></TD></TR>
+            <TR><TD BGCOLOR="#ffe0b2" ALIGN="CENTER" PORT="fN">
+                <FONT POINT-SIZE="11" COLOR="#e65100"><B>hash_N</B></FONT>
+            </TD><TD BGCOLOR="#81c784" ALIGN="CENTER">
+                <FONT POINT-SIZE="11" COLOR="#1b5e20"><B>value_N</B></FONT>
+            </TD></TR>
+        </TABLE>
+    >];
 
-    "node0":f1 -> "node1":f1;
-    "node0":f2 -> "node1":f2;
-    "node0":f3 -> "node1":f3;
-    "node0":fN -> "node1":fN;
+    // Connection arrows with labels
+    zset:f1 -> hashmap:f1 [label="same key", fontsize=9, color="#1976d2"];
+    zset:f2 -> hashmap:f2 [label="same key", fontsize=9, color="#1976d2"];
+    zset:f3 -> hashmap:f3 [label="same key", fontsize=9, color="#1976d2"];
+    zset:fN -> hashmap:fN [label="same key", fontsize=9, color="#1976d2"];
 }
