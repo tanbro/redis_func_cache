@@ -27,7 +27,6 @@
 
   - Please update any code that relied on passing policy classes or that passed a callable as the `client` positional argument. If you want, I can scan the repository for remaining occurrences and update examples/tests accordingly.
 
-
 ## v0.6.0
 
 - 💔 **Breaking Changes:**

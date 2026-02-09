@@ -186,6 +186,7 @@ The library guarantees thread safety and concurrency security through the follow
 Atomicity is a key feature of this library. All cache operations (both read and write) are implemented using Redis Lua scripts, which are executed atomically by the Redis server. This means that each script runs in its entirety without being interrupted by other operations, ensuring data consistency even under high concurrent load.
 
 Each cache policy implements two Lua scripts:
+
 - A "get" script that attempts to retrieve a value from cache and updates access information
 - A "put" script that adds or updates a value in cache and performs eviction if necessary
 
@@ -193,11 +194,137 @@ These scripts operate on the cache data structures (a sorted set for tracking it
 
 For Redis Cluster deployments, it's important to note that atomicity is guaranteed only within a single key's hash slot. Since our implementation uses two keys (a sorted set and a hash map) for each cache instance, both keys are designed to belong to the same hash slot. The cluster policies automatically calculate key slots to ensure that all cache data for a single cache instance is always located on the same node in the cluster. This design guarantees that cache operations can be executed atomically within the cluster environment.
 
-Theses designs enable safe operation in both multi-threaded and asynchronous environments while maintaining high-performance Redis I/O throughput. For best results, use the library with Redis 6.0 or newer to take advantage of native Lua script atomicity and advanced connection management features.
+These designs enable safe operation in both multi-threaded and asynchronous environments while maintaining high-performance Redis I/O throughput. For best results, use the library with Redis 6.0 or newer to take advantage of native Lua script atomicity and advanced connection management features.
 
-## Usage
+## Important Considerations
 
-### A simple example
+Before using this library, please be aware of the following important considerations:
+
+### Cache Stampede Risk
+
+> ⚠️ **Important:** \
+> When a cached function is expensive and called concurrently with the same arguments, multiple calls may execute simultaneously if the cache is empty or expired. This is known as **"cache stampede"** or **"thundering herd"** problem.
+
+#### Understanding the Problem
+
+While the library ensures atomicity of individual Redis operations (via Lua scripts), there is a race condition window between:
+
+1. Checking the cache (returning `None`)
+2. Executing the user function
+3. Writing the result to cache
+
+When multiple concurrent requests with identical arguments arrive simultaneously:
+
+```
+Thread A: cache miss → execute expensive function (5s) → write to cache
+Thread B: cache miss → execute expensive function (5s) → write to cache
+Thread C: cache miss → execute expensive function (5s) → write to cache
+...
+```
+
+This behavior is **by design**. The library's responsibility is to manage cache storage efficiently, not to control application-level concurrency. Concurrency control strategies depend heavily on your specific use case, deployment environment, and latency requirements.
+
+#### Mitigation Strategies
+
+Since this is fundamentally an **application-level concern**, the mitigation strategy should be chosen and implemented by you based on your requirements:
+
+##### Strategy 1: Redis Distributed Lock (Recommended for Distributed Systems)
+
+Use Redis locks to ensure only one thread executes the expensive function:
+
+```python
+import time
+from redis import Redis
+from redis_func_cache import RedisFuncCache, LruTPolicy
+
+factory = lambda: Redis.from_url("redis://")
+cache = RedisFuncCache("my-cache", LruTPolicy(), factory=factory)
+
+@cache
+def expensive_function(x: int) -> int:
+    # Acquire lock before executing expensive operation
+    lock_key = f"lock:expensive_function:{x}"
+    redis_client = Redis.from_url("redis://")
+    lock = redis_client.lock(lock_key, timeout=30, blocking_timeout=5)
+
+    try:
+        if lock.acquire():
+            # Double-check: cache might have been populated while waiting
+            # (You would need to implement a cache re-check here)
+            return x * x  # Your expensive operation
+        else:
+            # Couldn't acquire lock - wait and retry
+            time.sleep(0.1)
+            # Re-fetch from cache or raise exception
+            raise TimeoutError("Cache lookup timeout")
+    finally:
+        if lock.locked():
+            lock.release()
+```
+
+##### Strategy 2: Semaphore (For Single-Process Concurrency)
+
+For single-process scenarios, use Python's threading primitive:
+
+```python
+from threading import Semaphore
+from redis_func_cache import RedisFuncCache, LruTPolicy
+
+cache = RedisFuncCache("my-cache", LruTPolicy(), client=redis_client)
+
+# Limit concurrent executions to 1
+semaphore = Semaphore(1)
+
+@cache
+def expensive_function(x: int) -> int:
+    with semaphore:
+        # Only one thread can execute this block at a time
+        return x * x  # Your expensive operation
+```
+
+##### Strategy 3: TTL Jitter
+
+Add random jitter to cache expiration to prevent simultaneous expirations:
+
+```python
+import random
+from redis_func_cache import RedisFuncCache, LruTPolicy
+
+# Base TTL + random jitter (0-60 seconds)
+cache = RedisFuncCache(
+    "my-cache",
+    LruTPolicy(),
+    client=redis_client,
+    ttl=300 + random.randint(0, 60)
+)
+```
+
+##### Strategy 4: Stale-While-Revalidate (Advanced)
+
+Allow returning slightly stale data while refreshing the cache in the background. This requires custom implementation outside the library's core functionality.
+
+#### Choosing the Right Strategy
+
+| Strategy               | Best For                                     | Trade-offs                                 |
+| ---------------------- | -------------------------------------------- | ------------------------------------------ |
+| Redis Lock             | Distributed systems, long-running functions  | Adds latency for waiting threads           |
+| Semaphore              | Single-process scenarios                     | Not suitable for multi-process deployments |
+| TTL Jitter             | Preventing mass expiration                   | Doesn't prevent stampede on cold cache     |
+| Stale-While-Revalidate | Read-heavy workloads, tolerant of stale data | Requires complex implementation            |
+
+> 💡 **Recommendation:** Start with **Strategy 1 (Redis Lock)** for most distributed applications. It provides the best balance between correctness and usability.
+
+For more detailed examples and advanced patterns, see [Important Considerations - Cache Stampede Risk](#important-considerations).
+
+### Other Key Limitations
+
+- **Generator functions** are not supported.
+- **Decorator compatibility** with other decorators is not guaranteed.
+- **Unique cache names**: Each [`RedisFuncCache`][] instance must have a unique `name` argument. Sharing the same name across different instances may lead to serious errors.
+
+## Getting Started
+
+### Basic Usage
 
 Using an *LRU* cache to decorate a recursive Fibonacci function:
 
@@ -210,7 +337,7 @@ from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
 factory = lambda: Redis("redis://")
 
-lru_cache = Cache("my-first-lru-cache", LruTPolicy, factory)
+lru_cache = Cache("my-first-lru-cache", LruTPolicy(), factory)
 
 @lru_cache
 def fib(n):
@@ -227,64 +354,7 @@ This way, each computed result is cached, and subsequent calls with the same par
 
 It works almost the same as the standard library's `functools.lru_cache`, except that it uses [Redis][] as the backend instead of the local machine's memory.
 
-## Migration from v0.6 to v0.7
-
-This release introduces breaking changes to the `RedisFuncCache` constructor and policy handling. Summary:
-
-- The Redis client parameters have been renamed to `client` and `factory`. `factory` is preferred in concurrent/production scenarios.
-- The `policy` parameter must now be a pre-instantiated `AbstractPolicy` instance (e.g. `LruTPolicy()`), not a policy *class*.
-- Passing a callable as the `client` positional argument is deprecated. Use `factory=` instead; a `DeprecationWarning` will be raised for the old usage.
-
-Migration examples:
-
-Old (pre-v0.7.0):
-
-```python
-import redis
-from redis_func_cache import RedisFuncCache, LruTPolicy
-
-pool = redis.ConnectionPool.from_url("redis://")
-factory = lambda: redis.Redis.from_pool(pool)
-# previously: passing policy class and client positional arg
-cache = RedisFuncCache("my-first-lru-cache", LruTPolicy, client=factory)
-# -------------------------------------------^^^^^^^^^^--^^^^^^^^^^^^^^-
-```
-
-New (v0.7.0+):
-
-```python
-import redis
-from redis_func_cache import RedisFuncCache, LruTPolicy
-
-pool = redis.ConnectionPool.from_url("redis://")
-factory = lambda: redis.Redis.from_pool(pool)
-
-# prefer a factory for concurrency; policy must be instantiated
-cache = RedisFuncCache("my-first-lru-cache", LruTPolicy(), factory=factory)
-# -------------------------------------------^^^^^^^^^^^^--^^^^^^^^^^^^^^^-
-```
-
-If you have been passing a callable as the third positional argument (the old behavior that allowed a factory to be passed as the client), change it to `factory=`. The library will still accept the old callable-as-client usage temporarily but will emit a `DeprecationWarning`.
-
-If you previously passed a policy *class* (for example `LruTPolicy`), update call sites to instantiate the policy object: `LruTPolicy()`.
-
-If you want, I can run the test-suite and type-checker to find any remaining call sites that need updating.
-
-If we browse the [Redis][] database, we can find the pair of keys' names look like:
-
-- `func-cache:my-first-lru-cache:lru_t:0`
-
-    The key (with `0` suffix) is a sorted set that stores the hash of function invocations and their corresponding scores.
-
-- `func-cache:my-first-lru-cache:lru_t:1`
-
-    The key (with `1` suffix) is a hash map. Each key field in it is the hash value of a function invocation, and the value field is the return value of the function.
-
-> ❗ **Important:**\
-> The `name` **MUST** be unique for each [`RedisFuncCache`][] instance.
-> Therefore, we need to choose a unique name carefully using the `name` argument.
-
-### Async functions
+### Async Functions
 
 To decorate async functions, you should pass an `Async Redis client` to [`RedisFuncCache`][]'s `client` argument:
 
@@ -293,7 +363,7 @@ from redis.asyncio import Redis as AsyncRedis
 from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
 factory = lambda: AsyncRedis.from_url("redis://")
-cache = Cache(__name__, LruTPolicy, factory)
+cache = Cache(__name__, LruTPolicy(), factory)
 
 @cache
 async def my_async_func(...):
@@ -305,72 +375,120 @@ async def my_async_func(...):
 > - When a [`RedisFuncCache`][] is created with an async [Redis][] client, it can only be used to decorate async functions. These async functions will be decorated with an asynchronous wrapper, and the I/O operations between the [Redis][] client and server will be performed asynchronously.
 > - Conversely, a synchronous [`RedisFuncCache`][] can only decorate synchronous functions. These functions will be decorated with a synchronous wrapper, and I/O operations with [Redis][] will be performed synchronously.
 
-### Eviction policies
+### Choosing an Eviction Policy
 
-If you want to use other eviction policies, you can specify another policy class as the second argument of [`RedisFuncCache`][].
-For example, we use [`FifoPolicy`][] to implement a *FIFO* cache:
-
-```python
-from redis import Redis
-from redis_func_cache import RedisFuncCache, FifoPolicy
-
-redis_client = Redis.from_url("redis://")
-fifo_cache = RedisFuncCache("my-cache-2", FifoPolicy(), redis_client)
-
-@fifo_cache
-def func1(x):
-    ...
-```
-
-Use [`RrPolicy`][] to implement a random-remove cache:
+The library supports multiple cache eviction policies. You can specify a policy when creating the cache:
 
 ```python
 from redis import Redis
-from redis_func_cache import RedisFuncCache, RrPolicy
+from redis_func_cache import RedisFuncCache, FifoPolicy, LruTPolicy, LfuPolicy, RrPolicy
 
 redis_client = Redis.from_url("redis://")
-rr_cache = RedisFuncCache("my-cache-3", RrPolicy(), client=redis_client)
 
-@rr_cache
-def func2(x):
-    ...
+# FIFO (First In, First Out)
+fifo_cache = RedisFuncCache("my-fifo-cache", FifoPolicy(), client=redis_client)
+
+# LFU (Least Frequently Used)
+lfu_cache = RedisFuncCache("my-lfu-cache", LfuPolicy(), client=redis_client)
+
+# Random Replacement
+rr_cache = RedisFuncCache("my-rr-cache", RrPolicy(), client=redis_client)
 ```
 
-So far, the following cache eviction policies are available:
+Available policies:
 
-- **[`LruTPolicy`][]**
-
-    > 💡 **Tip:**\
-    > *LRU-T* stands for *LRU on timestamp*. It is a pseudo-LRU policy that approximates the behavior of LRU but is not as precise. The policy removes items based on their invocation timestamps, which may not always accurately reflect the least recently used item due to potential timestamp inaccuracies.
-    >
-    > Despite this limitation, *LRU-T* is **highly recommended** for common use cases. It offers better performance compared to the traditional LRU policy and provides sufficient accuracy for most applications.
-
-- [`FifoPolicy`][]: first in, first out
-- [`LfuPolicy`][]: least frequently used
-- [`LruPolicy`][]: least recently used
-- [`MruPolicy`][]: most recently used
-- [`RrPolicy`][]: random remove
-- ...
+- **[`LruTPolicy`][]** (Recommended): Time-based LRU, offers the best balance of performance and accuracy for most use cases.
+- [`FifoPolicy`][]: First in, first out
+- [`LfuPolicy`][]: Least frequently used
+- [`LruPolicy`][]: Least recently used (more precise but slower than LRU-T)
+- [`MruPolicy`][]: Most recently used
+- [`RrPolicy`][]: Random remove
 
 > ℹ️ **Info:**\
 > Explore the source code in the directory `src/redis_func_cache/policies` for more details.
 
-### Multiple [Redis][] key pairs
+## Configuration
 
-As described above, the cache keys are currently in a paired form, where all decorated functions share the same two keys.
-However, there may be instances where we want a unique key pair for each decorated function.
+### Cache Size and TTL
 
-One solution is to use different [`RedisFuncCache`][] instances to decorate different functions.
-
-Another way is to use a policy that stores cache data in different [Redis][] key pairs for each function. There are several policies to do that out of the box.
-For example, we can use [`LruTMultiplePolicy`][] for an *LRU* cache that has multiple different [Redis][] key pairs to store return values of different functions, and each function has a standalone key pair:
+Control cache size and expiration:
 
 ```python
-from redis import  Redis
+cache = RedisFuncCache(
+    "my-cache",
+    LruTPolicy(),
+    client=redis_client,
+    maxsize=100,      # Maximum number of cached items
+    ttl=300          # Cache expires after 300 seconds of inactivity
+)
+```
+
+- **`maxsize`**: Maximum number of items the cache can hold. When reached, items are evicted according to the policy.
+- **`ttl`**: Time-to-live in seconds. The entire cache structure expires after this period of inactivity (sliding expiration).
+
+For "multiple" policies, each decorated function has its own independent data structure, so `maxsize` and `ttl` apply to each function's cache individually.
+
+#### Per-Item TTL (Experimental)
+
+You can also set TTL on individual cached items:
+
+```python
+@cache(ttl=300)  # Each result expires after 300 seconds
+def my_func(x):
+    ...
+```
+
+> ⚠️ **Warning:** This feature requires [Redis][] 7.4+ and uses [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). When a field expires, it's removed from the HASH but the corresponding entry in the ZSET is only lazily cleaned up.
+
+### Serialization
+
+The default serializer is [JSON][], which works with simple data types. For complex objects, you can specify alternative serializers:
+
+```python
+import pickle
+from redis_func_cache import RedisFuncCache, LruTPolicy
+
+# Method 1: Set at cache instance level
+cache = RedisFuncCache(
+    __name__,
+    LruTPolicy(),
+    factory=lambda: Redis.from_url("redis://"),
+    serializer="pickle"  # or (pickle.dumps, pickle.loads)
+)
+
+# Method 2: Override at decorator level
+@cache(serializer="pickle")
+def my_func_with_complex_return(x):
+    return {...}  # Complex object
+```
+
+Supported serializers: JSON, Pickle, MsgPack, YAML, BSON, CBOR, and cloudpickle.
+
+> ⚠️ **Warning:** [`pickle`][] can execute arbitrary code during deserialization. Use with extreme caution, especially with untrusted data.
+
+### Handling Non-Serializable Arguments
+
+For functions with non-serializable arguments (e.g., database connections), use `excludes` or `excludes_positional`:
+
+```python
+@cache(excludes=["session", "config"])
+def get_user_data(session, user_id: int, config=None):
+    # session and config are excluded from cache key
+    return fetch_user_data(user_id)
+
+# These calls hit the same cache entry
+data1 = get_user_data(session1, user_id=123, config=config1)
+data2 = get_user_data(session2, user_id=123, config=config2)  # Cache hit
+```
+
+### Multiple Key Pairs
+
+By default, all decorated functions share the same Redis key pair. To give each function its own keys, use a "Multiple" policy:
+
+```python
 from redis_func_cache import RedisFuncCache, LruTMultiplePolicy
 
-redis_client = Redis.from_url("redis://")
-cache = RedisFuncCache("my-cache-4", LruTMultiplePolicy(), client=redis_client)
+cache = RedisFuncCache("my-cache", LruTMultiplePolicy(), client=redis_client)
 
 @cache
 def func1(x):
@@ -379,322 +497,96 @@ def func1(x):
 @cache
 def func2(x):
     ...
+
+# func1 and func2 have separate Redis key pairs
 ```
 
-In the example, [`LruTMultiplePolicy`][] inherits from [`BaseMultiplePolicy`][] which implements how to store cache keys and values for each function.
+Available multiple-key policies: [`FifoMultiplePolicy`][], [`LfuMultiplePolicy`][], [`LruMultiplePolicy`][], [`LruTMultiplePolicy`][], [`MruMultiplePolicy`][], [`RrMultiplePolicy`][].
 
-When called, we can see such keys in the [Redis][] database:
+### Redis Cluster
 
-- key pair for `func1`:
-
-  - `func-cache:my-cache-4:lru_t-m:__main__:func1#<hash1>:0`
-  - `func-cache:my-cache-4:lru_t-m:__main__:func1#<hash1>:1`
-
-- key pair for `func2`:
-
-  - `func-cache:my-cache-4:lru_t-m:__main__:func2#<hash2>:0`
-  - `func-cache:my-cache-4:lru_t-m:__main__:func2#<hash2>:1`
-
-where `<hash1>` and `<hash2>` are the hash values of the definitions of `func1` and `func2` respectively.
-
-Policies that store cache in multiple [Redis][] key pairs are:
-
-- [`FifoMultiplePolicy`][]
-- [`LfuMultiplePolicy`][]
-- [`LruMultiplePolicy`][]
-- [`MruMultiplePolicy`][]
-- [`RrMultiplePolicy`][]
-- [`LruTMultiplePolicy`][]
-
-### [Redis][] Cluster support
-
-We already know that the library implements cache algorithms based on a pair of [Redis][] data structures, and the two **MUST** be in the same [Redis][] node, or it will not work correctly.
-
-While a [Redis][] cluster will distribute keys to different nodes based on the hash value, we need to guarantee that two keys are placed on the same node. Several cluster policies are provided to achieve this. These policies use the `{...}` pattern in key names.
-
-For example, here we use a [`LruTClusterPolicy`][] to implement a cluster-aware *LRU* cache:
+For Redis Cluster deployments, use a Cluster-aware policy. These policies use hash tags `{...}` to ensure both keys are on the same cluster node:
 
 ```python
-from redis import Redis
 from redis_func_cache import RedisFuncCache, LruTClusterPolicy
 
-redis_client = Redis.from_url("redis://")
-cache = RedisFuncCache("my-cluster-cache", LruTClusterPolicy(), client=redis_client)
+cache = RedisFuncCache("my-cache", LruTClusterPolicy(), client=redis_client)
 
 @cache
 def my_func(x):
     ...
 ```
 
-Thus, the names of the key pair may look like:
+Available cluster policies: [`FifoClusterPolicy`][], [`LfuClusterPolicy`][], [`LruClusterPolicy`][], [`LruTClusterPolicy`][], [`MruClusterPolicy`][], [`RrClusterPolicy`][].
 
-- `func-cache:{my-cluster-cache:lru_t-c}:0`
-- `func-cache:{my-cluster-cache:lru_t-c}:1`
-
-Notice what is in `{...}`: the [Redis][] cluster will determine which node to use by the `{...}` pattern rather than the entire key string.
-
-Therefore, all cached results for the same cache instance will be stored in the same node, irrespective of the functions involved.
-
-Policies that support clusters are:
-
-- [`FifoClusterPolicy`][]
-- [`LfuClusterPolicy`][]
-- [`LruClusterPolicy`][]
-- [`MruClusterPolicy`][]
-- [`RrClusterPolicy`][]
-- [`LruTClusterPolicy`][]
-
-### [Redis][] Cluster support with multiple key pairs
-
-This policy ensures that all cached results for the same function are stored in the same node. Meanwhile, results of different functions may be stored in different nodes.
-
-Policies that support both clusters and store cache in multiple [Redis][] key pairs are:
-
-- [`FifoClusterMultiplePolicy`][]
-- [`LfuClusterMultiplePolicy`][]
-- [`LruClusterMultiplePolicy`][]
-- [`MruClusterMultiplePolicy`][]
-- [`RrClusterMultiplePolicy`][]
-- [`LruTClusterMultiplePolicy`][]
-
-### Max size and expiration time
-
-The [`RedisFuncCache`][] instance has two arguments to control the maximum size and expiration time of the cache:
-
-- `maxsize`: The maximum number of items the cache can hold.
-
-    When the cache reaches its `maxsize`, adding a new item will cause an existing cached item to be removed according to the eviction policy.
-
-    > ℹ️ **Note:**\
-    > For "multiple" policies, each decorated function has its own standalone data structure, so the value represents the maximum size of each individual data structure.
-
-    This argument can be set when creating a cache instance:
-
-    ```python
-    cache = RedisFuncCache("my-cache-5", LruTPolicy(), client=redis_client, maxsize=100)
-    ```
-
-- `ttl`: The expiration time (in seconds) for the cache data structure.
-
-    The entire [Redis][] data structure for the cache will expire and be removed after the specified time.
-    Each time the cache is accessed, its expiration time is refreshed. Thus, the cache will only be removed if it is not accessed within the specified period.
-
-    > ℹ️ **Note:**\
-    > For "multiple" policies, each decorated function has its own separate data structure, so the `ttl` value applies to each individual structure. The expiration time is refreshed independently whenever each cache is accessed.
-
-    You can set this argument when creating a cache instance:
-
-    ```python
-    cache = RedisFuncCache("my-cache-5", LruTPolicy(), client=redis_client, ttl=300)
-    ```
-
-- per-invocation TTL: (Experimental) The expiration time (in seconds) for each cached item, not the entire cache.
-
-  You can set this argument when decorating a function:
-
-  ```python
-  @cache(ttl=300)
-  def my_func(x):
-      ...
-  ```
-
-  This means that each cached return value for a specific invocation of `my_func` will expire after 300 seconds.
-  The argument's default value is `None`, which means that the cache item will never expire.
-
-  > ⁉️ **Caution:**\
-  > This experimental expiration mechanism relies on [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). Expiration only applies to the `HASH` field (the cached return value), and does **not** reduce the total number of items in the cache when a field expires.
-  > Typically, the cached return value in the `HASH` portion is automatically released after expiration. However, the corresponding hash key in the `ZSET` portion is **not** removed automatically. Instead, it is only "lazily" cleaned up when accessed, or removed by the eviction policy when a new value is added. During this period, the `ZSET` portion continues to occupy memory, and the reported number of cache items does not decrease.
-
-  > ⚠️ **Warning:**\
-  > This feature is experimental and requires [Redis][] 7.4 or above.
-  > See [Redis hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration) for more details.
-
-### Complex return types
-
-The return value's (de)serializer is [JSON][] (`json` module of std-lib) by default, which does not work with complex objects.
-However, we can still use [`pickle`][]. This can be achieved by specifying either the `serializer` argument of [`RedisFuncCache`][]'s constructor (`__init__`), or the decorator (`__call__`):
-
-> 💡 **Example:**
->
-> ```python
-> import pickle
-> from redis import Redis
-> from redis_func_cache import RedisFuncCache, LruTPolicy
->
-> # like this:
-> my_pickle_cache = RedisFuncCache(
->     __name__,
->     LruTPolicy(),
->     factory=lambda: Redis.from_url("redis://"),
->     serializer="pickle", # by string
-> )
->
-> # or like this:
-> my_pickle_cache1 = RedisFuncCache(
->     __name__,
->     LruTPolicy(),
->     factory=lambda: Redis.from_url("redis://"),
->     serializer=(pickle.dumps, pickle.loads) # by tuple of serializer/deserializer functions
-> )
->
-> # or like this:
-> cache = RedisFuncCache(__name__, LruTPolicy(), factory=lambda: Redis.from_url("redis://"))
->
-> @cache(serializer=(pickle.loads, pickle.dumps)) # set serializer/deserializer in decorator, override that in cache instance
-> def my_func_with_complex_return_value(x):
->     ...
->
-> # or just like this:
-> @cache(serializer="pickle") # set serializer/deserializer in decorator, override that in cache instance
-> def my_func_with_complex_return_value(x):
->     ...
->
-> ```
-
-Other serialization libraries such as [bson][], [simplejson](https://pypi.org/project/simplejson/), [cJSON](https://github.com/DaveGamble/cJSON), [msgpack][], [yaml][], and [cloudpickle](https://github.com/cloudpipe/cloudpickle) are also supported.
-
-> ⚠️ **Warning:** \
-> The [`pickle`][] module is highly powerful but poses a significant security risk because it can execute arbitrary code during deserialization. Use it with extreme caution, especially when handling data from untrusted sources.
-> For best practices, it is recommended to cache functions that return simple, [JSON][]-serializable data. If you need to serialize more complex data structures than those supported by [JSON][], consider using safer alternatives such as [bson][], [msgpack][], or [yaml][].
-
-### Work with Un-Serializable Arguments
-
-As mentioned in the documentation, the [`RedisFuncCache`][] class does not support functions with un-serializable arguments.
-However, you can work around this issue by:
-
-- Splitting the function into two parts: one with fully serializable arguments (apply the cache decorator to this part), and another that may contain un-serializable arguments (this part calls the first one).
-
-- Using `excludes` and/or `excludes_positional` to exclude un-serializable arguments from key and hash calculations.
-
-  This approach is particularly useful for functions that takes arguments such as database connections, session objects, or other non-serializable objects. The `excludes` and `excludes_positional` parameters allow you to exclude specific arguments from cache key and hash calculations.
-
-The `excludes` parameter takes a sequence of parameter names to exclude from cache key generation:
-
-```python
-from redis_func_cache import RedisFuncCache
-
-cache = RedisFuncCache("my_cache", LruPolicy(), client=redis_client)
-
-@cache(excludes=["session", "config"])
-def get_user_data(session, user_id: int, config=None):
-    # session and config are excluded from cache key
-    return fetch_user_data(user_id)
-
-# These calls will hit the same cache entry because user_id is the same
-data1 = get_user_data(session1, user_id=123, config=config1)
-data2 = get_user_data(session2, user_id=123, config=config2)  # Cache hit
-```
-
-The `excludes_positional` parameter takes a sequence of indices specifying positional arguments to exclude:
-
-```python
-@cache(excludes_positional=[0, 2])  # Exclude 1st and 3rd arguments
-def get_user_data(session, user_id: int, config):
-    # session (index 0) and config (index 2) are excluded from cache key
-    return fetch_user_data(user_id)
-
-# These calls will hit the same cache entry because user_id is the same
-data1 = get_user_data(session1, 123, config1)
-data2 = get_user_data(session2, 123, config2)  # Cache hit
-```
-
-You can use both parameters together to exclude both positional and keyword arguments:
-
-```python
-@cache(excludes=["config"], excludes_positional=[0])
-def get_user_data(session, user_id: int, book_id: int, config=None):
-    # session (positional, index 0) and config (keyword) are excluded
-    return fetch_user_data(user_id, book_id)
-
-# These calls will hit the same cache entry because user_id and book_id are the same
-data1 = get_user_data(session1, user_id=123, book_id=456, config=config1)
-data2 = get_user_data(session2, user_id=123, book_id=456, config=config2)  # Cache hit
-```
-
-### TTL Update Behavior
-
-By default, accessing cached data updates the expiration time (TTL) of the cache data structures. This behavior is referred to as "sliding TTL". However, you can control this behavior using the `update_ttl` parameter.
-
-There are two TTL update modes:
-
-- **Sliding TTL** (`update_ttl=True`, default): Each cache access (both read and write) extends the life of the cache data structures.
-- **Fixed TTL** (`update_ttl=False`): The expiration time is set only when the cache data structures are first created, and subsequent accesses do not extend their life.
-
-You can set the `update_ttl` parameter at the cache instance level:
-
-```python
-# Sliding TTL (default behavior)
-sliding_cache = RedisFuncCache("sliding-cache", LruTPolicy(), client=redis_client, update_ttl=True)
-
-# Fixed TTL
-fixed_cache = RedisFuncCache("fixed-cache", LruTPolicy(), client=redis_client, update_ttl=False)
-```
-
-The `update_ttl` parameter controls the behavior of the cache data structures (sorted set and hash map) as a whole, not individual cached items. It is independent of the per-item TTL (set via the `ttl` parameter in the decorator), which controls the expiration of individual cached function results.
-
-> 💡 **Tip:**\
-> Use fixed TTL when you want predictable cache expiration behavior, regardless of how often cached functions are accessed.
-> Use sliding TTL when you want frequently accessed cached data to remain in cache longer.
+For per-function keys in cluster mode, use `*ClusterMultiplePolicy` variants: [`LruTClusterMultiplePolicy`][], etc.
 
 ### Cache Mode Control
 
-The library provides fine-grained control over cache behavior through the `mode_context()` context manager and convenience methods. You can control whether the cache reads from or writes to Redis using the following flags:
-
-- `read` (`bool`): allow read from cache
-- `write` (`bool`): allow write to cache
-- `exec` (`bool`): allow execute function
-
-You can use the `mode_context()` context manager to explicitly set any mode:
+Fine-grained control over cache behavior:
 
 ```python
 from redis_func_cache import RedisFuncCache
 
 @cache
 def get_user_data(user_id):
-    # Some expensive operation
     return data
 
-# Normal operation (default)
+# Normal operation
 data = get_user_data(123)
 
 # Bypass cache reading, but still write to cache
-mode = cache.get_mode()
-mode.read = False
-with cache.mode_context(mode):
-    data = get_user_data(123)  # Function executed, result stored in cache
+with cache.write_only():
+    data = get_user_data(123)  # Function executed, result cached
 
-# Only read from cache, don't execute function or write to cache
-mode = cache.get_mode()
-mode.write = False
-with cache.mode_context(mode):
+# Only read from cache
+with cache.read_only():
     data = get_user_data(123)  # Only attempts to read from cache
 
-# Disable cache read and write
-mode = cache.get_mode()
-mode.read = False
-mode.write = False
-with cache.mode_context(mode):
+# Disable cache entirely
+with cache.disable_rw():
     data = get_user_data(123)  # Function executed, no cache interaction
 ```
 
-For common use cases, you can use convenience methods:
+## Migration Guide (v0.6 → v0.7)
+
+v0.7 introduced breaking changes to the `RedisFuncCache` constructor:
+
+### Summary of Changes
+
+- The Redis client parameters renamed to `client` and `factory`. `factory` is preferred for concurrent/production use.
+- The `policy` parameter must now be an **instance** (e.g., `LruTPolicy()`), not a class.
+- Passing a callable as the `client` positional argument is deprecated. Use `factory=` instead.
+
+### Migration Example
+
+**Old (pre-v0.7.0):**
 
 ```python
-with cache.disable_rw():
-    data = get_user_data(123)
+import redis
+from redis_func_cache import RedisFuncCache, LruTPolicy
 
-with cache.write_only():
-    data = get_user_data(123)
-
-with cache.read_only():
-    data = get_user_data(123)
+pool = redis.ConnectionPool.from_url("redis://")
+factory = lambda: redis.Redis.from_pool(pool)
+# Passing policy class and client positional arg
+cache = RedisFuncCache("my-cache", LruTPolicy, client=factory)
 ```
 
-All these methods are used as context managers and are based on [`ContextVar`](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar), making them thread-safe and concurrency-isolated.
+**New (v0.7.0+):**
+
+```python
+import redis
+from redis_func_cache import RedisFuncCache, LruTPolicy
+
+pool = redis.ConnectionPool.from_url("redis://")
+factory = lambda: redis.Redis.from_pool(pool)
+# Policy must be instantiated; use factory= keyword
+cache = RedisFuncCache("my-cache", LruTPolicy(), factory=factory)
+```
 
 ## Advanced Usage
 
-### Custom result serializer
+### Custom Serializer
 
 The result of the decorated function is serialized by default using [JSON][] (via the json module from the standard library) and then saved to [Redis][].
 
@@ -779,13 +671,13 @@ There are four basic policies that implement respective kinds of key formats:
 
 Variables in the format string are defined as follows:
 
-|                 |                                                                   |
-| --------------- | ----------------------------------------------------------------- |
-| `prefix`        | `prefix` argument of [`RedisFuncCache`][]                         |
-| `name`          | `name` argument of [`RedisFuncCache`][]                           |
+|                 |                                                                      |
+| --------------- | -------------------------------------------------------------------- |
+| `prefix`        | `prefix` argument of [`RedisFuncCache`][]                            |
+| `name`          | `name` argument of [`RedisFuncCache`][]                              |
 | `__key__`       | `__key__` attribute of the policy class used in [`RedisFuncCache`][] |
-| `function_name` | full name of the decorated function                               |
-| `function_hash` | hash value of the decorated function                              |
+| `function_name` | full name of the decorated function                                  |
+| `function_hash` | hash value of the decorated function                                 |
 
 `0` and `1` at the end of the keys are used to distinguish between the two data structures:
 
@@ -1026,7 +918,7 @@ def some_func(*args, **kwargs):
 
 - The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. Its maximum value is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
 
-- High concurrency or long-running decorated functions may result in unexpected cache misses and increased I/O operations. This can occur because the result value might not be saved quickly enough before the next call can hit the cache again.
+- **Cache Stampede Risk:** Under high concurrency, multiple requests with identical arguments may simultaneously execute the decorated function when the cache is empty or expired. This is a **known limitation** by design—concurrency control is the responsibility of the application layer. See [Important Considerations - Cache Stampede Risk](#important-considerations) for mitigation strategies and code examples.
 
 - Generator functions are not supported.
 
@@ -1320,7 +1212,6 @@ classDiagram
 
 [bson]: https://bsonspec.org/ "BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments."
 [msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
-[yaml]: https://yaml.org/ "YAML is a human-friendly data serialization language for all programming languages."
 
 [uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
@@ -1354,9 +1245,4 @@ classDiagram
 [`RrClusterPolicy`]: redis_func_cache.policies.rr.RrClusterPolicy
 [`LruTClusterPolicy`]: redis_func_cache.policies.lru.LruTClusterPolicy
 
-[`FifoClusterMultiplePolicy`]: redis_func_cache.policies.fifo.FifoClusterMultiplePolicy
-[`LfuClusterMultiplePolicy`]: redis_func_cache.policies.lfu.LfuClusterMultiplePolicy
-[`LruClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruClusterMultiplePolicy
-[`MruClusterMultiplePolicy`]: redis_func_cache.policies.mru.MruClusterMultiplePolicy
-[`RrClusterMultiplePolicy`]: redis_func_cache.policies.rr.RrClusterMultiplePolicy
 [`LruTClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruTClusterMultiplePolicy

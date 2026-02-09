@@ -176,3 +176,5 @@ If you need help with your contribution:
 ## License
 
 By contributing to redis_func_cache, you agree that your contributions will be licensed under what described in the `LICENSE.md` file.
+
+[uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."

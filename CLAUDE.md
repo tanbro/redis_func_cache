@@ -74,12 +74,12 @@ src/redis_func_cache/
 
 Policies come in **4 variants** based on key distribution and cluster support:
 
-| Variant | Description | Key Pattern | Use Case |
-|---------|-------------|-------------|----------|
-| `SinglePolicy` | All functions share same Redis key pair | `prefix:name:policy:0\|1` | Simple use cases |
-| `MultiplePolicy` | Each function gets its own key pair | `prefix:name:policy:func#hash:0\|1` | Isolate function caches |
-| `ClusterSinglePolicy` | Hash tags for Redis Cluster | `prefix{name:policy}:0\|1` | Cluster with shared keys |
-| `ClusterMultiplePolicy` | Per-function keys with cluster support | `prefix:name:policy:func{#hash}:0\|1` | Cluster with isolated keys |
+| Variant                 | Description                             | Key Pattern                           | Use Case                   |
+| ----------------------- | --------------------------------------- | ------------------------------------- | -------------------------- |
+| `SinglePolicy`          | All functions share same Redis key pair | `prefix:name:policy:0\|1`             | Simple use cases           |
+| `MultiplePolicy`        | Each function gets its own key pair     | `prefix:name:policy:func#hash:0\|1`   | Isolate function caches    |
+| `ClusterSinglePolicy`   | Hash tags for Redis Cluster             | `prefix{name:policy}:0\|1`            | Cluster with shared keys   |
+| `ClusterMultiplePolicy` | Per-function keys with cluster support  | `prefix:name:policy:func{#hash}:0\|1` | Cluster with isolated keys |
 
 **Naming convention**: `LruPolicy`, `LruMultiplePolicy`, `LruClusterPolicy`, `LruClusterMultiplePolicy`
 
@@ -129,17 +129,20 @@ Each cache uses **TWO Redis keys** (suffix `:0` and `:1`):
 ## Gotchas
 
 ### API Changes (v0.7+)
+
 - **Policy instantiation**: Policies must be instantiated: `LruTPolicy()` not `LruTPolicy`
 - **Factory pattern**: Use `factory=` for concurrent scenarios, not direct `client=` instances
 - **Client vs Factory**: `client` is for single-use, `factory` creates new client per call (thread-safe)
 
 ### Architecture Constraints
+
 - **Bytecode hashing**: Default hash includes function bytecode → caches incompatible across Python versions
 - **Non-serializable args**: Use `excludes` or `excludes_positional` to skip unserializable arguments
 - **Async/sync separation**: Async cache requires async Redis client AND async functions
 - **Lua script atomicity**: All operations atomic within single Redis node, but **cache stampede** possible on misses (multiple threads may all execute function)
 
 ### Redis Integration
+
 - **Dual data structures**: ZSET (scoring) + HASH (storage) - must be maintained together
 - **Cluster compatibility**: Use `*ClusterPolicy` variants with hash tags `{}` for same-slot guarantee
 - **Serialization**: Default JSON (safe), pickle available but dangerous with untrusted data
