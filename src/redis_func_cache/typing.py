@@ -46,7 +46,7 @@ RedisClientTV = TypeVar("RedisClientTV", bound=RedisClientT)
 RedisScriptT = Union[redis.commands.core.Script, redis.commands.core.AsyncScript]
 
 
-SerializerName = Literal["json", "pickle", "bson", "msgpack", "yaml", "cbor", "cloudpickle"]
+SerializerName = Literal["json", "pickle", "dill", "bson", "msgpack", "yaml", "cbor", "cloudpickle"]
 
 
 if TYPE_CHECKING:  # pragma: no cover

@@ -230,3 +230,57 @@ def test_cloudpickle():
         _test_int(fn)
         _test_float(fn)
         _test_datetime(fn)
+
+
+def test_dill():
+    def _test_bytes(f):
+        for _ in range(randint(1, MAXSIZE * 2)):
+            v0 = uuid4().bytes
+            v1 = f(v0)
+            assert v0 == v1
+
+    def _test_str(f):
+        for _ in range(randint(1, MAXSIZE * 2)):
+            v0 = uuid4().hex
+            v1 = f(v0)
+            assert v0 == v1
+
+    def _test_int(f):
+        for _ in range(randint(1, MAXSIZE * 2)):
+            v0 = randint(-(2**63), 2**63 - 1)
+            v1 = f(v0)
+            assert v0 == v1
+
+    def _test_float(f):
+        for _ in range(randint(1, MAXSIZE * 2)):
+            v0 = random()
+            v1 = f(v0)
+            assert v0 == v1
+
+    def _test_bool(f):
+        for _ in range(randint(1, MAXSIZE * 2)):
+            v0 = choice((True, False))
+            v1 = f(v0)
+            assert v0 == v1
+
+    def _test_none(f):
+        for _ in range(randint(1, MAXSIZE * 2)):
+            v0 = None
+            v1 = f(v0)
+            assert v0 == v1
+
+    def _test_datetime(f):
+        for _ in range(randint(1, MAXSIZE * 2)):
+            v0 = datetime.now().replace(microsecond=0)
+            v1 = f(v0)
+            assert v0 == v1
+
+    for cache in CACHES.values():
+        fn = cache(echo, serializer="dill")
+        _test_bytes(fn)
+        _test_none(fn)
+        _test_bool(fn)
+        _test_str(fn)
+        _test_int(fn)
+        _test_float(fn)
+        _test_datetime(fn)

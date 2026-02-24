@@ -18,6 +18,10 @@ from warnings import warn
 from redis.commands.core import AsyncScript, Script
 
 try:  # pragma: no cover
+    import dill  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    dill = None  # type: ignore[assignment]
+try:  # pragma: no cover
     import bson  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     bson = None  # type: ignore[assignment]
@@ -222,6 +226,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                   - ``"json"``: Use :func:`json.dumps` and :func:`json.loads`
                   - ``"pickle"``: Use :func:`pickle.dumps` and :func:`pickle.loads`
+                  - ``"dill"``: Use :func:`dill.dumps` and :func:`dill.loads`. Only available when `dill <https://pypi.org/project/dill/>`_ is installed.
                   - ``"bson"``: Use :func:`bson.decode` and :func:`bson.encode`. Only available when `pymongo <https://pypi.org/project/pymongo/>`_ is installed.
                   - ``"msgpack"``: Use :func:`msgpack.packb` and :func:`msgpack.unpackb`. Only available when :mod:`msgpack` is installed.
                   - ``"cbor"``: Use :func:`cbor2.dumps` and :func:`cbor2.loads`. Only available when `cbor2 <https://pypi.org/project/cbor2/>`_ is installed.
@@ -301,6 +306,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
         "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
     }
+    if dill is not None:  # pragma: no cover
+        __serializers__["dill"] = (
+            lambda x: dill.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
+            lambda x: dill.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
+        )
     if bson is not None:  # pragma: no cover
         __serializers__["bson"] = (
             lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]

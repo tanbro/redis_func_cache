@@ -42,6 +42,7 @@ source = "https://github.com/tanbro/redis_func_cache.git"
 [project.optional-dependencies]
 hiredis = ["redis[hiredis]"]
 pygments = ["Pygments>=2.9"]
+dill = ["dill>=0.3.6"]
 bson = ["pymongo>=3.9"]
 msgpack = ["msgpack>=1.0"]
 yaml = ["PyYAML>=5.4"]
@@ -50,6 +51,7 @@ cloudpickle = ["cloudpickle>=3.0"]
 all = [
   "redis[hiredis]",
   "Pygments>=2.9",
+  "dill>=0.3.6",
   "pymongo>=3.9",
   "msgpack>=1.0",
   "PyYAML>=5.4",

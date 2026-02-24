@@ -75,7 +75,7 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 - Simple [decorator][] syntax supporting both **`async`** and common functions, **asynchronous** and synchronous I/O.
 - Support [Redis][] **cluster**.
 - Multiple caching policies: LRU, FIFO, LFU, RR ...
-- Serialization formats: JSON, Pickle, MsgPack, YAML, BSON, CBOR ...
+- Serialization formats: JSON, Pickle, Dill, MsgPack, YAML, BSON, CBOR, cloudpickle ...
 
 ## Installation
 
@@ -462,9 +462,9 @@ def my_func_with_complex_return(x):
     return {...}  # Complex object
 ```
 
-Supported serializers: JSON, Pickle, MsgPack, YAML, BSON, CBOR, and cloudpickle.
+Supported serializers: JSON, Pickle, Dill, MsgPack, YAML, BSON, CBOR, and cloudpickle.
 
-> ⚠️ **Warning:** [`pickle`][] can execute arbitrary code during deserialization. Use with extreme caution, especially with untrusted data.
+> ⚠️ **Warning:** [`pickle`][] and `dill` can execute arbitrary code during deserialization. Use with extreme caution, especially with untrusted data.
 
 ### Handling Non-Serializable Arguments
 
@@ -1057,6 +1057,7 @@ graph LR
     LruTScriptsMixin --> lru_t_put.lua
     Serializer --> json
     Serializer --> pickle
+    Serializer --> dill
     Serializer --> msgpack
     Serializer --> bson
     Serializer --> yaml
