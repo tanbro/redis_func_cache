@@ -65,7 +65,7 @@ dev = [
   { include-group = "test" },
   { include-group = "docs" },
 ]
-typed = ["mypy", "types-redis", "types-PyYAML", "types-Pygments"]
+typed = ["mypy", "types-redis", "types-PyYAML", "types-Pygments", "types-colorama", "types-pexpect"]
 docs = [
   "importlib_metadata;python_version<'3.8'",
   "Sphinx>=7",
