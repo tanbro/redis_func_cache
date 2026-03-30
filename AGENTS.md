@@ -1,4 +1,4 @@
-# CLAUDE Instructions for redis_func_cache Project
+# AI AGENT Programming Instructions for redis_func_cache Project
 
 ## 🎯 AI Assistant Quick Start
 

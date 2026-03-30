@@ -55,6 +55,7 @@ all = [
   "pymongo>=3.9",
   "msgpack>=1.0",
   "PyYAML>=5.4",
+  "cbor2>=5.0",
   "cloudpickle>=3.0",
 ]
 
