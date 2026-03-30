@@ -2,7 +2,7 @@
 
 ## v0.7.0
 
-> 🚧 Developing
+> 📅 2026-03-30
 
 - 💔 **Breaking Changes:**
 
