@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Enable version updates for Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Ignore vulnerabilities in transitive dependencies from documentation tools
+      # These are only used for building docs, not in the library runtime
+      - dependency-name: "urllib3"
+        update-types: ["version-update:semver-patch", "version-update:semver-minor"]
+      - dependency-name: "requests"
+        update-types: ["version-update:semver-patch", "version-update:semver-minor"]
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
