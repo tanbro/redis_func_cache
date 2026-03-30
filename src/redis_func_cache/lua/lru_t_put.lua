@@ -49,7 +49,7 @@ end
 if redis.call('ZRANK', zset_key, hash) then
     -- Hash exists, update timestamp and value
     local time = redis.call('TIME')
-    redis.call('ZADD', zset_key, time[1] + time[2] * 1e-6, hash)
+    redis.call('ZADD', zset_key, time[1] * 1000000 + time[2], hash)
     redis.call('HSET', hmap_key, hash, return_value)
 
     -- Handle field TTL update
@@ -85,7 +85,7 @@ else
         end
     end
     local time = redis.call('TIME')
-    redis.call('ZADD', zset_key, time[1] + time[2] * 1e-6, hash)
+    redis.call('ZADD', zset_key, time[1] * 1000000 + time[2], hash)
     redis.call('HSET', hmap_key, hash, return_value)
 
     -- Set Hash's Field TTL if specified (always set for new fields)

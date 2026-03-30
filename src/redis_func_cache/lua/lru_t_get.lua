@@ -27,7 +27,7 @@ local val = redis.call('HGET', hmap_key, hash)
 if rnk and val then
     -- Update timestamp (always update timestamp regardless of update_ttl_flag)
     local time = redis.call('TIME')
-    redis.call('ZADD', zset_key, time[1] + time[2] * 1e-6, hash)
+    redis.call('ZADD', zset_key, time[1] * 1000000 + time[2], hash)
     return val
 elseif rnk then
     redis.call('ZREM', zset_key, hash) -- remove stale zset member
