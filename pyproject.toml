@@ -1,9 +1,9 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools>=80", "setuptools-scm>=8"]
+build-backend = "hatchling.build"
+requires = ["hatchling", "hatch-vcs"]
 
 [project]
-authors = [{ name = "Liu Xue-Yan", email = "liu_xue_yan@foxmail.com" }]
+authors = [{ name = "Liu Xue Yan", email = "liu_xue_yan@foxmail.com" }]
 description = "A Python library that provides decorators for caching function results in Redis, supporting multiple serialization formats and caching strategies, as well as asynchronous operations."
 name = "redis_func_cache"
 readme = "README.md"
@@ -90,11 +90,8 @@ test = [
 
 ipy = ["ipykernel"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.version]
+source = "vcs"
 
-[tool.setuptools.package-data]
-redis_func_cache = ["redis_func_cache/py.typed", "redis_func_cache/lua/*.lua"]
-
-[tool.setuptools_scm]
-write_to = "src/redis_func_cache/_version.py"
+[tool.hatch.build.targets.wheel]
+packages = ["src/redis_func_cache"]
