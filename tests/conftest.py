@@ -41,9 +41,9 @@ async def cleanup_all_async_resources():
             asyncio.set_event_loop(new_loop)
             await close_all_async_resources()
             new_loop.close()
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             # 忽略任何清理过程中出现的异常
             pass
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         # 忽略任何其他异常
         pass

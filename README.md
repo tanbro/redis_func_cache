@@ -240,6 +240,7 @@ from redis_func_cache import RedisFuncCache, LruTPolicy
 factory = lambda: Redis.from_url("redis://")
 cache = RedisFuncCache("my-cache", LruTPolicy(), factory=factory)
 
+
 @cache
 def expensive_function(x: int) -> int:
     # Acquire lock before executing expensive operation
@@ -275,6 +276,7 @@ cache = RedisFuncCache("my-cache", LruTPolicy(), client=redis_client)
 # Limit concurrent executions to 1
 semaphore = Semaphore(1)
 
+
 @cache
 def expensive_function(x: int) -> int:
     with semaphore:
@@ -291,12 +293,7 @@ import random
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
 # Base TTL + random jitter (0-60 seconds)
-cache = RedisFuncCache(
-    "my-cache",
-    LruTPolicy(),
-    client=redis_client,
-    ttl=300 + random.randint(0, 60)
-)
+cache = RedisFuncCache("my-cache", LruTPolicy(), client=redis_client, ttl=300 + random.randint(0, 60))
 ```
 
 ##### Strategy 4: Stale-While-Revalidate (Advanced)
@@ -338,6 +335,7 @@ from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 factory = lambda: Redis("redis://")
 
 lru_cache = Cache("my-first-lru-cache", LruTPolicy(), factory)
+
 
 @lru_cache
 def fib(n):
@@ -418,8 +416,8 @@ cache = RedisFuncCache(
     "my-cache",
     LruTPolicy(),
     client=redis_client,
-    maxsize=100,      # Maximum number of cached items
-    ttl=300          # Cache expires after 300 seconds of inactivity
+    maxsize=100,  # Maximum number of cached items
+    ttl=300,  # Cache expires after 300 seconds of inactivity
 )
 ```
 
@@ -434,8 +432,7 @@ You can also set TTL on individual cached items:
 
 ```python
 @cache(ttl=300)  # Each result expires after 300 seconds
-def my_func(x):
-    ...
+def my_func(x): ...
 ```
 
 > ⚠️ **Warning:** This feature requires [Redis][] 7.4+ and uses [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). When a field expires, it's removed from the HASH but the corresponding entry in the ZSET is only lazily cleaned up.
@@ -453,8 +450,9 @@ cache = RedisFuncCache(
     __name__,
     LruTPolicy(),
     factory=lambda: Redis.from_url("redis://"),
-    serializer="pickle"  # or (pickle.dumps, pickle.loads)
+    serializer="pickle",  # or (pickle.dumps, pickle.loads)
 )
+
 
 # Method 2: Override at decorator level
 @cache(serializer="pickle")
@@ -476,6 +474,7 @@ def get_user_data(session, user_id: int, config=None):
     # session and config are excluded from cache key
     return fetch_user_data(user_id)
 
+
 # These calls hit the same cache entry
 data1 = get_user_data(session1, user_id=123, config=config1)
 data2 = get_user_data(session2, user_id=123, config=config2)  # Cache hit
@@ -490,13 +489,14 @@ from redis_func_cache import RedisFuncCache, LruTMultiplePolicy
 
 cache = RedisFuncCache("my-cache", LruTMultiplePolicy(), client=redis_client)
 
-@cache
-def func1(x):
-    ...
 
 @cache
-def func2(x):
-    ...
+def func1(x): ...
+
+
+@cache
+def func2(x): ...
+
 
 # func1 and func2 have separate Redis key pairs
 ```
@@ -512,9 +512,9 @@ from redis_func_cache import RedisFuncCache, LruTClusterPolicy
 
 cache = RedisFuncCache("my-cache", LruTClusterPolicy(), client=redis_client)
 
+
 @cache
-def my_func(x):
-    ...
+def my_func(x): ...
 ```
 
 Available cluster policies: [`FifoClusterPolicy`][], [`LfuClusterPolicy`][], [`LruClusterPolicy`][], [`LruTClusterPolicy`][], [`MruClusterPolicy`][], [`RrClusterPolicy`][].
@@ -528,9 +528,11 @@ Fine-grained control over cache behavior:
 ```python
 from redis_func_cache import RedisFuncCache
 
+
 @cache
 def get_user_data(user_id):
     return data
+
 
 # Normal operation
 data = get_user_data(123)
@@ -603,22 +605,22 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
    from redis import Redis
    from redis_func_cache import RedisFuncCache, LruTPolicy
 
+
    def serialize(x):
-      return bson.encode({"return_value": x})
+       return bson.encode({"return_value": x})
+
 
    def deserialize(x):
-      return bson.decode(x)["return_value"]
+       return bson.decode(x)["return_value"]
+
 
    cache = RedisFuncCache(
-       __name__,
-       LruTPolicy(),
-       factory=lambda: Redis.from_url("redis://"),
-       serializer=(serialize, deserialize)
-    )
+       __name__, LruTPolicy(), factory=lambda: Redis.from_url("redis://"), serializer=(serialize, deserialize)
+   )
+
 
    @cache
-   def func():
-      ...
+   def func(): ...
    ```
 
 1. Specify the `serializer` argument directly in the decorator. The argument should be a tuple of (`serializer`, `deserializer`) or simply the name of the serializer function.
@@ -637,14 +639,18 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
 
    cache = RedisFuncCache(__name__, LruTPolicy(), factory=lambda: Redis.from_url("redis://"))
 
+
    @cache(serializer=(msgpack.packb, msgpack.unpackb))
    def create_or_get_token(user: str) -> bytes:
-      from secrets import token_bytes
-      return token_bytes(32)
+       from secrets import token_bytes
+
+       return token_bytes(32)
+
 
    @cache(serializer="bson")
    def now_time():
        from datetime import datetime
+
        return datetime.now()
    ```
 
@@ -715,7 +721,7 @@ class MyPolicy(LruScriptsMixin, PickleMd5HashMixin, AbstractPolicy):
 
     @override
     def calc_keys(
-            self, f: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
+        self, f: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
     ) -> Tuple[KeyT, KeyT]:
         k = f"{self.cache.prefix}-{self.cache.name}-{f.__name__}-{self.__key__}"
         return f"{k}-set", f"{k}-map"
@@ -725,8 +731,7 @@ my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy(), factory=factory, p
 
 
 @my_cache
-def my_func(*args, **kwargs):
-    ...
+def my_func(*args, **kwargs): ...
 ```
 
 In the example, we'll get a cache that generates [Redis][] keys separated by `-`, instead of `:`, prefixed by `"my-prefix"`, and suffixed by `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names could be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
@@ -750,12 +755,13 @@ The algorithm used to calculate the hash value is defined in `AbstractHashMixin`
 ```python
 import hashlib
 
+
 class AbstractHashMixin:
     __hash_config__ = ...
 
     ...
 
-    def calc_hash(self, f = None, args = None, kwds = None):
+    def calc_hash(self, f=None, args=None, kwds=None):
         if not callable(f):
             raise TypeError(f"Cannot calculate hash for {f=}")
         conf = self.__hash_config__
@@ -814,10 +820,9 @@ from redis_func_cache.mixins.scripts import LruScriptsMixin
 class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
     __key__ = "my-lru"
 
+
 my_json_sha1_hex_cache = RedisFuncCache(
-    name="json_sha1_hex",
-    policy=MyLruPolicy(),
-    factory=lambda: Redis.from_url("redis://")
+    name="json_sha1_hex", policy=MyLruPolicy(), factory=lambda: Redis.from_url("redis://")
 )
 ```
 
@@ -842,13 +847,10 @@ if TYPE_CHECKING:  # pragma: no cover
 class MyHashMixin(AbstractHashMixin):
     @override
     def calc_hash(
-        self,
-        f: Callable | None = None,
-        args: Sequence | None = None,
-        kwds: Mapping[str, Any] | None = None
+        self, f: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
     ) -> KeyT:
         assert callable(f)
-        dig = hashlib('balck2b')
+        dig = hashlib("balck2b")
         dig.update(f.__qualname__.encode())
         dig.update(cloudpickle.dumps(args))
         dig.update(cloudpickle.dumps(kwds))
@@ -859,18 +861,13 @@ class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
     __key__ = "my-lru2"
 
 
-my_custom_hash_cache = RedisFuncCache(
-    name=__name__,
-    policy=MyLruPolicy2(),
-    client=redis_client
-)
+my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2(), client=redis_client)
 
 redis_client = Redis.from_url("redis://")
 
 
 @my_custom_hash_cache
-def some_func(*args, **kwargs):
-    ...
+def some_func(*args, **kwargs): ...
 ```
 
 > 💡 **Tip:**\
@@ -905,11 +902,13 @@ def some_func(*args, **kwargs):
   from redis_func_cache.mixins.hash import JsonMd5HashMixin
   from redis_func_cache.mixins.scripts import LfuScriptsMixin
 
+
   class MyLfuPolicy(LfuScriptsMixin, JsonMd5HashMixin, BaseSinglePolicy):
       __key__ = "my-lfu"
 
       # Override hash config here !!!
       __hash_config__ = replace(JsonMd5HashMixin.__hash_config__, use_bytecode=False)
+
 
   cache = Cache(__name__, policy=MyLfuPolicy, client=redis_client_factory)
   ```
@@ -961,7 +960,7 @@ We can use either the traditional method (`venv` and `pip`) of standard library 
 
 - If using the traditional method, a virtual environment is recommended:
 
-  1. Install a Python development environment on your system. The minimum required Python version is 3.9.
+  1. Install a Python development environment on your system. The minimum required Python version is 3.10.
 
   1. Initialize a virtual environment at sub-directory `.venv`, then activate it:
 

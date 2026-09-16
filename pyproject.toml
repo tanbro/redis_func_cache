@@ -3,12 +3,12 @@ build-backend = "hatchling.build"
 requires = ["hatchling", "hatch-vcs"]
 
 [project]
-authors = [{ name = "Liu Xue Yan", email = "liu_xue_yan@foxmail.com" }]
+authors = [{name = "Liu Xue Yan", email = "liu_xue_yan@foxmail.com"}]
 description = "A Python library that provides decorators for caching function results in Redis, supporting multiple serialization formats and caching strategies, as well as asynchronous operations."
 name = "redis_func_cache"
 readme = "README.md"
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 keywords = ["redis", "cache", "decorator"]
 
@@ -27,27 +27,19 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-  "redis>=3.5.0",
+  "redis>=5.2,<9",
   "importlib-resources>=5.12; python_version<'3.9'",
   "typing-extensions>=4.5.0; python_version<'3.12'",
 ]
 
 [project.urls]
-homepage = "https://github.com/tanbro/redis_func_cache"
 changelog = "https://github.com/tanbro/redis_func_cache/main/CHANGELOG.md"
 documentation = "https://redis-func-cache.readthedocs.io/"
+homepage = "https://github.com/tanbro/redis_func_cache"
 issues = "https://github.com/tanbro/redis_func_cache/issues"
 source = "https://github.com/tanbro/redis_func_cache.git"
 
 [project.optional-dependencies]
-hiredis = ["redis[hiredis]"]
-pygments = ["Pygments>=2.9"]
-dill = ["dill>=0.3.6"]
-bson = ["pymongo>=3.9"]
-msgpack = ["msgpack>=1.0"]
-yaml = ["PyYAML>=5.4"]
-cbor = ["cbor2>=5.0"]
-cloudpickle = ["cloudpickle>=3.0"]
 all = [
   "redis[hiredis]",
   "Pygments>=2.9",
@@ -58,15 +50,21 @@ all = [
   "cbor2>=5.0",
   "cloudpickle>=3.0",
 ]
-
+bson = ["pymongo>=3.9"]
+cbor = ["cbor2>=5.0"]
+cloudpickle = ["cloudpickle>=3.0"]
+dill = ["dill>=0.3.6"]
+hiredis = ["redis[hiredis]"]
+msgpack = ["msgpack>=1.0"]
+pygments = ["Pygments>=2.9"]
+yaml = ["PyYAML>=5.4"]
 
 [dependency-groups]
 dev = [
-  { include-group = "typed" },
-  { include-group = "test" },
-  { include-group = "docs" },
+  {include-group = "typed"},
+  {include-group = "test"},
+  {include-group = "docs"},
 ]
-typed = ["mypy", "types-redis", "types-PyYAML", "types-Pygments", "types-colorama", "types-pexpect"]
 docs = [
   "importlib_metadata;python_version<'3.8'",
   "Sphinx>=7",
@@ -87,11 +85,10 @@ test = [
   "pytest-asyncio",
   "python-dotenv",
 ]
-
-ipy = ["ipykernel"]
+typed = ["mypy", "types-redis", "types-PyYAML", "types-Pygments", "types-colorama", "types-pexpect"]
 
 [tool.hatch.version]
 source = "vcs"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/redis_func_cache"]
+[tool.hatch.build.hooks.vcs]
+version-file = "src/redis_func_cache/_version.py"

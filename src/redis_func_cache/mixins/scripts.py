@@ -8,9 +8,9 @@ __all__ = (
     "FifoTScriptsMixin",
     "LfuScriptsMixin",
     "LruScriptsMixin",
+    "LruTScriptsMixin",
     "MruScriptsMixin",
     "RrScriptsMixin",
-    "LruTScriptsMixin",
 )
 
 

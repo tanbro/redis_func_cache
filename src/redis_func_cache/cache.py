@@ -4,7 +4,7 @@ import json
 import pickle
 import weakref
 from collections import OrderedDict
-from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
+from collections.abc import Callable, Coroutine, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from copy import copy
@@ -12,7 +12,7 @@ from dataclasses import dataclass, replace
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Coroutine, Generic, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Union, cast
 from warnings import warn
 
 from redis.commands.core import AsyncScript, Script
@@ -110,6 +110,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         exec: bool = True
         """Allow function execution"""
 
+    _DEFAULT_MODE = Mode()
+
     @dataclass
     class Stats:
         """A :func:`dataclasses.dataclass` for cache operation statistics.
@@ -135,8 +137,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         name: str,
         policy: AbstractPolicy,
         *,
-        client: Optional[RedisClientTV] = None,
-        factory: Optional[Callable[[], RedisClientTV]] = None,
+        client: RedisClientTV | None = None,
+        factory: Callable[[], RedisClientTV] | None = None,
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
         update_ttl: bool = True,
@@ -278,8 +280,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         # Prefer `factory` when present. Keep compatibility for callers that
         # accidentally passed a callable as `client` by emitting a DeprecationWarning
         # and treating it as a factory.
-        self._redis_client_instance: Optional[RedisClientTV] = None
-        self._redis_client_factory: Optional[Callable[[], RedisClientTV]] = None
+        self._redis_client_instance: RedisClientTV | None = None
+        self._redis_client_factory: Callable[[], RedisClientTV] | None = None
         # explicit factory parameter overrides instance when present
         if factory is not None:
             if not callable(factory):
@@ -299,11 +301,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
             raise RuntimeError("Either `client` or `factory` must be provided.")
         # other arguments
         self.serializer = serializer
-        self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=RedisFuncCache.Mode())
-        self._stats: ContextVar[Optional[RedisFuncCache.Stats]] = ContextVar("stats", default=None)
+        self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=self._DEFAULT_MODE)
+        self._stats: ContextVar[RedisFuncCache.Stats | None] = ContextVar("stats", default=None)
 
-    __serializers__: dict[str, SerializerPairT] = {
-        "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(x)),
+    __serializers__: ClassVar[dict[str, SerializerPairT]] = {
+        "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x)),
         "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
     }
     if dill is not None:  # pragma: no cover
@@ -318,8 +320,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
         )
     if msgpack is not None:  # pragma: no cover
         __serializers__["msgpack"] = (  # pyright: ignore[reportArgumentType]
-            lambda x: msgpack.packb(x),  # pyright: ignore[reportOptionalMemberAccess]
-            lambda x: msgpack.unpackb(x),  # pyright: ignore[reportOptionalMemberAccess]
+            # use_bin_type=True: bytes -> msgpack bin, str -> msgpack str (msgpack spec 2.0)
+            lambda x: msgpack.packb(x, use_bin_type=True),  # pyright: ignore[reportOptionalMemberAccess]
+            # raw=False: msgpack str -> python str, msgpack bin -> python bytes
+            lambda x: msgpack.unpackb(x, raw=False),  # pyright: ignore[reportOptionalMemberAccess]
         )
     if cbor2 is not None:  # pragma: no cover
         __serializers__["cbor"] = (
@@ -329,7 +333,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     if yaml is not None:  # pragma: no cover
         __serializers__["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
-            lambda x: yaml.load(x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
+            lambda x: yaml.load(bytes(x) if isinstance(x, memoryview) else x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
         )
     if cloudpickle is not None:  # pragma: no cover
         __serializers__["cloudpickle"] = (
@@ -467,7 +471,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         warn("property ‘client’ is deprecated since 0.5, use ‘get_client()’ instead", DeprecationWarning)
         return self.get_client()
 
-    def serialize(self, value: Any, f: Optional[SerializerT] = None) -> EncodedT:
+    def serialize(self, value: Any, f: SerializerT | None = None) -> EncodedT:
         """Serialize the return value of the decorated function.
 
         The decorated function's return value is serialized to string or bytes and then stored in Redis when cached, and deserialized back to a Python object when retrieved.
@@ -483,7 +487,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             return f(value)
         return self._serializer(value)
 
-    def deserialize(self, data: EncodedT, f: Optional[DeserializerT] = None) -> Any:
+    def deserialize(self, data: EncodedT, f: DeserializerT | None = None) -> Any:
         """Deserialize the return value of the decorated function.
 
         Args:
@@ -505,9 +509,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         hash_value: KeyT,
         update_ttl: bool,
         ttl: int,
-        options: Optional[Mapping[str, Any]] = None,
-        ext_args: Optional[Iterable[EncodableT]] = None,
-    ) -> Optional[EncodedT]:
+        options: Mapping[str, Any] | None = None,
+        ext_args: Iterable[EncodableT] | None = None,
+    ) -> EncodedT | None:
         """Execute the given Redis Lua script with the provided arguments.
 
         Args:
@@ -533,9 +537,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         hash_: KeyT,
         update_ttl: bool,
         ttl: int,
-        options: Optional[Mapping[str, Any]] = None,
-        ext_args: Optional[Iterable[EncodableT]] = None,
-    ) -> Optional[EncodedT]:
+        options: Mapping[str, Any] | None = None,
+        ext_args: Iterable[EncodableT] | None = None,
+    ) -> EncodedT | None:
         """Async version of :meth:`get`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
         ext_args = ext_args or ()
@@ -552,8 +556,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         update_ttl: bool,
         ttl: int,
         field_ttl: int = 0,
-        options: Optional[Mapping[str, Any]] = None,
-        ext_args: Optional[Iterable[EncodableT]] = None,
+        options: Mapping[str, Any] | None = None,
+        ext_args: Iterable[EncodableT] | None = None,
     ):
         """Execute the given Redis Lua script with the provided arguments.
 
@@ -587,8 +591,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         update_ttl: bool,
         ttl: int,
         field_ttl: int = 0,
-        options: Optional[Mapping[str, Any]] = None,
-        ext_args: Optional[Iterable[EncodableT]] = None,
+        options: Mapping[str, Any] | None = None,
+        ext_args: Iterable[EncodableT] | None = None,
     ):
         """Async version of :meth:`put`"""
         encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
@@ -605,7 +609,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_kwds: dict[str, Any],
         excludes: Sequence[str] | None = None,
         excludes_positional: Sequence[int] | None = None,
-    ) -> Optional[BoundArguments]:
+    ) -> BoundArguments | None:
         if not excludes and not excludes_positional:
             return None
         sig = signature(user_func)
@@ -623,7 +627,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function: Callable,
         user_args: tuple[Any, ...],
         user_kwds: dict[str, Any],
-        bound: Optional[BoundArguments] = None,
+        bound: BoundArguments | None = None,
     ) -> tuple[tuple[KeyT, KeyT], KeyT, Iterable[EncodableT]]:
         if bound is None:
             args, kwds = user_args, user_kwds
@@ -639,9 +643,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function: Callable,
         user_args: tuple[Any, ...],
         user_kwds: dict[str, Any],
-        serialize_func: Optional[SerializerT] = None,
-        deserialize_func: Optional[DeserializerT] = None,
-        bound: Optional[BoundArguments] = None,
+        serialize_func: SerializerT | None = None,
+        deserialize_func: DeserializerT | None = None,
+        bound: BoundArguments | None = None,
         field_ttl: int = 0,
         **options,
     ) -> Any:
@@ -720,9 +724,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
         user_function: Callable[..., Coroutine],
         user_args: tuple[Any, ...],
         user_kwds: dict[str, Any],
-        serialize_func: Optional[SerializerT] = None,
-        deserialize_func: Optional[DeserializerT] = None,
-        bound: Optional[BoundArguments] = None,
+        serialize_func: SerializerT | None = None,
+        deserialize_func: DeserializerT | None = None,
+        bound: BoundArguments | None = None,
         field_ttl: int = 0,
         **options,
     ) -> Any:
@@ -775,13 +779,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
     def decorate(
         self,
-        user_function: Optional[CallableTV] = None,
+        user_function: CallableTV | None = None,
         /,
         *,
-        serializer: Optional[SerializerSetterValueT] = None,
-        ttl: Optional[int] = None,
-        excludes: Optional[Sequence[str]] = None,
-        excludes_positional: Optional[Sequence[int]] = None,
+        serializer: SerializerSetterValueT | None = None,
+        ttl: int | None = None,
+        excludes: Sequence[str] | None = None,
+        excludes_positional: Sequence[int] | None = None,
         **options,
     ) -> CallableTV:
         """Decorate the given function with caching.
@@ -892,8 +896,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 def my_func(a, b):
                     return a + b
         """
-        serialize_func: Optional[SerializerT] = None
-        deserialize_func: Optional[DeserializerT] = None
+        serialize_func: SerializerT | None = None
+        deserialize_func: DeserializerT | None = None
         if isinstance(serializer, str):
             serialize_func, deserialize_func = self.__serializers__[serializer]
         elif serializer is not None:
@@ -1073,7 +1077,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             yield x
 
     @contextmanager
-    def stats_context(self, stats: Optional[RedisFuncCache.Stats] = None) -> Generator[RedisFuncCache.Stats]:
+    def stats_context(self, stats: RedisFuncCache.Stats | None = None) -> Generator[RedisFuncCache.Stats]:
         """A context manager that yields a :class:`Stats` object.
 
         Args:

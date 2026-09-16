@@ -7,7 +7,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING
 from warnings import warn
 
-if sys.version_info < (3, 9):  # pragma: no cover
+if sys.version_info < (3, 9):  # pragma: no cover  # noqa: UP036
     import importlib_resources
 else:  # pragma: no cover
     import importlib.resources as importlib_resources
@@ -40,7 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .typing import Hash
 
 
-__all__ = ("b64digest", "get_callable_bytecode", "read_lua_file", "clean_lua_script")
+__all__ = ("b64digest", "clean_lua_script", "get_callable_bytecode", "read_lua_file")
 
 
 def b64digest(x: Hash) -> bytes:

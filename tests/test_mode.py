@@ -21,7 +21,7 @@ def clean_caches():
 
 
 @pytest.mark.parametrize("cache_name,cache", CACHES.items())
-def test_disable_rw(cache_name: str, cache: RedisFuncCache):  # noqa: F821
+def test_disable_rw(cache_name: str, cache: RedisFuncCache):
     """测试 disable_rw 上下文管理器是否正确禁用读写操作。"""
 
     @cache
@@ -42,18 +42,17 @@ def test_disable_rw(cache_name: str, cache: RedisFuncCache):  # noqa: F821
         assert not cache.get_mode().read
         assert not cache.get_mode().write
         # 直接调用函数，不经过缓存
-        with patch.object(cache, "get") as mock_get:
-            with patch.object(cache, "put") as mock_put:
-                result = echo(val)  # 函数被执行，但不读写缓存
-                # 确保 get 未被调用
-                mock_get.assert_not_called()
-                # 确保 put 未被调用
-                mock_put.assert_not_called()
-                # 确保返回值正确
-                assert result == val
+        with patch.object(cache, "get") as mock_get, patch.object(cache, "put") as mock_put:
+            result = echo(val)  # 函数被执行，但不读写缓存
+            # 确保 get 未被调用
+            mock_get.assert_not_called()
+            # 确保 put 未被调用
+            mock_put.assert_not_called()
+            # 确保返回值正确
+            assert result == val
 
     # 离开上下文后，缓存应恢复正常
-    with patch.object(cache, "get", return_value=cache.serialize(val)) as mock_get:
+    with patch.object(cache, "get", return_value=cache.serialize(val)) as mock_get:  # noqa: SIM117
         with patch.object(cache, "put") as mock_put:
             result = echo(val)
             mock_get.assert_called_once()

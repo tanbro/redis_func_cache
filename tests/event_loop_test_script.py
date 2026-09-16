@@ -59,6 +59,6 @@ if __name__ == "__main__":
         asyncio.run(main())
         print("Test completed successfully without event loop errors!")
         sys.exit(0)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Test failed with error: {e}")
         sys.exit(1)

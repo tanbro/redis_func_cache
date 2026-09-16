@@ -7,14 +7,14 @@ from ..mixins.scripts import LruScriptsMixin, LruTScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
 __all__ = (
-    "LruPolicy",
-    "LruMultiplePolicy",
-    "LruClusterPolicy",
     "LruClusterMultiplePolicy",
-    "LruTPolicy",
-    "LruTMultiplePolicy",
-    "LruTClusterPolicy",
+    "LruClusterPolicy",
+    "LruMultiplePolicy",
+    "LruPolicy",
     "LruTClusterMultiplePolicy",
+    "LruTClusterPolicy",
+    "LruTMultiplePolicy",
+    "LruTPolicy",
 )
 
 

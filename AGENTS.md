@@ -122,11 +122,9 @@ async_cache = RedisFuncCache(factory=lambda: aioredis.from_url("redis://localhos
 @cache(policy=LruPolicy())
 def expensive_func(x): ...
 
+
 # ✅ Cross-version compatible
-@cache(
-    policy=LruPolicy(),
-    exclude_bytecode=True
-)
+@cache(policy=LruPolicy(), exclude_bytecode=True)
 def expensive_func(x): ...
 ```
 
@@ -137,10 +135,10 @@ class Unserializable:
     def __init__(self):
         self.file_handle = open("file.txt")
 
+
 # ✅ Exclude problematic fields
 @cache(policy=LruPolicy(), excludes=["obj.file_handle"])
-def process_data(obj: Unserializable):
-    ...
+def process_data(obj: Unserializable): ...
 ```
 
 ## 📦 Dependencies & Environment
@@ -210,7 +208,7 @@ REDIS_URL=redis://localhost:6379
 
 ### CI/CD Information
 **Triggers**: Push to `main`, PR to `main`, config changes
-**Jobs**: Cross-platform testing (Linux 3.9-3.14, macOS), code quality, PyPI release
+**Jobs**: Cross-platform testing (Linux 3.10-3.14, macOS), code quality, PyPI release
 **Note**: Windows CI disabled for focused testing
 
 ## 📊 Serialization Options
@@ -218,6 +216,7 @@ REDIS_URL=redis://localhost:6379
 ### Default: JSON (Recommended for safety)
 ```python
 from redis_func_cache import LruPolicy
+
 
 # Standard JSON serialization
 @cache(policy=LruPolicy())
@@ -232,10 +231,12 @@ def compute_data(x):
 def compute_data(x):
     return x * 2
 
+
 # Extended pickle support
 @cache(policy=LruPolicy(serializer="dill"))
 def compute_data(x):
     return x * 2
+
 
 # MongoDB compatibility
 @cache(policy=LruPolicy(serializer="bson"))
@@ -253,6 +254,7 @@ Cache expensive computations to improve response times and reduce resource usage
 import redis
 from redis_func_cache import LruPolicy
 
+
 # Cache expensive external API calls
 @cache(policy=LruPolicy(maxsize=1000, ttl=3600))
 def fetch_api_data(endpoint: str, params: dict):
@@ -260,11 +262,9 @@ def fetch_api_data(endpoint: str, params: dict):
     response = requests.get(endpoint, params=params)
     return response.json()
 
+
 # Use with cross-version compatibility
-@cache(
-    policy=LruPolicy(maxsize=500),
-    exclude_bytecode=True
-)
+@cache(policy=LruPolicy(maxsize=500), exclude_bytecode=True)
 def api_call_with_retry(params: dict):
     """API calls with retry logic."""
     return fetch_api_data("/api/endpoint", params)
@@ -282,16 +282,14 @@ def process_large_dataset(data: list, config: dict):
         processed.append(result)
     return processed
 
+
 # Cache text preprocessing
-@cache(
-    policy=LruPolicy(maxsize=1000),
-    exclude_bytecode=True
-)
+@cache(policy=LruPolicy(maxsize=1000), exclude_bytecode=True)
 def preprocess_text(text: str, cleaning_rules: dict):
     """Cache text cleaning operations."""
     cleaned = text.lower()
-    if 'remove_punctuation' in cleaning_rules:
-        cleaned = re.sub(r'[^\w\s]', '', cleaned)
+    if "remove_punctuation" in cleaning_rules:
+        cleaned = re.sub(r"[^\w\s]", "", cleaned)
     return cleaned
 ```
 
@@ -300,10 +298,7 @@ def preprocess_text(text: str, cleaning_rules: dict):
 #### Multi-Parameter Caching
 ```python
 # Cache with multiple parameters for granular control
-@cache(
-    policy=LruMultiplePolicy(maxsize=1000),
-    exclude_bytecode=True
-)
+@cache(policy=LruMultiplePolicy(maxsize=1000), exclude_bytecode=True)
 def complex_calculation(input_data: str, algorithm: str, version: int):
     """Cache different algorithm variations separately."""
     return apply_algorithm(input_data, algorithm, version)
@@ -314,7 +309,7 @@ def complex_calculation(input_data: str, algorithm: str, version: int):
 # Cache with automatic expiration for time-sensitive data
 @cache(
     policy=LruPolicy(maxsize=1000, ttl=300),  # 5 minutes
-    exclude_bytecode=True
+    exclude_bytecode=True,
 )
 def get_market_data(symbol: str):
     """Cache market data with automatic refresh."""
@@ -324,11 +319,7 @@ def get_market_data(symbol: str):
 #### Memory-Constrained Environments
 ```python
 # Limit cache size for memory management
-@cache(
-    policy=LruPolicy(maxsize=200),
-    serializer="msgpack",
-    max_size_mb=10
-)
+@cache(policy=LruPolicy(maxsize=200), serializer="msgpack", max_size_mb=10)
 def process_large_file(file_path: str, processing_options: dict):
     """Process large files with memory limits."""
     return process_file(file_path, processing_options)
@@ -342,10 +333,8 @@ from redis_func_cache import RedisFuncCache
 import time
 
 # Create cache with monitoring
-cache = RedisFuncCache(
-    factory=lambda: redis.Redis(),
-    policy=LruPolicy(maxsize=1000)
-)
+cache = RedisFuncCache(factory=lambda: redis.Redis(), policy=LruPolicy(maxsize=1000))
+
 
 def monitor_cache_performance():
     """Track cache hit rates and effectiveness."""
@@ -381,15 +370,18 @@ def monitor_cache_performance():
 def simple_addition(x, y):
     return x + y
 
+
 # ✅ Cache expensive operations
 @cache(policy=LruPolicy(maxsize=100))
 def complex_ml_inference(data):
     return model.predict(data)
 
+
 # ❌ No expiration for time-sensitive data
 @cache(policy=LruPolicy())
 def get_exchange_rate(from_currency, to_currency):
     return forex_api.get_rate(from_currency, to_currency)
+
 
 # ✅ Appropriate expiration
 @cache(policy=LruPolicy(ttl=300))  # 5 minutes
@@ -438,10 +430,7 @@ uv run python scripts/monitor_cache.py
 #### API Response Caching
 ```python
 # Cache external API responses
-@cache(
-    policy=LruPolicy(maxsize=2000, ttl=3600),
-    exclude_bytecode=True
-)
+@cache(policy=LruPolicy(maxsize=2000, ttl=3600), exclude_bytecode=True)
 def fetch_weather_data(city: str, units: str = "metric"):
     """Cache weather API responses to reduce rate limits."""
     return weather_api.get_current_weather(city, units)
@@ -450,10 +439,7 @@ def fetch_weather_data(city: str, units: str = "metric"):
 #### Data Processing Pipeline
 ```python
 # Cache complex data transformations
-@cache(
-    policy=LruMultiplePolicy(maxsize=1000),
-    serializer="msgpack"
-)
+@cache(policy=LruMultiplePolicy(maxsize=1000), serializer="msgpack")
 def process_financial_data(raw_data: dict, analysis_config: dict):
     """Cache financial analysis results."""
     return analyze_data(raw_data, analysis_config)
@@ -462,10 +448,7 @@ def process_financial_data(raw_data: dict, analysis_config: dict):
 #### Batch Processing
 ```python
 # Cache batch processing results
-@cache(
-    policy=LruPolicy(maxsize=500, ttl=7200),
-    exclude_bytecode=True
-)
+@cache(policy=LruPolicy(maxsize=500, ttl=7200), exclude_bytecode=True)
 def process_batch(file_ids: list, processing_options: dict):
     """Cache batch processing to avoid recomputation."""
     results = []
@@ -512,20 +495,23 @@ cloudpickle = ["cloudpickle>=2.0.0"] # Enhanced pickle
 # Size-constrained caching
 @cache(
     policy=LruPolicy(maxsize=1000),
-    max_size_mb=50  # Limit total cache size
+    max_size_mb=50,  # Limit total cache size
 )
 def process_large_dataset(dataset: list, config: dict):
     """Process large datasets with memory constraints."""
     return complex_processing(dataset, config)
 
+
 # Dynamic sizing based on system memory
 def get_adaptive_policy():
     """Adjust cache size based available memory."""
     import psutil
+
     memory = psutil.virtual_memory()
     if memory.percent > 80:
         return LruPolicy(maxsize=500)
     return LruPolicy(maxsize=2000)
+
 
 @cache(policy=get_adaptive_policy())
 def memory_intensive_operation(data):
@@ -544,15 +530,13 @@ def memory_intensive_operation(data):
 ```python
 # ✅ Correct setup
 import aioredis
-async_cache = RedisFuncCache(
-    factory=lambda: aioredis.from_url("redis://localhost")
-)
+
+async_cache = RedisFuncCache(factory=lambda: aioredis.from_url("redis://localhost"))
 
 # ✅ Alternative sync setup
 import redis
-sync_cache = RedisFuncCache(
-    factory=lambda: redis.Redis(host="localhost", port=6379)
-)
+
+sync_cache = RedisFuncCache(factory=lambda: redis.Redis(host="localhost", port=6379))
 ```
 
 #### "Circular reference"
@@ -579,7 +563,9 @@ def process_file(obj: FileObject):
 #### Enable Logging
 ```python
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
+
 
 # Monitor cache operations
 @cache(policy=LruPolicy())
@@ -595,9 +581,10 @@ cache = RedisFuncCache(factory=lambda: redis.Redis())
 print(f"Cache hits: {cache.get_cache_hits()}")
 print(f"Cache misses: {cache.get_cache_misses()}")
 
+
 # Test specific scenarios
 @cache(policy=LruPolicy())
 def test_func(x):
     print(f"Computing result for {x}")
-    return x ** 2
+    return x**2
 ```

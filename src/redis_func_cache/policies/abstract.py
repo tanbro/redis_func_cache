@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover
     from weakref import CallableProxyType
@@ -51,8 +51,8 @@ class AbstractPolicy(ABC):
             `RedisFuncCache` will bind itself to the policy instance by setting
             this attribute to a weakref proxy during cache construction.
         """
-        self._cache: Optional[CallableProxyType[RedisFuncCache]] = None
-        self._lua_scripts: Union[None, tuple[Script, Script], tuple[AsyncScript, AsyncScript]] = None
+        self._cache: CallableProxyType[RedisFuncCache] | None = None
+        self._lua_scripts: tuple[Script, Script] | tuple[AsyncScript, AsyncScript] | None = None
 
     @property
     def cache(self) -> CallableProxyType[RedisFuncCache]:
@@ -67,9 +67,9 @@ class AbstractPolicy(ABC):
     @abstractmethod
     def calc_keys(
         self,
-        f: Optional[Callable] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwds: Optional[dict[str, Any]] = None,
+        f: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
         """
         Calculate the Redis key pair for caching.
@@ -87,9 +87,9 @@ class AbstractPolicy(ABC):
     @abstractmethod
     def calc_hash(
         self,
-        f: Optional[Callable] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwds: Optional[dict[str, Any]] = None,
+        f: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
     ) -> KeyT:
         """
         Calculate a unique hash for the function and its arguments.
@@ -105,8 +105,8 @@ class AbstractPolicy(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     def calc_ext_args(
-        self, f: Optional[Callable] = None, args: Optional[Sequence] = None, kwds: Optional[Mapping[str, Any]] = None
-    ) -> Optional[Iterable[EncodableT]]:
+        self, f: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
+    ) -> Iterable[EncodableT] | None:
         """
         Optionally calculate extra arguments to pass to the Lua script.
 
@@ -133,7 +133,7 @@ class AbstractPolicy(ABC):
         )
 
     @property
-    def lua_scripts(self) -> Union[tuple[Script, Script], tuple[AsyncScript, AsyncScript]]:
+    def lua_scripts(self) -> tuple[Script, Script] | tuple[AsyncScript, AsyncScript]:
         """
         Register and return Lua scripts as Redis Script/AsyncScript objects.
 

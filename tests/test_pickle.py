@@ -63,8 +63,8 @@ def test_pickle_lambda():
             return f
 
         for _ in range(randint(1, MAXSIZE * 2)):
-            obj = lambda: uuid4()  # noqa: E731
-            with pytest.raises(Exception):
+            obj = lambda: uuid4()
+            with pytest.raises(Exception):  # noqa: B017
                 echo(obj)
 
 
@@ -79,7 +79,7 @@ def test_pickle_function():
             return f
 
         for _ in range(randint(1, MAXSIZE * 2)):
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017
                 echo(my_func)
 
 

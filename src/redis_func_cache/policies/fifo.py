@@ -7,14 +7,14 @@ from ..mixins.scripts import FifoScriptsMixin, FifoTScriptsMixin
 from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
 
 __all__ = (
-    "FifoPolicy",
-    "FifoClusterPolicy",
     "FifoClusterMultiplePolicy",
+    "FifoClusterPolicy",
     "FifoMultiplePolicy",
-    "FifoTPolicy",
-    "FifoTClusterPolicy",
+    "FifoPolicy",
     "FifoTClusterMultiplePolicy",
+    "FifoTClusterPolicy",
     "FifoTMultiplePolicy",
+    "FifoTPolicy",
 )
 
 
