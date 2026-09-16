@@ -87,12 +87,12 @@ async def test_async_multi_missing():
 
         n = randint(cache.maxsize // 2 + 1, cache.maxsize + 1)
         for i in range(n):
-            with patch.object(cache, "aget", side_effect=AsyncMock(return_value=cache.serialize(i))) as mock_get:
+            with patch.object(cache, "aget", side_effect=AsyncMock(return_value=cache.serialize(i))) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
                     await echo1(i)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
-            with patch.object(cache, "aget", side_effect=AsyncMock(return_value=cache.serialize(i))) as mock_get:
+            with patch.object(cache, "aget", side_effect=AsyncMock(return_value=cache.serialize(i))) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
                     await echo2(i)
                     mock_get.assert_called_once()

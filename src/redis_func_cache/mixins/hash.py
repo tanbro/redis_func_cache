@@ -6,7 +6,7 @@ import pickle
 from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..utils import b64digest, get_callable_bytecode
 
@@ -16,32 +16,32 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..typing import Hash
 
 __all__ = (
-    "HashConfig",
     "AbstractHashMixin",
+    "HashConfig",
+    "JsonMd5Base64HashMixin",
     "JsonMd5HashMixin",
     "JsonMd5HexHashMixin",
-    "JsonMd5Base64HashMixin",
+    "JsonSha1Base64HashMixin",
     "JsonSha1HashMixin",
     "JsonSha1HexHashMixin",
-    "JsonSha1Base64HashMixin",
+    "JsonSha256Base64HashMixin",
     "JsonSha256HashMixin",
     "JsonSha256HexHashMixin",
-    "JsonSha256Base64HashMixin",
+    "JsonSha512Base64HashMixin",
     "JsonSha512HashMixin",
     "JsonSha512HexHashMixin",
-    "JsonSha512Base64HashMixin",
+    "PickleMd5Base64HashMixin",
     "PickleMd5HashMixin",
     "PickleMd5HexHashMixin",
-    "PickleMd5Base64HashMixin",
+    "PickleSha1Base64HashMixin",
     "PickleSha1HashMixin",
     "PickleSha1HexHashMixin",
-    "PickleSha1Base64HashMixin",
+    "PickleSha256Base64HashMixin",
     "PickleSha256HashMixin",
     "PickleSha256HexHashMixin",
-    "PickleSha256Base64HashMixin",
+    "PickleSha512Base64HashMixin",
     "PickleSha512HashMixin",
     "PickleSha512HexHashMixin",
-    "PickleSha512Base64HashMixin",
 )
 
 
@@ -56,7 +56,7 @@ class HashConfig:
     """
     serializer: Callable[[Any], bytes]
     """function to serialize function positional and keyword arguments."""
-    decoder: Optional[Callable[[Hash], KeyT]] = None
+    decoder: Callable[[Hash], KeyT] | None = None
     """function to decode hash digest to member of a sorted/unsorted set and also field name of a hash map in redis.
 
     Default is :data:`None`, means no decoding and to use the raw digest bytes directly.
@@ -98,9 +98,9 @@ class AbstractHashMixin(ABC):
 
     def calc_hash(
         self,
-        f: Optional[Callable] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwds: Optional[dict[str, Any]] = None,
+        f: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
     ) -> KeyT:
         """Mixin method to overwrite :meth:`redis_func_cache.policies.abstract.AbstractPolicy.calc_hash`
 

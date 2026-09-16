@@ -49,19 +49,19 @@ def test_cache_ttl():
             echo3(val3)
 
             # 验证缓存命中
-            with patch.object(cache, "get", return_value=cache.serialize(val1)) as mock_get:
+            with patch.object(cache, "get", return_value=cache.serialize(val1)) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     self.assertEqual(echo1(val1), val1)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
 
-            with patch.object(cache, "get", return_value=cache.serialize(val2)) as mock_get:
+            with patch.object(cache, "get", return_value=cache.serialize(val2)) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     self.assertEqual(echo2(val2), val2)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
 
-            with patch.object(cache, "get", return_value=cache.serialize(val3)) as mock_get:
+            with patch.object(cache, "get", return_value=cache.serialize(val3)) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     self.assertEqual(echo3(val3), val3)
                     mock_get.assert_called_once()
@@ -76,13 +76,13 @@ def test_cache_ttl():
                 mock_put.assert_called_once()  # 确认缓存已过期并重新写入
 
             # 验证其他缓存是否未过期
-            with patch.object(cache, "get", return_value=cache.serialize(val2)) as mock_get:
+            with patch.object(cache, "get", return_value=cache.serialize(val2)) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     self.assertEqual(echo2(val2), val2)  # 这个应该还未过期
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
 
-            with patch.object(cache, "get", return_value=cache.serialize(val3)) as mock_get:
+            with patch.object(cache, "get", return_value=cache.serialize(val3)) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     self.assertEqual(echo3(val3), val3)  # 这个应该还未过期
                     mock_get.assert_called_once()

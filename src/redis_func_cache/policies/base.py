@@ -5,24 +5,19 @@ from __future__ import annotations
 import hashlib
 import sys
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any
 
 if sys.version_info < (3, 12):  # pragma: no cover
     from typing_extensions import override
 else:  # pragma: no cover
     from typing import override
 
-if TYPE_CHECKING:  # pragma: no cover
-    pass
 
 from ..typing import is_redis_async_client, is_redis_sync_client
 from ..utils import b64digest, get_callable_bytecode
 from .abstract import AbstractPolicy
 
-if TYPE_CHECKING:  # pragma: no cover
-    pass
-
-__all__ = ("BaseSinglePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseClusterMultiplePolicy")
+__all__ = ("BaseClusterMultiplePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseSinglePolicy")
 
 
 class BaseSinglePolicy(AbstractPolicy):
@@ -42,14 +37,14 @@ class BaseSinglePolicy(AbstractPolicy):
     @override
     def __init__(self) -> None:
         super().__init__()
-        self._keys: Optional[tuple[str, str]] = None
+        self._keys: tuple[str, str] | None = None
 
     @override
     def calc_keys(
         self,
-        f: Optional[Callable] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwds: Optional[dict[str, Any]] = None,
+        f: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
         """
         Return the static Redis key pair for this cache policy.
@@ -131,9 +126,9 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
     @override
     def calc_keys(
         self,
-        f: Optional[Callable] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwds: Optional[dict[str, Any]] = None,
+        f: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
         """
         Return the static Redis key pair for this cache policy, using cluster hash tags.
@@ -162,9 +157,9 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def calc_keys(
         self,
-        f: Optional[Callable] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwds: Optional[dict[str, Any]] = None,
+        f: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
         """
         Calculate a unique Redis key pair for the given function.
@@ -232,9 +227,9 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     @override
     def calc_keys(
         self,
-        f: Optional[Callable] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwds: Optional[dict[str, Any]] = None,
+        f: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
         """
         Calculate a unique Redis key pair for the given function, using cluster hash tags.

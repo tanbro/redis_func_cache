@@ -1,5 +1,24 @@
 # Changelog
 
+[Unreleased] - Next Version
+- 🚀 Breaking Changes
+  - Raise minimum Python version to 3.10+. Drop official support for Python 3.9 and below. Fully migrate type annotations to modern PEP 604 style
+  ✨ Improvements
+  - Serialization system stability upgrade
+    - Hardened official msgpack serializer with fixed standard-compliant parameters: `use_bin_type=True` / `raw=False`
+    - Built-in `memoryview` compatibility for redis-py raw response data
+- 📦 Dependency Optimization
+  - Upgrade & align redis-py version range: `"redis>=5.2,<9"`
+  - Clean and standardize all optional extras definitions
+- 🛠 Code Quality & Refactor
+  - Full refactor of type annotations, replace all legacy Optional with union pipe syntax
+  - Remove Python 3.9 compatibility fallback code
+  - Improve static type checking compatibility for pyright
+- 💡 Notes
+  This release focuses on stability, standard compliance and code modernization.
+  No breaking changes for core cache logic, decorator API, policy interface.
+  All serialization aliases remain fully compatible with existing user code
+
 ## v0.7.0
 
 > 📅 2026-03-30

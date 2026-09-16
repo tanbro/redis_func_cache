@@ -55,11 +55,10 @@ def test_lru_order_correctness():
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素1应该未命中
-    with patch.object(cache, "get", return_value=None) as mock_get:
-        with patch.object(cache, "put") as mock_put:
-            assert echo(1) == 1  # 应该未命中
-            mock_get.assert_called_once()
-            mock_put.assert_called_once()
+    with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
+        assert echo(1) == 1  # 应该未命中
+        mock_get.assert_called_once()
+        mock_put.assert_called_once()
 
     cache.policy.purge()
 
@@ -93,11 +92,10 @@ def test_fifo_order_correctness():
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素0应该未命中
-    with patch.object(cache, "get", return_value=None) as mock_get:
-        with patch.object(cache, "put") as mock_put:
-            assert echo(0) == 0  # 应该未命中
-            mock_get.assert_called_once()
-            mock_put.assert_called_once()
+    with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
+        assert echo(0) == 0  # 应该未命中
+        mock_get.assert_called_once()
+        mock_put.assert_called_once()
 
     cache.policy.purge()
 
@@ -132,11 +130,10 @@ def test_lfu_order_correctness():
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素2应该未命中
-    with patch.object(cache, "get", return_value=None) as mock_get:
-        with patch.object(cache, "put") as mock_put:
-            assert echo(2) == 2  # 应该未命中
-            mock_get.assert_called_once()
-            mock_put.assert_called_once()
+    with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
+        assert echo(2) == 2  # 应该未命中
+        mock_get.assert_called_once()
+        mock_put.assert_called_once()
 
     cache.policy.purge()
 
@@ -194,11 +191,10 @@ def test_mru_eviction():
     assert cache.policy.get_size() == maxsize
 
     # 验证0已被淘汰，其他元素仍在缓存中
-    with patch.object(cache, "get", return_value=None) as mock_get:
-        with patch.object(cache, "put") as mock_put:
-            assert echo(0) == 0  # 应该未命中，因为已被淘汰
-            mock_get.assert_called_once()
-            mock_put.assert_called_once()
+    with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
+        assert echo(0) == 0  # 应该未命中，因为已被淘汰
+        mock_get.assert_called_once()
+        mock_put.assert_called_once()
 
     # 对于剩下的元素(1, 2, 3)，我们需要检查它们是否在缓存中
     # 但由于MRU的行为可能比较复杂，我们简化测试只验证缓存大小

@@ -31,9 +31,9 @@ def test_two_threads():
         bar = Barrier(2)
 
         def f(n, x):
-            bar.wait()
-            v = _echo(x)
-            results[n] = v
+            bar.wait()  # noqa: B023
+            v = _echo(x)  # noqa: B023
+            results[n] = v  # noqa: B023
 
         t1 = Thread(target=f, args=(1, 1))
         t2 = Thread(target=f, args=(2, 2))
@@ -63,11 +63,11 @@ def test_high_concurrency():
         threads = []
         # 同一 key
         for _ in range(N):
-            t = Thread(target=lambda: results.append(_echo(42)))
+            t = Thread(target=lambda: results.append(_echo(42)))  # noqa: B023
             threads.append(t)
         # 不同 key
         for i in range(N):
-            t = Thread(target=lambda i=i: results.append(_echo(i)))
+            t = Thread(target=lambda i=i: results.append(_echo(i)))  # noqa: B023
             threads.append(t)
         for t in threads:
             t.start()
@@ -91,9 +91,9 @@ def test_concurrent_exception():
 
         def f():
             try:
-                _fail(1)
-            except Exception as e:
-                errors.append(e)
+                _fail(1)  # noqa: B023
+            except Exception as e:  # noqa: BLE001
+                errors.append(e)  # noqa: B023
 
         threads = [Thread(target=f) for _ in range(5)]
         for t in threads:

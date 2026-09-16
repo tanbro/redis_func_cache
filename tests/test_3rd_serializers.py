@@ -62,7 +62,7 @@ def test_bson():
 
     def _test_datetime(f):
         for _ in range(randint(1, MAXSIZE * 2)):
-            v0 = datetime.now().replace(microsecond=0)
+            v0 = datetime.now().replace(microsecond=0)  # noqa: DTZ005
             v1 = f(v0)
             assert v0 == v1
 
@@ -163,7 +163,7 @@ def test_yaml():
 
     def _test_datetime(f):
         for _ in range(randint(1, MAXSIZE * 2)):
-            v0 = datetime.now().replace(microsecond=0)
+            v0 = datetime.now().replace(microsecond=0)  # noqa: DTZ005
             v1 = f(v0)
             assert v0 == v1
 
@@ -217,7 +217,7 @@ def test_cloudpickle():
 
     def _test_datetime(f):
         for _ in range(randint(1, MAXSIZE * 2)):
-            v0 = datetime.now().replace(microsecond=0)
+            v0 = datetime.now().replace(microsecond=0)  # noqa: DTZ005
             v1 = f(v0)
             assert v0 == v1
 
@@ -271,7 +271,7 @@ def test_dill():
 
     def _test_datetime(f):
         for _ in range(randint(1, MAXSIZE * 2)):
-            v0 = datetime.now().replace(microsecond=0)
+            v0 = datetime.now().replace(microsecond=0)  # noqa: DTZ005
             v1 = f(v0)
             assert v0 == v1
 

@@ -34,7 +34,7 @@ def test_basic():
 
         # mock hit
         for i in range(cache.maxsize):
-            with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:
+            with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
@@ -42,7 +42,7 @@ def test_basic():
 
         # mock not hit
         for i in range(cache.maxsize):
-            with patch.object(cache, "get", return_value=None) as mock_get:
+            with patch.object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
@@ -58,7 +58,7 @@ def test_basic():
 
         # run again, should be all hit
         for i in range(cache.maxsize):
-            with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:
+            with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
@@ -69,7 +69,7 @@ def test_basic():
         # run more than max size, should be not all hit
         n = randint(cache.maxsize + 1, 2 * cache.maxsize)
         for i in range(cache.maxsize, n):
-            with patch.object(cache, "get", return_value=None) as mock_get:
+            with patch.object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
@@ -144,7 +144,7 @@ def test_cache_clear():
 
         # run again, should be all miss
         for i in range(cache.maxsize):
-            with patch.object(cache, "get", return_value=None) as mock_get:
+            with patch.object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
                 with patch.object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
@@ -161,7 +161,7 @@ def test_cache_wrapper():
 
         # 检查 __wrapped__ 属性是否存在并且是函数
         assert hasattr(echo, "__wrapped__")
-        assert callable(getattr(echo, "__wrapped__"))
+        assert callable(echo.__wrapped__)
 
 
 def test_different_policies():

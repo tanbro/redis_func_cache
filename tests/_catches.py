@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import asyncio
 import atexit
+from collections.abc import Callable
 from os import getenv
-from typing import Callable, Dict, List, Optional
 from warnings import warn
 
 from redis import Redis
@@ -37,8 +39,8 @@ else:
     load_dotenv()
 
 
-redis_client: Optional[Redis] = None
-async_redis_client: Optional[AsyncRedis] = None
+redis_client: Redis | None = None
+async_redis_client: AsyncRedis | None = None
 
 
 def redis_factory(**kwargs):
@@ -70,20 +72,20 @@ async def close_async_redis_client():
 MAXSIZE = 8
 
 REDIS_URL = getenv("REDIS_URL", "redis://")
-REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)  # noqa: E731
-ASYNC_REDIS_FACTORY = lambda: AsyncRedis.from_url(REDIS_URL)  # noqa: E731
+REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)
+ASYNC_REDIS_FACTORY = lambda: AsyncRedis.from_url(REDIS_URL)
 REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES")
 
 # 解析 Redis 集群节点
-CLUSTER_NODES: List[ClusterNode] = []
-CLUSTER_CACHES: Dict[str, RedisFuncCache] = {}
-CLUSTER_MULTI_CACHES: Dict[str, RedisFuncCache] = {}
+CLUSTER_NODES: list[ClusterNode] = []
+CLUSTER_CACHES: dict[str, RedisFuncCache] = {}
+CLUSTER_MULTI_CACHES: dict[str, RedisFuncCache] = {}
 
 if REDIS_CLUSTER_NODES:
     CLUSTER_NODES = [
         ClusterNode(cluster.split(":")[-2], int(cluster.split(":")[-1])) for cluster in REDIS_CLUSTER_NODES.split()
     ]
-    REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # type: ignore[abstract]  # noqa: E731
+    REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # type: ignore[abstract]
 
     CLUSTER_CACHES = {
         "tlru": RedisFuncCache(__name__, LruTClusterPolicy(), factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
@@ -157,7 +159,7 @@ async def close_all_async_resources():
                     tasks.append(aclose())
                 elif hasattr(cache.client, "close"):
                     tasks.append(cache.client.close())
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 # 忽略单个客户端关闭过程中可能出现的异常
                 pass
 
@@ -167,17 +169,22 @@ async def close_all_async_resources():
                     tasks.append(aclose())
                 elif hasattr(cache.client, "close"):
                     tasks.append(cache.client.close())
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 # 忽略单个客户端关闭过程中可能出现的异常
                 pass
 
         if tasks:
             # 使用return_exceptions=True确保即使某些任务失败也不会影响其他任务
             await asyncio.gather(*tasks, return_exceptions=True)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         # 忽略所有异常，确保不会因为清理过程中的错误导致测试失败
         pass
 
 
 # 确保在模块被清理时也尝试关闭所有异步资源
-atexit.register(lambda: asyncio.run(close_all_async_resources()) if asyncio.get_event_loop() else None)
+try:
+    asyncio.get_event_loop()
+except RuntimeError as err:
+    warn(f"{err}")
+else:
+    atexit.register(lambda: asyncio.run(close_all_async_resources()))
