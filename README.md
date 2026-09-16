@@ -761,13 +761,13 @@ class AbstractHashMixin:
 
     ...
 
-    def calc_hash(self, f=None, args=None, kwds=None):
+    def calc_hash(self, fn=None, args=None, kwds=None):
         if not callable(f):
-            raise TypeError(f"Cannot calculate hash for {f=}")
+            raise TypeError(f"Cannot calculate hash for {fn=}")
         conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
-        h.update(f"{f.__module__}:{f.__qualname__}".encode())
-        h.update(f.__code__.co_code)
+        h.update(f"{fn.__module__}:{fn.__qualname__}".encode())
+        h.update(fn.__code__.co_code)
         if args is not None:
             h.update(conf.serializer(args))
         if kwds is not None:

@@ -36,6 +36,8 @@ else:  # pragma: no cover
         Comment.Special,
     )
 
+from .typing import is_module
+
 if TYPE_CHECKING:  # pragma: no cover
     from .typing import Hash
 
@@ -89,6 +91,8 @@ def read_lua_file(file: str) -> str:
     This function locates and reads the entire text content of a specified Lua file.
     It uses the :mod:`importlib.resources` to locate the file.
     """
+    if __package__ is None:
+        raise RuntimeError("‘__package__’ is None")
     return dedent(importlib_resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
 
 
@@ -105,7 +109,7 @@ def clean_lua_script(source: str) -> str:
         This function utilizes the :mod:`pygments` library to remove comments and empty lines from the Lua script.
         If :mod:`pygments` is not installed, the source code will be returned unchanged.
     """
-    if pygments:
+    if is_module(pygments):
         lexer = get_lexer_by_name("lua")  # pyright: ignore[reportPossiblyUnboundVariable]
         if lexer is None:  # pragma: no cover
             warn("Lua lexer not found in pygments, return source code as is", RuntimeWarning)
@@ -118,7 +122,7 @@ def clean_lua_script(source: str) -> str:
         return source
 
 
-if pygments:
+if is_module(pygments):
 
     @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
     def _filter(self, lexer, stream, options):

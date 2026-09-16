@@ -98,7 +98,7 @@ class AbstractHashMixin(ABC):
 
     def calc_hash(
         self,
-        f: Callable | None = None,
+        fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
     ) -> KeyT:
@@ -119,13 +119,13 @@ class AbstractHashMixin(ABC):
         Raises:
             TypeError: If the function is not callable.
         """
-        if not callable(f):
+        if not callable(fn):
             raise TypeError("Can not calculate hash for a non-callable object")
         conf = self.__hash_config__
         hash = hashlib.new(conf.algorithm)
-        hash.update(f"{f.__module__}:{f.__qualname__}".encode())
+        hash.update(f"{fn.__module__}:{fn.__qualname__}".encode())
         if conf.use_bytecode:
-            hash.update(get_callable_bytecode(f))
+            hash.update(get_callable_bytecode(fn))
         if args is not None:
             hash.update(conf.serializer(args))
         if kwds is not None:

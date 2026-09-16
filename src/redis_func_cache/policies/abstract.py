@@ -87,7 +87,7 @@ class AbstractPolicy(ABC):
     @abstractmethod
     def calc_hash(
         self,
-        f: Callable | None = None,
+        fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
     ) -> KeyT:

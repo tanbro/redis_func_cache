@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal, TypeVar, Union
-
-if sys.version_info < (3, 10):  # pragma: no cover
-    from typing_extensions import TypeGuard
-else:  # pragma: no cover
-    from typing import TypeGuard
+from inspect import ismodule
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, Literal, TypeGuard, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from typing import Protocol
@@ -28,22 +25,22 @@ import redis.commands.core
 CallableTV = TypeVar("CallableTV", bound=Callable)
 
 RedisSyncClientTypes = redis.client.Redis, redis.cluster.RedisCluster
-RedisSyncClientT = Union[redis.client.Redis, redis.cluster.RedisCluster]
+RedisSyncClientT = redis.client.Redis | redis.cluster.RedisCluster
 RedisAsyncClientTypes = redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster
-RedisAsyncClientT = Union[redis.asyncio.client.Redis, redis.asyncio.cluster.RedisCluster]
+RedisAsyncClientT = redis.asyncio.client.Redis | redis.asyncio.cluster.RedisCluster
 RedisClusterClientTypes = redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster
-RedisClusterClientT = Union[redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster]
+RedisClusterClientT = redis.cluster.RedisCluster | redis.asyncio.cluster.RedisCluster
 RedisClientTypes = (
     redis.client.Redis,
     redis.cluster.RedisCluster,
     redis.asyncio.client.Redis,
     redis.asyncio.cluster.RedisCluster,
 )
-RedisClientT = Union[
-    redis.client.Redis, redis.asyncio.client.Redis, redis.cluster.RedisCluster, redis.asyncio.cluster.RedisCluster
-]
+RedisClientT = (
+    redis.client.Redis | redis.asyncio.client.Redis | redis.cluster.RedisCluster | redis.asyncio.cluster.RedisCluster
+)
 RedisClientTV = TypeVar("RedisClientTV", bound=RedisClientT)
-RedisScriptT = Union[redis.commands.core.Script, redis.commands.core.AsyncScript]
+RedisScriptT = redis.commands.core.Script | redis.commands.core.AsyncScript
 
 
 SerializerName = Literal["json", "pickle", "dill", "bson", "msgpack", "yaml", "cbor", "cloudpickle"]
@@ -56,6 +53,10 @@ if TYPE_CHECKING:  # pragma: no cover
         def digest(self) -> bytes: ...
         def hexdigest(self) -> str: ...
         def copy(self) -> Self: ...
+
+
+def is_module(val: Any) -> TypeGuard[ModuleType]:
+    return ismodule(val)
 
 
 def is_redis_async_client(client: RedisClientT) -> TypeGuard[RedisAsyncClientT]:

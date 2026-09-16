@@ -12,7 +12,7 @@ from dataclasses import dataclass, replace
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Union, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, cast
 from warnings import warn
 
 from redis.commands.core import AsyncScript, Script
@@ -53,7 +53,7 @@ else:  # pragma: no cover
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
 from .policies.abstract import AbstractPolicy
-from .typing import CallableTV, RedisClientTV, SerializerName, is_redis_async_script, is_redis_sync_script
+from .typing import CallableTV, RedisClientTV, SerializerName, is_module, is_redis_async_script, is_redis_sync_script
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, EncodedT, KeyT
@@ -61,7 +61,7 @@ if TYPE_CHECKING:  # pragma: no cover
     SerializerT = Callable[[Any], EncodedT]
     DeserializerT = Callable[[EncodedT], Any]
     SerializerPairT = tuple[SerializerT, DeserializerT]
-    SerializerSetterValueT = Union[SerializerName, SerializerPairT]
+    SerializerSetterValueT = SerializerName | SerializerPairT
 
 __all__ = ("RedisFuncCache",)
 
@@ -294,7 +294,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     "Passing a callable as `client` is deprecated; use `factory=` instead",
                     DeprecationWarning,
                 )
-                self._redis_client_factory = client  # type: ignore[assignment]
+                self._redis_client_factory = client  # type: ignore
             else:
                 self._redis_client_instance = client
         else:
@@ -308,34 +308,34 @@ class RedisFuncCache(Generic[RedisClientTV]):
         "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x)),
         "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
     }
-    if dill is not None:  # pragma: no cover
+    if is_module(dill):  # pragma: no cover
         __serializers__["dill"] = (
             lambda x: dill.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: dill.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if bson is not None:  # pragma: no cover
+    if is_module(bson):  # pragma: no cover
         __serializers__["bson"] = (
             lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if msgpack is not None:  # pragma: no cover
+    if is_module(msgpack):  # pragma: no cover
         __serializers__["msgpack"] = (  # pyright: ignore[reportArgumentType]
             # use_bin_type=True: bytes -> msgpack bin, str -> msgpack str (msgpack spec 2.0)
             lambda x: msgpack.packb(x, use_bin_type=True),  # pyright: ignore[reportOptionalMemberAccess]
             # raw=False: msgpack str -> python str, msgpack bin -> python bytes
             lambda x: msgpack.unpackb(x, raw=False),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if cbor2 is not None:  # pragma: no cover
+    if is_module(cbor2):  # pragma: no cover
         __serializers__["cbor"] = (
             lambda x: cbor2.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: cbor2.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
         )
-    if yaml is not None:  # pragma: no cover
+    if is_module(yaml):  # pragma: no cover
         __serializers__["yaml"] = (
             lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
             lambda x: yaml.load(bytes(x) if isinstance(x, memoryview) else x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
         )
-    if cloudpickle is not None:  # pragma: no cover
+    if is_module(cloudpickle):  # pragma: no cover
         __serializers__["cloudpickle"] = (
             lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
             lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
