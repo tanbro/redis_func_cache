@@ -66,6 +66,76 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ("RedisFuncCache",)
 
 
+_serializers: dict[str, SerializerPairT] = {
+    "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x)),
+    "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
+}
+if is_module(dill):  # pragma: no cover
+    _dill = dill
+
+    def _dill_encode(x: EncodableT) -> Any:
+        return _dill.dumps(x)
+
+    def _dill_decode(x: Any) -> EncodableT:
+        return _dill.loads(x)
+
+    _serializers["dill"] = (_dill_encode, _dill_decode)
+
+if is_module(bson):  # pragma: no cover
+    _bson = bson
+
+    def _bson_encode(x: EncodableT) -> Any:
+        return _bson.encode({"": x})
+
+    def _bson_decode(x: Any) -> EncodableT:
+        return _bson.decode(x)[""]
+
+    _serializers["bson"] = (_bson_encode, _bson_decode)
+
+if is_module(msgpack):  # pragma: no cover
+    _msgpack = msgpack
+
+    def _msgpack_encode(x: EncodableT) -> Any:
+        # use_bin_type=True: bytes -> msgpack bin, str -> msgpack str (msgpack spec 2.0)
+        return _msgpack.packb(x, use_bin_type=True)
+
+    def _msgpack_decode(x: Any) -> EncodableT:
+        # raw=False: msgpack str -> python str, msgpack bin -> python bytes
+        return _msgpack.unpackb(x, raw=False)
+
+    _serializers["msgpack"] = (_msgpack_encode, _msgpack_decode)
+
+if is_module(cbor2):  # pragma: no cover
+    _cbor2 = cbor2
+
+    def _cbor2_encode(x: EncodableT) -> Any:
+        return _cbor2.dumps(x)
+
+    def _cbor2_decode(x: Any) -> EncodableT:
+        return _cbor2.loads(x)
+
+    _serializers["cbor"] = (_cbor2_encode, _cbor2_decode)
+
+if is_module(yaml):  # pragma: no cover
+    _yaml = yaml
+
+    def _yaml_encode(x: EncodableT) -> Any:
+        return _yaml.dump(x, Dumper=YamlDumper).encode()
+
+    def _yaml_decode(x: Any) -> EncodableT:
+        return _yaml.load(bytes(x) if isinstance(x, memoryview) else x, Loader=YamlLoader)
+
+    _serializers["yaml"] = (_yaml_encode, _yaml_decode)
+
+if is_module(cloudpickle):  # pragma: no cover
+    _cloudpickle = cloudpickle
+
+    def _cloudpickle_encode(x: EncodableT) -> Any:
+        return _cloudpickle.dumps(x)
+
+    _serializers["cloudpickle"] = (_cloudpickle_encode, lambda x: pickle.loads(x))
+
+
 class RedisFuncCache(Generic[RedisClientTV]):
     """A function cache class backed by Redis.
 
@@ -262,7 +332,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         Attributes:
             __call__: Equivalent to the :meth:`decorate` method.
-            __serializers__ (dict[str, SerializerPairT]): A dictionary of serializers.
+            __serializers__ (Mapping[str, SerializerPairT]): A dictionary of serializers.
         """
         self.name = name
         self.prefix = prefix
@@ -304,42 +374,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=self._DEFAULT_MODE)
         self._stats: ContextVar[RedisFuncCache.Stats | None] = ContextVar("stats", default=None)
 
-    __serializers__: ClassVar[dict[str, SerializerPairT]] = {
-        "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x)),
-        "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
-    }
-    if is_module(dill):  # pragma: no cover
-        __serializers__["dill"] = (
-            lambda x: dill.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
-            lambda x: dill.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
-        )
-    if is_module(bson):  # pragma: no cover
-        __serializers__["bson"] = (
-            lambda x: bson.encode({"": x}),  # pyright: ignore[reportOptionalMemberAccess]
-            lambda x: bson.decode(x)[""],  # pyright: ignore[reportOptionalMemberAccess]
-        )
-    if is_module(msgpack):  # pragma: no cover
-        __serializers__["msgpack"] = (  # pyright: ignore[reportArgumentType]
-            # use_bin_type=True: bytes -> msgpack bin, str -> msgpack str (msgpack spec 2.0)
-            lambda x: msgpack.packb(x, use_bin_type=True),  # pyright: ignore[reportOptionalMemberAccess]
-            # raw=False: msgpack str -> python str, msgpack bin -> python bytes
-            lambda x: msgpack.unpackb(x, raw=False),  # pyright: ignore[reportOptionalMemberAccess]
-        )
-    if is_module(cbor2):  # pragma: no cover
-        __serializers__["cbor"] = (
-            lambda x: cbor2.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
-            lambda x: cbor2.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
-        )
-    if is_module(yaml):  # pragma: no cover
-        __serializers__["yaml"] = (
-            lambda x: yaml.dump(x, Dumper=YamlDumper).encode(),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
-            lambda x: yaml.load(bytes(x) if isinstance(x, memoryview) else x, Loader=YamlLoader),  # pyright: ignore[reportOptionalMemberAccess,reportPossiblyUnboundVariable]
-        )
-    if is_module(cloudpickle):  # pragma: no cover
-        __serializers__["cloudpickle"] = (
-            lambda x: cloudpickle.dumps(x),  # pyright: ignore[reportOptionalMemberAccess]
-            lambda x: pickle.loads(x),  # pyright: ignore[reportOptionalMemberAccess]
-        )
+    __serializers__: ClassVar[Mapping[str, SerializerPairT]] = _serializers
 
     @property
     def name(self) -> str:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import types
 from base64 import b64encode
 from collections.abc import Callable
 from textwrap import dedent
@@ -13,10 +14,7 @@ else:  # pragma: no cover
     import importlib.resources as importlib_resources
 
 try:  # pragma: no cover
-    import pygments
-    from pygments.filter import simplefilter
-    from pygments.lexers import get_lexer_by_name
-    from pygments.token import Comment, String
+    import pygments  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     pygments = None  # type: ignore[assignment]
     LUA_PYGMENTS_FILTER_TYPES = None
@@ -25,6 +23,10 @@ except ImportError:  # pragma: no cover
         ImportWarning,
     )
 else:  # pragma: no cover
+    from pygments.filter import simplefilter
+    from pygments.lexers import get_lexer_by_name
+    from pygments.token import Comment, String
+
     LUA_PYGMENTS_FILTER_TYPES = (
         String.Doc,
         Comment,
@@ -127,3 +129,21 @@ if is_module(pygments):
     @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
     def _filter(self, lexer, stream, options):
         yield from ((ttype, value) for ttype, value in stream if ttype not in LUA_PYGMENTS_FILTER_TYPES)
+
+
+def calculate_callbale_fullname(val: Callable) -> str:
+    if not callable(val):
+        raise TypeError("Can not calculate fullname for a non-callable object")
+    if isinstance(val, types.FunctionType):
+        module, qualname = val.__module__, val.__qualname__
+    elif isinstance(val, types.MethodType) and isinstance(val.__self__, type):
+        func = val.__func__
+        if not isinstance(func, types.FunctionType):
+            raise TypeError(f"Unsupported method {val!r}")
+        module = func.__module__
+        qualname = f"{val.__self__.__qualname__}.{func.__name__}"
+    else:
+        raise TypeError(
+            f"Can not calculate a stable cross-process hash for {type(val).__name__}; only functions, static methods and class methods are supported"
+        )
+    return f"{module}:{qualname}"

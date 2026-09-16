@@ -721,9 +721,9 @@ class MyPolicy(LruScriptsMixin, PickleMd5HashMixin, AbstractPolicy):
 
     @override
     def calc_keys(
-        self, f: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
+        self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
     ) -> Tuple[KeyT, KeyT]:
-        k = f"{self.cache.prefix}-{self.cache.name}-{f.__name__}-{self.__key__}"
+        k = f"{self.cache.prefix}-{self.cache.name}-{fn.__name__}-{self.__key__}"
         return f"{k}-set", f"{k}-map"
 
 
