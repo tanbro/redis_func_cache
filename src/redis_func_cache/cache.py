@@ -944,40 +944,51 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 raise ValueError("ttl must be a positive integer")
 
         def decorator(user_func: CallableTV) -> CallableTV:
-            @wraps(user_func)
-            def wrapper(*user_args, **user_kwargs):
-                bound = self.make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
-                return self.exec(
-                    user_func,
-                    user_args,
-                    user_kwargs,
-                    serialize_func,
-                    deserialize_func,
-                    bound,
-                    field_ttl,
-                    **options,
-                )
-
-            @wraps(user_func)
-            async def awrapper(*user_args, **user_kwargs):
-                bound = self.make_bound(user_func, user_args, user_kwargs, excludes, excludes_positional)
-                return await self.aexec(
-                    user_func,
-                    user_args,
-                    user_kwargs,
-                    serialize_func,
-                    deserialize_func,
-                    bound,
-                    field_ttl,
-                    **options,
-                )
-
-            if not callable(user_func):
-                raise TypeError("Can not decorate a non-callable object.")
-            if iscoroutinefunction(user_func):
-                return cast(CallableTV, awrapper)
+            if is_staticmethod := isinstance(user_func, staticmethod):
+                wrapped_func = user_func.__func__
             else:
-                return cast(CallableTV, wrapper)
+                wrapped_func = user_func
+            if not callable(wrapped_func):
+                raise TypeError("Can not decorate a non-callable object.")
+
+            if iscoroutinefunction(wrapped_func):
+
+                @wraps(wrapped_func)
+                async def awrapper(*user_args, **user_kwargs):
+                    bound = self.make_bound(wrapped_func, user_args, user_kwargs, excludes, excludes_positional)
+                    return await self.aexec(
+                        wrapped_func,
+                        user_args,
+                        user_kwargs,
+                        serialize_func,
+                        deserialize_func,
+                        bound,
+                        field_ttl,
+                        **options,
+                    )
+
+                decorated = awrapper
+            else:
+
+                @wraps(wrapped_func)
+                def wrapper(*user_args, **user_kwargs):
+                    bound = self.make_bound(wrapped_func, user_args, user_kwargs, excludes, excludes_positional)
+                    return self.exec(
+                        wrapped_func,
+                        user_args,
+                        user_kwargs,
+                        serialize_func,
+                        deserialize_func,
+                        bound,
+                        field_ttl,
+                        **options,
+                    )
+
+                decorated = wrapper
+
+            if is_staticmethod:
+                return cast(CallableTV, staticmethod(decorated))
+            return cast(CallableTV, decorated)
 
         if user_function is None:
             return cast(CallableTV, decorator)

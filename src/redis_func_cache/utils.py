@@ -67,6 +67,8 @@ def b64digest(x: Hash) -> bytes:
 def calculate_callable_fullname(val: Callable) -> str:
     if not callable(val):
         raise TypeError("object must be callable")
+    if isinstance(val, staticmethod):
+        val = val.__func__
     if isinstance(val, types.FunctionType):
         module, qualname = val.__module__, val.__qualname__
     elif isinstance(val, types.MethodType) and isinstance(val.__self__, type):
@@ -95,6 +97,8 @@ def get_callable_bytecode(val: Callable) -> bytes:
     """
     if not callable(val):
         raise TypeError("object must be callable")
+    if isinstance(val, staticmethod):
+        val = val.__func__
     # Function objects have a `__code__` attribute, but not all callable objects are functions
     try:
         return val.__code__.co_code  # type: ignore

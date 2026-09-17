@@ -75,7 +75,7 @@ class AbstractPolicy(ABC):
         Calculate the Redis key pair for caching.
 
         Args:
-            f: The function being cached.
+            fn: The function being cached.
             args: Positional arguments.
             kwds: Keyword arguments.
 
@@ -95,7 +95,7 @@ class AbstractPolicy(ABC):
         Calculate a unique hash for the function and its arguments.
 
         Args:
-            f: The function being cached.
+            fn: The function being cached.
             args: Positional arguments.
             kwds: Keyword arguments.
 
@@ -105,13 +105,13 @@ class AbstractPolicy(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     def calc_ext_args(
-        self, f: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
+        self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
     ) -> Iterable[EncodableT] | None:
         """
         Optionally calculate extra arguments to pass to the Lua script.
 
         Args:
-            f: The function being cached.
+            fn: The function being cached.
             args: Positional arguments.
             kwds: Keyword arguments.
 

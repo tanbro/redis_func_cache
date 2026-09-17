@@ -4,8 +4,9 @@ from unittest.mock import patch
 import pytest
 
 from redis_func_cache import LruPolicy, RedisFuncCache
+from redis_func_cache.utils import calculate_callable_fullname, get_callable_bytecode
 
-from ._catches import CACHES, MAXSIZE, redis_factory
+from ._catches import CACHES, MAXSIZE, MULTI_CACHES, redis_factory
 
 
 def _echo(x):
@@ -22,6 +23,54 @@ def clean_caches():
     # 测试后清理
     for cache in CACHES.values():
         cache.policy.purge()
+
+
+def test_policy_extension_methods_accept_fn_keyword():
+    policy = MULTI_CACHES["lru"].policy
+
+    keys = policy.calc_keys(fn=_echo, args=(), kwds={})
+    hash_value = policy.calc_hash(fn=_echo, args=(), kwds={})
+    ext_args = CACHES["mru"].policy.calc_ext_args(fn=_echo, args=(), kwds={})
+
+    assert len(keys) == 2
+    assert hash_value
+    assert ext_args == ("mru",)
+
+
+def test_staticmethod_descriptor():
+    cache = CACHES["lru"]
+
+    class Example:
+        @cache
+        @staticmethod
+        def echo(value):
+            return value
+
+    descriptor = Example.__dict__["echo"]
+
+    assert isinstance(descriptor, staticmethod)
+    assert Example.echo(1) == 1
+    assert Example().echo(2) == 2
+    assert calculate_callable_fullname(descriptor).endswith(".Example.echo")
+    assert get_callable_bytecode(descriptor) == get_callable_bytecode(descriptor.__func__)
+
+
+def test_classmethod_decorator_order():
+    cache = CACHES["lru"]
+
+    class Example:
+        calls = 0
+
+        @classmethod
+        @cache(excludes_positional=[0])
+        def echo(cls, value):
+            cls.calls += 1
+            return value
+
+    assert Example.echo(1) == 1
+    assert Example().echo(1) == 1
+    assert Example.calls == 1
+    assert calculate_callable_fullname(Example.echo).endswith(".Example.echo")
 
 
 def test_basic():

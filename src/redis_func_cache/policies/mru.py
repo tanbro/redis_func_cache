@@ -1,6 +1,7 @@
 """Most Recently Used eviction cache policies."""
 
-from typing import final
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, final
 
 from ..mixins.hash import PickleMd5HashMixin
 from ..mixins.scripts import MruScriptsMixin
@@ -10,7 +11,12 @@ __all__ = ("MruClusterMultiplePolicy", "MruClusterPolicy", "MruMultiplePolicy", 
 
 
 class _MruPolicyExtArgsMixin:
-    def calc_ext_args(self, *args, **kwargs):
+    def calc_ext_args(
+        self,
+        fn: Callable | None = None,
+        args: Sequence | None = None,
+        kwds: Mapping[str, Any] | None = None,
+    ) -> tuple[str]:
         return ("mru",)
 
 
