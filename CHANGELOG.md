@@ -1,41 +1,42 @@
 # Changelog
 
-[Unreleased] - Next Version
-- 🚀 Breaking Changes
-  - Raise minimum Python version to 3.10+. Drop official support for Python 3.9 and below. Fully migrate type annotations to modern PEP 604 style
-  - Stricter callable identity validation: key calculation now raises `TypeError` for callables that can not be named stably across processes (instance-bound methods, `functools.partial`, callable class instances, built-in functions). Plain functions, static methods and class-bound methods (e.g. `classmethod`) remain supported
-  - Rename the callable parameter of the public `calc_keys`, `calc_hash` and `calc_ext_args` policy extension methods from `f` to `fn`; custom policies and direct keyword calls must migrate from `f=` to `fn=`
-- ✨ Improvements
-  - Serialization system stability upgrade
-    - Hardened official msgpack serializer with fixed standard-compliant parameters: `use_bin_type=True` / `raw=False`
-    - Built-in `memoryview` compatibility for redis-py raw response data
-  - Key calculation accepts class-bound methods explicitly while preserving a stable class-qualified identity
-  - Clearer `TypeError` message for unsupported callables, with actionable guidance
-- 📄 Documentation
-  - Rewrite "Known Issues" on argument serialization: clarify `self`/`cls` handling (hash by value / by reference), document `excludes_positional=[0]` and the required classmethod/cache decorator order, and the instance-bound method rejection
-  - Correct the attribution of the built-in functions limitation (identity naming, not bytecode)
-- 📦 Dependency Optimization
-  - Upgrade & align redis-py version range: `"redis>=5.2,<9"`
-  - Clean and standardize all optional extras definitions
-- 🛠 Code Quality & Refactor
-  - Full refactor of type annotations, replace all legacy Optional with union pipe syntax
-  - Remove Python 3.9 compatibility fallback code
-  - Improve static type checking compatibility for pyright
-- 💡 Notes
-  This release focuses on stability, standard compliance and code modernization.
-  No breaking changes for core cache logic or the decorator API.
-  All serialization aliases remain fully compatible with existing user code
+## v0.8.0
+
+> 📅 2026-09-17
+
+- 💔 **Breaking Changes:**
+  - Require Python 3.10 or later; Python 3.9 is no longer supported.
+  - Require redis-py `>=5.2,<9`, replacing the previous `>=3.5.0` constraint.
+  - Rename the callable parameter of the public policy extension methods `calc_keys`, `calc_hash`, and `calc_ext_args` from `f` to `fn`. Custom policies and direct keyword calls must migrate from `f=` to `fn=`.
+  - Reject callables without a stable cross-process identity when calculating cache keys. Bound instance methods, `functools.partial` objects, callable instances, and built-in functions now raise `TypeError`; plain functions, static methods, and bound class methods remain supported.
+
+- 🐛 **Bug Fixes:**
+  - Preserve descriptor semantics when the cache decorator wraps synchronous or asynchronous static methods, allowing calls through both the class and an instance.
+
+- ✨ **Improvements:**
+  - Use explicit MessagePack settings (`use_bin_type=True` and `raw=False`) for stable `str` and `bytes` handling.
+  - Accept `memoryview` values returned by redis-py when deserializing JSON and YAML data.
+  - Provide actionable errors when a callable cannot be used to generate a stable cache identity.
+
+- 📦 **Packaging:**
+  - Migrate the build backend from setuptools/setuptools-scm to Hatchling/hatch-vcs.
+  - Normalize optional dependency definitions while preserving the existing extra names.
+
+- 📚 **Documentation:**
+  - Clarify how `self` and `cls` participate in cache-key serialization, including `excludes_positional=[0]` and the supported classmethod decorator order.
+  - Correct the explanation for unsupported built-in functions: the limitation is stable callable identity, not bytecode availability.
+
+- 🛠 **Maintenance:**
+  - Modernize type annotations to PEP 604 syntax and simplify static type-checking dependencies.
+  - Update GitHub Actions to Node 24-compatible releases.
 
 ## v0.7.0
 
 > 📅 2026-03-30
 
 - 💔 **Breaking Changes:**
-
   - Constructor parameter rename: the Redis client parameters have been renamed to `client` and `factory` (keyword-only). `factory` is preferred for concurrent/production usage.
-
   - Policy must be an instance: the `policy` argument to `RedisFuncCache` now requires a pre-instantiated `AbstractPolicy` instance (e.g. `LruTPolicy()`), previously callers might have passed the policy class.
-
   - Passing a callable as the `client` positional argument is deprecated. Use `factory=` instead. The library will emit a `DeprecationWarning` when detecting the old pattern.
 
   Migration example:
@@ -50,7 +51,6 @@
 
 - 🛠 **Notes:**
   - The change to require policy instances was made to ensure policy objects can be bound to the cache (policies hold cache-specific state). Reuse of the same policy instance across multiple caches is discouraged; create a new policy object per cache if independent state is required.
-
   - Please update any code that relied on passing policy classes or that passed a callable as the `client` positional argument. If you want, I can scan the repository for remaining occurrences and update examples/tests accordingly.
 
 ## v0.6.0
