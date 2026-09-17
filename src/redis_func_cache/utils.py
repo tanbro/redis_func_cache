@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import types
 from base64 import b64encode
 from collections.abc import Callable
 from textwrap import dedent
@@ -13,10 +14,7 @@ else:  # pragma: no cover
     import importlib.resources as importlib_resources
 
 try:  # pragma: no cover
-    import pygments
-    from pygments.filter import simplefilter
-    from pygments.lexers import get_lexer_by_name
-    from pygments.token import Comment, String
+    import pygments  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     pygments = None  # type: ignore[assignment]
     LUA_PYGMENTS_FILTER_TYPES = None
@@ -25,6 +23,10 @@ except ImportError:  # pragma: no cover
         ImportWarning,
     )
 else:  # pragma: no cover
+    from pygments.filter import simplefilter
+    from pygments.lexers import get_lexer_by_name
+    from pygments.token import Comment, String
+
     LUA_PYGMENTS_FILTER_TYPES = (
         String.Doc,
         Comment,
@@ -35,6 +37,8 @@ else:  # pragma: no cover
         Comment.Single,
         Comment.Special,
     )
+
+from .typing import is_module
 
 if TYPE_CHECKING:  # pragma: no cover
     from .typing import Hash
@@ -60,7 +64,27 @@ def b64digest(x: Hash) -> bytes:
     return b64encode(x.digest()).rstrip(b"=")
 
 
-def get_callable_bytecode(obj: Callable) -> bytes:
+def calculate_callable_fullname(val: Callable) -> str:
+    if not callable(val):
+        raise TypeError("object must be callable")
+    if isinstance(val, types.FunctionType):
+        module, qualname = val.__module__, val.__qualname__
+    elif isinstance(val, types.MethodType) and isinstance(val.__self__, type):
+        func = val.__func__
+        if not isinstance(func, types.FunctionType):
+            raise TypeError(f"Unsupported method {val!r}")
+        module = func.__module__
+        qualname = f"{val.__self__.__qualname__}.{func.__name__}"
+    else:
+        raise TypeError(
+            f"Can not calculate a stable cross-process hash for {type(val).__name__}. "
+            "Only functions, static methods and class methods are supported. "
+            "Wrap it in a plain function, or use excludes/excludes_positional for methods."
+        )
+    return f"{module}:{qualname}"
+
+
+def get_callable_bytecode(val: Callable) -> bytes:
     """Retrieve the bytecode of the given callable object.
 
     Args:
@@ -69,10 +93,10 @@ def get_callable_bytecode(obj: Callable) -> bytes:
     Returns:
         The bytecode of the function, or `b""` if the function has no `__code__` attribute.
     """
-    if not callable(obj):
-        raise TypeError("obj must be callable")
+    if not callable(val):
+        raise TypeError("object must be callable")
     try:
-        return obj.__code__.co_code
+        return val.__code__.co_code
     except AttributeError:
         return b""
 
@@ -89,6 +113,8 @@ def read_lua_file(file: str) -> str:
     This function locates and reads the entire text content of a specified Lua file.
     It uses the :mod:`importlib.resources` to locate the file.
     """
+    if __package__ is None:
+        raise RuntimeError("‘__package__’ is None")
     return dedent(importlib_resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
 
 
@@ -105,7 +131,7 @@ def clean_lua_script(source: str) -> str:
         This function utilizes the :mod:`pygments` library to remove comments and empty lines from the Lua script.
         If :mod:`pygments` is not installed, the source code will be returned unchanged.
     """
-    if pygments:
+    if is_module(pygments):
         lexer = get_lexer_by_name("lua")  # pyright: ignore[reportPossiblyUnboundVariable]
         if lexer is None:  # pragma: no cover
             warn("Lua lexer not found in pygments, return source code as is", RuntimeWarning)
@@ -118,7 +144,7 @@ def clean_lua_script(source: str) -> str:
         return source
 
 
-if pygments:
+if is_module(pygments):
 
     @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
     def _filter(self, lexer, stream, options):

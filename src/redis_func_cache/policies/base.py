@@ -14,7 +14,7 @@ else:  # pragma: no cover
 
 
 from ..typing import is_redis_async_client, is_redis_sync_client
-from ..utils import b64digest, get_callable_bytecode
+from ..utils import b64digest, calculate_callable_fullname, get_callable_bytecode
 from .abstract import AbstractPolicy
 
 __all__ = ("BaseClusterMultiplePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseSinglePolicy")
@@ -42,7 +42,7 @@ class BaseSinglePolicy(AbstractPolicy):
     @override
     def calc_keys(
         self,
-        f: Callable | None = None,
+        fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
@@ -126,7 +126,7 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
     @override
     def calc_keys(
         self,
-        f: Callable | None = None,
+        fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
@@ -157,7 +157,7 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def calc_keys(
         self,
-        f: Callable | None = None,
+        fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
@@ -170,11 +170,11 @@ class BaseMultiplePolicy(AbstractPolicy):
         Returns:
             Tuple of (sorted set key, hash map key).
         """
-        if not callable(f):
-            raise TypeError("Can not calculate hash for a non-callable object")
-        fullname = f"{f.__module__}:{f.__qualname__}"
+        if fn is None:
+            raise TypeError("Can not calculate hash for None")
+        fullname = calculate_callable_fullname(fn)
         h = hashlib.md5(fullname.encode())
-        h.update(get_callable_bytecode(f))
+        h.update(get_callable_bytecode(fn))
         checksum = b64digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
@@ -227,7 +227,7 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
     @override
     def calc_keys(
         self,
-        f: Callable | None = None,
+        fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
@@ -240,11 +240,11 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         Returns:
             Tuple of (sorted set key, hash map key).
         """
-        if not callable(f):
-            raise TypeError("Can not calculate hash for a non-callable object")
-        fullname = f"{f.__module__}:{f.__qualname__}"
+        if fn is None:
+            raise TypeError("Can not calculate hash for None")
+        fullname = calculate_callable_fullname(fn)
         h = hashlib.md5(fullname.encode())
-        h.update(get_callable_bytecode(f))
+        h.update(get_callable_bytecode(fn))
         checksum = b64digest(h).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"

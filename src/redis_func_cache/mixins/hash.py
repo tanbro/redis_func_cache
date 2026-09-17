@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from ..utils import b64digest, get_callable_bytecode
+from ..utils import b64digest, calculate_callable_fullname, get_callable_bytecode
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
@@ -98,7 +98,7 @@ class AbstractHashMixin(ABC):
 
     def calc_hash(
         self,
-        f: Callable | None = None,
+        fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
     ) -> KeyT:
@@ -119,13 +119,14 @@ class AbstractHashMixin(ABC):
         Raises:
             TypeError: If the function is not callable.
         """
-        if not callable(f):
-            raise TypeError("Can not calculate hash for a non-callable object")
+        if fn is None:
+            raise TypeError("Can not calculate hash for None")
+        fullname = calculate_callable_fullname(fn)
         conf = self.__hash_config__
         hash = hashlib.new(conf.algorithm)
-        hash.update(f"{f.__module__}:{f.__qualname__}".encode())
+        hash.update(fullname.encode())
         if conf.use_bytecode:
-            hash.update(get_callable_bytecode(f))
+            hash.update(get_callable_bytecode(fn))
         if args is not None:
             hash.update(conf.serializer(args))
         if kwds is not None:
