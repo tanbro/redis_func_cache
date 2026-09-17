@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from ..utils import b64digest, calculate_callbale_fullname, get_callable_bytecode
+from ..utils import b64digest, calculate_callable_fullname, get_callable_bytecode
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
@@ -121,7 +121,7 @@ class AbstractHashMixin(ABC):
         """
         if fn is None:
             raise TypeError("Can not calculate hash for None")
-        fullname = calculate_callbale_fullname(fn)
+        fullname = calculate_callable_fullname(fn)
         conf = self.__hash_config__
         hash = hashlib.new(conf.algorithm)
         hash.update(fullname.encode())

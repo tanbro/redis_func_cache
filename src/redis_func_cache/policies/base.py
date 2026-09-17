@@ -14,7 +14,7 @@ else:  # pragma: no cover
 
 
 from ..typing import is_redis_async_client, is_redis_sync_client
-from ..utils import b64digest, calculate_callbale_fullname, get_callable_bytecode
+from ..utils import b64digest, calculate_callable_fullname, get_callable_bytecode
 from .abstract import AbstractPolicy
 
 __all__ = ("BaseClusterMultiplePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseSinglePolicy")
@@ -172,7 +172,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         """
         if fn is None:
             raise TypeError("Can not calculate hash for None")
-        fullname = calculate_callbale_fullname(fn)
+        fullname = calculate_callable_fullname(fn)
         h = hashlib.md5(fullname.encode())
         h.update(get_callable_bytecode(fn))
         checksum = b64digest(h).decode()
@@ -242,7 +242,7 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         """
         if fn is None:
             raise TypeError("Can not calculate hash for None")
-        fullname = calculate_callbale_fullname(fn)
+        fullname = calculate_callable_fullname(fn)
         h = hashlib.md5(fullname.encode())
         h.update(get_callable_bytecode(fn))
         checksum = b64digest(h).decode()

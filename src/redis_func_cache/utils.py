@@ -131,7 +131,7 @@ if is_module(pygments):
         yield from ((ttype, value) for ttype, value in stream if ttype not in LUA_PYGMENTS_FILTER_TYPES)
 
 
-def calculate_callbale_fullname(val: Callable) -> str:
+def calculate_callable_fullname(val: Callable) -> str:
     if not callable(val):
         raise TypeError("Can not calculate fullname for a non-callable object")
     if isinstance(val, types.FunctionType):
