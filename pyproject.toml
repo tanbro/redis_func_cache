@@ -85,7 +85,7 @@ test = [
   "pytest-asyncio",
   "python-dotenv",
 ]
-typing = ["mypy", "types-redis", "types-PyYAML", "types-Pygments", "types-colorama", "types-pexpect"]
+typing = ["mypy"]
 
 [tool.hatch.version]
 source = "vcs"
