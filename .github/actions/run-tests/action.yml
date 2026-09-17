@@ -42,7 +42,7 @@ runs:
       env:
         SETUPTOOLS_SCM_PRETEND_VERSION: '0'
       shell: bash
-      run: uv sync --all-extras --no-dev --group test --group typed
+      run: uv sync --all-extras --no-dev --group test --group typing
 
     - name: Lint check with ruff
       uses: astral-sh/ruff-action@v3

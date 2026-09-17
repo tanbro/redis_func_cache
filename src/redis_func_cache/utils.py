@@ -95,8 +95,9 @@ def get_callable_bytecode(val: Callable) -> bytes:
     """
     if not callable(val):
         raise TypeError("object must be callable")
+    # Function objects have a `__code__` attribute, but not all callable objects are functions
     try:
-        return val.__code__.co_code
+        return val.__code__.co_code  # type: ignore
     except AttributeError:
         return b""
 
@@ -148,4 +149,6 @@ if is_module(pygments):
 
     @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
     def _filter(self, lexer, stream, options):
+        if LUA_PYGMENTS_FILTER_TYPES is None:
+            raise RuntimeError("‘LUA_PYGMENTS_FILTER_TYPES’ is None")
         yield from ((ttype, value) for ttype, value in stream if ttype not in LUA_PYGMENTS_FILTER_TYPES)
