@@ -3,10 +3,16 @@
 [Unreleased] - Next Version
 - 🚀 Breaking Changes
   - Raise minimum Python version to 3.10+. Drop official support for Python 3.9 and below. Fully migrate type annotations to modern PEP 604 style
-  ✨ Improvements
+  - Stricter callable identity validation: key calculation now raises `TypeError` for callables that can not be named stably across processes (instance-bound methods, `functools.partial`, callable class instances, built-in functions). Plain functions, static methods and class-bound methods (e.g. `classmethod`) remain supported
+- ✨ Improvements
   - Serialization system stability upgrade
     - Hardened official msgpack serializer with fixed standard-compliant parameters: `use_bin_type=True` / `raw=False`
     - Built-in `memoryview` compatibility for redis-py raw response data
+  - Key calculation accepts class-bound methods explicitly (e.g. `MyClass.cm = cache.decorate(...)(MyClass.cm)` keeps `cls` out of the cache key)
+  - Clearer `TypeError` message for unsupported callables, with actionable guidance
+- 📄 Documentation
+  - Rewrite "Known Issues" on argument serialization: clarify `self`/`cls` handling (hash by value / by reference), document `excludes_positional=[0]` and the classmethod rebinding pattern, and the instance-bound method rejection
+  - Correct the attribution of the built-in functions limitation (identity naming, not bytecode)
 - 📦 Dependency Optimization
   - Upgrade & align redis-py version range: `"redis>=5.2,<9"`
   - Clean and standardize all optional extras definitions

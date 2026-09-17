@@ -64,7 +64,27 @@ def b64digest(x: Hash) -> bytes:
     return b64encode(x.digest()).rstrip(b"=")
 
 
-def get_callable_bytecode(obj: Callable) -> bytes:
+def calculate_callable_fullname(val: Callable) -> str:
+    if not callable(val):
+        raise TypeError("object must be callable")
+    if isinstance(val, types.FunctionType):
+        module, qualname = val.__module__, val.__qualname__
+    elif isinstance(val, types.MethodType) and isinstance(val.__self__, type):
+        func = val.__func__
+        if not isinstance(func, types.FunctionType):
+            raise TypeError(f"Unsupported method {val!r}")
+        module = func.__module__
+        qualname = f"{val.__self__.__qualname__}.{func.__name__}"
+    else:
+        raise TypeError(
+            f"Can not calculate a stable cross-process hash for {type(val).__name__}. "
+            "Only functions, static methods and class methods are supported. "
+            "Wrap it in a plain function, or use excludes/excludes_positional for methods."
+        )
+    return f"{module}:{qualname}"
+
+
+def get_callable_bytecode(val: Callable) -> bytes:
     """Retrieve the bytecode of the given callable object.
 
     Args:
@@ -73,10 +93,10 @@ def get_callable_bytecode(obj: Callable) -> bytes:
     Returns:
         The bytecode of the function, or `b""` if the function has no `__code__` attribute.
     """
-    if not callable(obj):
-        raise TypeError("obj must be callable")
+    if not callable(val):
+        raise TypeError("object must be callable")
     try:
-        return obj.__code__.co_code
+        return val.__code__.co_code
     except AttributeError:
         return b""
 
@@ -129,21 +149,3 @@ if is_module(pygments):
     @simplefilter  # pyright: ignore[reportPossiblyUnboundVariable]
     def _filter(self, lexer, stream, options):
         yield from ((ttype, value) for ttype, value in stream if ttype not in LUA_PYGMENTS_FILTER_TYPES)
-
-
-def calculate_callable_fullname(val: Callable) -> str:
-    if not callable(val):
-        raise TypeError("Can not calculate fullname for a non-callable object")
-    if isinstance(val, types.FunctionType):
-        module, qualname = val.__module__, val.__qualname__
-    elif isinstance(val, types.MethodType) and isinstance(val.__self__, type):
-        func = val.__func__
-        if not isinstance(func, types.FunctionType):
-            raise TypeError(f"Unsupported method {val!r}")
-        module = func.__module__
-        qualname = f"{val.__self__.__qualname__}.{func.__name__}"
-    else:
-        raise TypeError(
-            f"Can not calculate a stable cross-process hash for {type(val).__name__}; only functions, static methods and class methods are supported"
-        )
-    return f"{module}:{qualname}"

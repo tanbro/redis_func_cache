@@ -876,12 +876,11 @@ def some_func(*args, **kwargs): ...
 
 ## Known Issues
 
-- Cannot decorate a function that has an argument not serializable by [`pickle`][] or other serialization libraries.
+- Arguments passed to a cached function — including `self`/`cls` when decorating methods inside a class body — must be serializable by the args serializer of the policy's hash mixin (pickle for the built-in policies, JSON for the `Json*` mixins), or excluded from the key and hash calculations with `excludes` and/or `excludes_positional`.
 
-  - For a common method defined inside a class, the class must be serializable; otherwise, the first `self` argument cannot be serialized.
-  - For a class method (decorated by [`@classmethod`](https://docs.python.org/3/library/functions.html#classmethod)), the class type itself, i.e., the first `cls` argument, must be serializable.
-
-  Anyhow, we can work around this issue by excluding the unsupported arguments from the key and hash calculations with `excludes` and/or `excludes_positional` parameters.
+  - Instance methods: the instance is hashed **by value**. If the result does not depend on instance state, use `excludes_positional=[0]` — cache entries are then shared across instances; otherwise the instance must be serializable.
+  - Class methods: classes pickle **by reference**, so importable classes work out of the box. Alternatively, rebind the bound method after class creation — `MyClass.cm = cache.decorate(policy=...)(MyClass.cm)` — then `cls` never enters the key at all.
+  - Passing an already-bound *instance* method (e.g. `cache.decorate(obj.method)`) raises `TypeError` at key calculation; decorate the unbound function in the class body instead.
 
 - Compatibility with other [decorator][]s is not guaranteed.
 
@@ -928,7 +927,7 @@ def some_func(*args, **kwargs): ...
 
   However, you can define a custom mixin that inherits from `AbstractHashMixin`, in which you can implement your own hash function to support compatibility across Python versions.
 
-  Additionally, the decorator **cannot be used with native or built-in functions** due to same limitation.
+  Additionally, the decorator **cannot be used with native or built-in functions**: they carry no stable cross-process function identity for key calculation, so they are rejected with a `TypeError` — regardless of the `use_bytecode` setting.
 
 ## Test
 
