@@ -109,7 +109,7 @@ class AbstractHashMixin(ABC):
         They use different hash algorithms and serializers defined in the class attribute :attr:`.__hash_config__` to generate different ``hash`` value.
 
         Args:
-            f: The function to calculate hash for.
+            fn: The function to calculate hash for.
             args: The :term`sequence` arguments of the function.
             kwds: The keyword arguments of the function.
 

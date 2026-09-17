@@ -33,6 +33,45 @@ async def clean_async_caches():
 
 
 @pytest.mark.asyncio(loop_scope="function")
+async def test_async_staticmethod_descriptor():
+    cache = ASYNC_CACHES["lru"]
+
+    class Example:
+        @cache
+        @staticmethod
+        async def echo(value):
+            await asyncio.sleep(0)
+            return value
+
+    async def execute(user_function, user_args, user_kwds, *args, **kwargs):
+        return await user_function(*user_args, **user_kwds)
+
+    with patch.object(cache, "aexec", side_effect=execute):
+        assert isinstance(Example.__dict__["echo"], staticmethod)
+        assert await Example.echo(1) == 1
+        assert await Example().echo(2) == 2
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_async_classmethod_decorator_order():
+    cache = ASYNC_CACHES["lru"]
+
+    class Example:
+        @classmethod
+        @cache(excludes_positional=[0])
+        async def echo(cls, value):
+            await asyncio.sleep(0)
+            return value
+
+    async def execute(user_function, user_args, user_kwds, *args, **kwargs):
+        return await user_function(*user_args, **user_kwds)
+
+    with patch.object(cache, "aexec", side_effect=execute):
+        assert await Example.echo(1) == 1
+        assert await Example().echo(2) == 2
+
+
+@pytest.mark.asyncio(loop_scope="function")
 async def test_async_simple():
     for cache in ASYNC_CACHES.values():
 

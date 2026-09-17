@@ -762,7 +762,7 @@ class AbstractHashMixin:
     ...
 
     def calc_hash(self, fn=None, args=None, kwds=None):
-        if not callable(f):
+        if not callable(fn):
             raise TypeError(f"Cannot calculate hash for {fn=}")
         conf = self.__hash_config__
         h = hashlib.new(conf.algorithm)
@@ -785,7 +785,7 @@ This configuration can be illustrated as follows:
 
 ```mermaid
 flowchart TD
-    A[Start] --> B{Is f callable?}
+    A[Start] --> B{Is fn callable?}
     B -->|No| C[Throw TypeError]
     B -->|Yes| D[Get config conf]
     D --> E[Create hash object h]
@@ -847,11 +847,11 @@ if TYPE_CHECKING:  # pragma: no cover
 class MyHashMixin(AbstractHashMixin):
     @override
     def calc_hash(
-        self, f: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
+        self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
     ) -> KeyT:
-        assert callable(f)
+        assert callable(fn)
         dig = hashlib("balck2b")
-        dig.update(f.__qualname__.encode())
+        dig.update(fn.__qualname__.encode())
         dig.update(cloudpickle.dumps(args))
         dig.update(cloudpickle.dumps(kwds))
         return dig.hexdigest()
@@ -879,7 +879,14 @@ def some_func(*args, **kwargs): ...
 - Arguments passed to a cached function — including `self`/`cls` when decorating methods inside a class body — must be serializable by the args serializer of the policy's hash mixin (pickle for the built-in policies, JSON for the `Json*` mixins), or excluded from the key and hash calculations with `excludes` and/or `excludes_positional`.
 
   - Instance methods: the instance is hashed **by value**. If the result does not depend on instance state, use `excludes_positional=[0]` — cache entries are then shared across instances; otherwise the instance must be serializable.
-  - Class methods: classes pickle **by reference**, so importable classes work out of the box. Alternatively, rebind the bound method after class creation — `MyClass.cm = cache.decorate(policy=...)(MyClass.cm)` — then `cls` never enters the key at all.
+  - Class methods: classes pickle **by reference**, so importable classes work out of the box. Place `@classmethod` outside the cache decorator to preserve descriptor binding. If the result does not depend on the declaring class or subclass, use `excludes_positional=[0]` to keep `cls` out of the cache key:
+
+    ```python
+    class MyClass:
+        @classmethod
+        @cache(excludes_positional=[0])
+        def cm(cls, value): ...
+    ```
   - Passing an already-bound *instance* method (e.g. `cache.decorate(obj.method)`) raises `TypeError` at key calculation; decorate the unbound function in the class body instead.
 
 - Compatibility with other [decorator][]s is not guaranteed.

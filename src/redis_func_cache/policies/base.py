@@ -165,7 +165,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         Calculate a unique Redis key pair for the given function.
 
         Args:
-            f: The decorated function.
+            fn: The decorated function.
 
         Returns:
             Tuple of (sorted set key, hash map key).
@@ -235,7 +235,7 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         Calculate a unique Redis key pair for the given function, using cluster hash tags.
 
         Args:
-            f: The decorated function.
+            fn: The decorated function.
 
         Returns:
             Tuple of (sorted set key, hash map key).

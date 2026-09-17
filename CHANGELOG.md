@@ -4,14 +4,15 @@
 - 🚀 Breaking Changes
   - Raise minimum Python version to 3.10+. Drop official support for Python 3.9 and below. Fully migrate type annotations to modern PEP 604 style
   - Stricter callable identity validation: key calculation now raises `TypeError` for callables that can not be named stably across processes (instance-bound methods, `functools.partial`, callable class instances, built-in functions). Plain functions, static methods and class-bound methods (e.g. `classmethod`) remain supported
+  - Rename the callable parameter of the public `calc_keys`, `calc_hash` and `calc_ext_args` policy extension methods from `f` to `fn`; custom policies and direct keyword calls must migrate from `f=` to `fn=`
 - ✨ Improvements
   - Serialization system stability upgrade
     - Hardened official msgpack serializer with fixed standard-compliant parameters: `use_bin_type=True` / `raw=False`
     - Built-in `memoryview` compatibility for redis-py raw response data
-  - Key calculation accepts class-bound methods explicitly (e.g. `MyClass.cm = cache.decorate(...)(MyClass.cm)` keeps `cls` out of the cache key)
+  - Key calculation accepts class-bound methods explicitly while preserving a stable class-qualified identity
   - Clearer `TypeError` message for unsupported callables, with actionable guidance
 - 📄 Documentation
-  - Rewrite "Known Issues" on argument serialization: clarify `self`/`cls` handling (hash by value / by reference), document `excludes_positional=[0]` and the classmethod rebinding pattern, and the instance-bound method rejection
+  - Rewrite "Known Issues" on argument serialization: clarify `self`/`cls` handling (hash by value / by reference), document `excludes_positional=[0]` and the required classmethod/cache decorator order, and the instance-bound method rejection
   - Correct the attribution of the built-in functions limitation (identity naming, not bytecode)
 - 📦 Dependency Optimization
   - Upgrade & align redis-py version range: `"redis>=5.2,<9"`
@@ -22,7 +23,7 @@
   - Improve static type checking compatibility for pyright
 - 💡 Notes
   This release focuses on stability, standard compliance and code modernization.
-  No breaking changes for core cache logic, decorator API, policy interface.
+  No breaking changes for core cache logic or the decorator API.
   All serialization aliases remain fully compatible with existing user code
 
 ## v0.7.0
