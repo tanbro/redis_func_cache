@@ -82,15 +82,15 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 - Install from PyPI:
 
     ```bash
-    pip install redis_func_cache
+    pip install redis_func_cache[hiredis]
     ```
 
-- Install from source:
+- Install from source in a editable / development mode:
 
     ```bash
     git clone https://github.com/tanbro/redis_func_cache.git
     cd redis_func_cache
-    pip install .
+    pip install --editable --group dev .
     ```
 
 - Or install from Github directly:
@@ -99,7 +99,7 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
     pip install git+https://github.com/tanbro/redis_func_cache.git@main
     ```
 
-The library supports [hiredis](https://github.com/redis/hiredis). Installing it can significantly improve performance. It is an optional dependency and can be installed by running: `pip install redis_func_cache[hiredis]`.
+The library supports [hiredis](https://github.com/redis/hiredis) which is strongly **recommended**. Installing it can significantly improve performance. It is an optional dependency and can be installed by running: `pip install redis_func_cache[hiredis]`.
 
 If [Pygments](https://pygments.org/) is installed, the library will automatically remove comments and empty lines from Lua scripts evaluated on the [Redis](https://redis.io/) server, which can slightly improve performance. *Pygments* is also an optional dependency and can be installed by running: `pip install redis_func_cache[pygments]`.
 
