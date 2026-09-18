@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-import sys
+import importlib.resources
 import types
 from base64 import b64encode
 from collections.abc import Callable
 from textwrap import dedent
 from typing import TYPE_CHECKING
 from warnings import warn
-
-if sys.version_info < (3, 9):  # pragma: no cover  # noqa: UP036
-    import importlib_resources
-else:  # pragma: no cover
-    import importlib.resources as importlib_resources
 
 try:  # pragma: no cover
     import pygments  # type: ignore[import-not-found]
@@ -120,7 +115,7 @@ def read_lua_file(file: str) -> str:
     """
     if __package__ is None:
         raise RuntimeError("‘__package__’ is None")
-    return dedent(importlib_resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
+    return dedent(importlib.resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
 
 
 def clean_lua_script(source: str) -> str:
