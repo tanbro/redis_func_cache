@@ -76,6 +76,8 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 - Support [Redis][] **cluster**.
 - Multiple caching policies: LRU, FIFO, LFU, RR ...
 - Serialization formats: JSON, Pickle, Dill, MsgPack, YAML, BSON, CBOR, cloudpickle ...
+- Per-item TTL (Redis ≥ 7.4).
+- Maintenance operations: `vacuum` to clean expired entries, `purge` to drop all cache structures — both without blocking Redis.
 
 ## Installation
 
@@ -435,7 +437,7 @@ You can also set TTL on individual cached items:
 def my_func(x): ...
 ```
 
-> ⚠️ **Warning:** This feature requires [Redis][] 7.4+ and uses [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). When a field expires, it's removed from the HASH but the corresponding entry in the ZSET is only lazily cleaned up.
+> ⚠️ **Warning:** This feature requires [Redis][] 7.4+ and uses [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). When a field expires, it's removed from the HASH but the corresponding entry in the ZSET is only lazily cleaned up. Use `vacuum` (see the *Cache Maintenance* section below) to reclaim those slots on demand.
 
 ### Serialization
 
@@ -873,6 +875,35 @@ def some_func(*args, **kwargs): ...
 > 💡 **Tip:**\
 > The purpose of the hash algorithm is to ensure the isolation of cached return values for different function invocations.
 > Therefore, you can generate unique key names using any method, not just hashes.
+
+## Cache Maintenance
+
+Two explicit maintenance operations are available on both [`RedisFuncCache`][] and its policy (`cache.policy.vacuum` / `cache.policy.purge`):
+
+### Vacuum: clean expired entries
+
+With a per-item `ttl` (Redis ≥ 7.4), an expired result disappears from the HASH while its entry in the ZSET lingers as a "ghost" — an eviction slot that points to nothing. `vacuum` scans the sorted set in batches and removes those members:
+
+```python
+removed = cache.vacuum()  # async: removed = await cache.avacuum()
+print(f"reclaimed {removed} expired entries")
+```
+
+- `vacuum(batch_size=500)` returns the number of ghost entries removed; `avacuum()` is the async mirror.
+- It never blocks Redis: each batch is one atomic Lua script performing a single `ZSCAN` step, `HEXISTS` probes and a `ZREM`.
+- For details on when ghosts appear and why this design was chosen, see [the design note](docs/design/field-ttl-vacuum.md).
+
+### Purge: drop cache structures
+
+`purge` deletes every Redis key the cache owns and returns the number of keys deleted:
+
+```python
+n = cache.purge()  # async: await cache.apurge()
+print(f"deleted {n} keys")
+```
+
+- For "multiple" policies — one key pair per decorated function — the keys are enumerated with `SCAN` (never the blocking `KEYS`) and deleted in batches of `batch_size` (default 500) with `UNLINK`, so a large purge never stalls the server.
+- For "single" policies, the static key pair is deleted with one command.
 
 ## Known Issues
 

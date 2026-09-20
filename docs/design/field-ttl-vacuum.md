@@ -1,12 +1,3 @@
----
-status: draft
-description: |
-   Targeted at the next minor release.
-   This note records the semantics of per-field TTL in *redis-func-cache*,
-   the problem of expired entries lingering in the sorted-set structure,
-   the alternatives we considered, and the design of the chosen solution: an explicit `vacuum` operation on the policy.
----
-
 # Design Note: Vacuuming Expired Per-Field Cache Entries
 
 ## Background
@@ -22,9 +13,9 @@ Every cache maintained by *redis-func-cache* consists of **two Redis keys**:
 All reads and writes go through policy-specific Lua scripts so that both structures are
 updated atomically.
 
-Since v0.5, {meth}`~redis_func_cache.cache.RedisFuncCache.decorate` accepts an
-experimental `ttl` parameter (**field TTL**, not to be confused with the structure-level
-`ttl` of {class}`~redis_func_cache.cache.RedisFuncCache`). When set, the put script calls
+Since v0.5, the `decorate` method accepts an experimental `ttl` parameter (**field
+TTL**, not to be confused with the structure-level `ttl` of `RedisFuncCache`). When
+set, the put script calls
 [`HEXPIRE`](https://redis.io/docs/latest/commands/hexpire/) (Redis ≥ 7.4) so that an
 individual cached result expires on its own schedule:
 
@@ -72,9 +63,8 @@ key, or until eviction reclaims the slot.
 limit — memory is bounded by the same envelope as live entries. The actual costs are
 **accuracy and efficiency**:
 
-- {meth}`~redis_func_cache.policies.abstract.AbstractPolicy.get_size` reports `HLEN`
-  (live entries), while eviction decisions and the eviction script use `ZCARD`
-  (live + ghosts). The two numbers diverge as ghosts accumulate.
+- `get_size` reports `HLEN` (live entries), while eviction decisions and the eviction
+  script use `ZCARD` (live + ghosts). The two numbers diverge as ghosts accumulate.
 - Every ghost wastes one eviction slot: reclaiming it costs a full
   `ZPOPMIN`/`ZPOPMAX` + `HDEL` cycle that evicts no real entry.
 
@@ -90,31 +80,49 @@ limit — memory is bounded by the same envelope as live entries. The actual cos
 | Keyspace notifications + background sweeper thread | Rejected | Expired-field notifications for hashes are not delivered reliably (and hash-field expiry events are emitted on access, not on expiry); it also drags a runtime dependency and threading model into the library. |
 | Versioned/generation keys (swap structure on invalidation) | Rejected | A wholesale redesign of the key layout to solve a bounded, low-severity issue. |
 
-## Chosen design: `vacuum` on `AbstractPolicy`
+## Chosen design: `vacuum` on the policy
 
 The chosen design is an **explicit, on-demand maintenance operation**, placed on
-{class}`~redis_func_cache.policies.abstract.AbstractPolicy`.
+`AbstractPolicy` and delegated by `RedisFuncCache`:
 
-### Why `AbstractPolicy` is the right home
+```python
+from redis import Redis
+from redis_func_cache import LruPolicy, RedisFuncCache
+
+cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: Redis.from_url("redis://"))
+
+
+@cache.decorate(ttl=600)  # per-item TTL (Redis >= 7.4)
+def fetch_user_profile(user_id: str):
+    ...
+
+
+removed = cache.vacuum()  # or: await cache.avacuum()
+print(f"removed {removed} expired entries")
+```
+
+- `cache.vacuum(batch_size=500)` removes every ZSET member whose hash field has
+  expired and returns the number removed. `cache.avacuum()` is the async mirror.
+- It is also available directly on the policy: `cache.policy.vacuum()`.
+- It raises `RuntimeError` when called against a client whose sync/async nature does
+  not match the call, mirroring `purge` / `apurge`.
+
+### Why the policy level is the right home
 
 The algorithm is **policy-independent by construction**: it only ever asks "does this
-ZSET member still have a hash field?", and never interprets scores. Both collaborators —
-{meth}`calc_keys()
-~redis_func_cache.policies.abstract.AbstractPolicy.calc_keys` for the key pair and
-{meth}`get_client()
-~redis_func_cache.policies.abstract.AbstractPolicy.get_client` for the client — are
-already available at the abstract level. One shared implementation covers all six policy
-families (single/multiple × plain/cluster, across FIFO/LFU/LRU/LRU-T/MRU/RR), and the
-operation is cluster-safe because it touches a single key pair per script invocation
-(both keys of a pair share a hash tag in the cluster policies).
+ZSET member still have a hash field?", and never interprets scores. One shared
+implementation covers all six policy families (single/multiple × plain/cluster, across
+FIFO/LFU/LRU/LRU-T/MRU/RR), and the operation is cluster-safe because it touches a
+single key pair per script invocation (both keys of a pair share a hash tag in the
+cluster policies).
 
 One structural wrinkle: multiple policies derive a key pair *per decorated function*,
-so `calc_keys` needs a function argument that a vacuum call does not have. The
-enumeration of key pairs is therefore a small hook implemented once each in
-`BaseSinglePolicy` (return the static pair) and `BaseMultiplePolicy` (enumerate pairs
-by a `SCAN` pattern, deriving the hash key from each sorted-set key's `:0` suffix).
-This is the single-versus-multiple *structural* distinction, not eviction logic — the
-six eviction strategies themselves remain zero-code.
+so a vacuum call has no function argument to compute keys from. The enumeration of key
+pairs is therefore a small hook implemented once each in `BaseSinglePolicy` (return the
+static pair) and `BaseMultiplePolicy` (enumerate pairs by a `SCAN` pattern, deriving
+the hash key from each sorted-set key's `:0` suffix). This is the single-versus-multiple
+*structural* distinction, not eviction logic — the six eviction strategies themselves
+remain zero-code.
 
 ### Implementation shape: a cursor-passing Lua script
 
@@ -160,68 +168,15 @@ and races against concurrent `purge`/expiry degrade to harmless no-ops on missin
 keys; pairs created mid-run are picked up by the next vacuum.
 
 The key-pair enumeration is exposed as a small **abstract** hook pair,
-`calc_key_pairs` / `acalc_key_pairs`, implemented once each in `BaseSinglePolicy`
-(return the static pair) and `BaseMultiplePolicy` (enumerate by pattern, deriving the
-hash key from each sorted-set key's `:0` suffix) — the single-versus-multiple
-*structural* distinction, not eviction logic. Being mandatory override points, they are
+`calc_key_pairs` / `acalc_key_pairs`. Being mandatory override points, they are
 `@abstractmethod` on `AbstractPolicy`, so a policy missing them fails at instantiation
-rather than mid-vacuum. The per-pair cursor loop is inlined in `vacuum` / `avacuum`
-themselves — the extracted helpers had exactly one call site each and no reuse.
-The rule of thumb: **hooks that subclasses must implement are abstract and public;
-machinery that subclasses must not touch carries a leading underscore** — consistent
-with `calc_keys` / `purge` / `get_size` conventions in the same hierarchy.
-
-### API sketch
-
-```python
-class AbstractPolicy:
-    def vacuum(self, batch_size: int = 500) -> int:
-        """Remove ZSET members whose hash fields have expired.
-
-        Returns the number of ghost entries removed.
-        """
-
-    async def avacuum(self, batch_size: int = 500) -> int: ...
-```
-
-- Mirrors the existing `purge` / `apurge` pairing, including the sync/async client
-  guards (raise the same `RuntimeError` when the client's sync/async nature does not
-  match the call).
-- Iterates the ZSET in `batch_size` chunks via the chunked Lua script described above;
-  memory per round trip and per script invocation stay bounded regardless of cache
-  size.
-- `RedisFuncCache` gains `vacuum()` / `avacuum()` as one-line delegations, so users do
-  not need to reach into `cache.policy`.
+rather than mid-vacuum. The rule of thumb: **hooks that subclasses must implement are
+abstract and public; machinery that subclasses must not touch carries a leading
+underscore** — consistent with `calc_keys` / `purge` / `get_size` conventions in the
+same hierarchy.
 
 ### Relationship to `get_size`
 
 A natural companion refinement is `get_size(accurate: bool = False)`: when `True`,
-vacuum first and then report `HLEN` (== `ZCARD` at that moment). This is recorded as a
+vacuum first and then report `HLEN` (== `ZCARD` at that moment). This is a possible
 follow-up, not part of the initial change.
-
-## Test plan
-
-Integration tests against a real Redis ≥ 7.4 server, parametrized over all six policy
-families, with sync and async mirrors:
-
-1. **Ghost removal.** Decorate a function with `ttl=` (field TTL), invoke it, then
-   simulate expiry with an explicit `HDEL` (deterministic — no sleeping on a real
-   TTL). `vacuum()` returns `1`, and `ZCARD` drops by `1`.
-2. **No false positives.** Fill a cache, vacuum, assert return value `0` and unchanged
-   `ZCARD`/`HLEN`.
-3. **Empty / missing keys.** Vacuum on a cache with no entries returns `0` and creates
-   no keys.
-4. **Client-nature guard.** `vacuum()` on an async-client cache raises `RuntimeError`
-   (mirroring `purge`).
-5. **Batching.** With a small `batch_size` and a cache larger than one batch, vacuum
-   still removes all ghosts (exercises the cursor loop).
-
-## Rollout
-
-1. Implement `AbstractPolicy.vacuum` / `avacuum`.
-2. Add `RedisFuncCache.vacuum` / `avacuum` delegations.
-3. Reference this note from the `ttl` parameter documentation in
-   {meth}`~redis_func_cache.cache.RedisFuncCache.decorate` (which currently describes
-   the ghost behavior as a `Caution`), replacing "lazily cleaned up" wording with a
-   pointer to `vacuum`.
-4. CHANGELOG entry and `.. versionadded::` markers — version to be decided at release.

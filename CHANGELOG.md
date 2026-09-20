@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- ✨ **New Features:**
+  - `ignore_redis_errors` option on `RedisFuncCache` (constructor and per-call override on `exec`/`aexec`/`decorate`): when enabled, `RedisError`s raised by cache reads and writes are swallowed instead of propagating to the caller, so a failing Redis never takes the application down. Errors are counted in the cache statistics (`Stats.err`).
+  - `vacuum()` / `avacuum()` maintenance operation to reclaim the ZSET slots of expired per-field TTL entries ("ghost" entries): scans the sorted set in batches with an atomic, cursor-passing Lua script and removes members whose hash field has expired. Returns the number of entries removed. See the design note `docs/design/field-ttl-vacuum.md`.
+  - Cache-level `purge()` / `apurge()` delegations, so callers no longer need to reach into `cache.policy` to drop all cache structures. Both accept a `batch_size` argument (default 500).
+  - `get_size()` / `aget_size()` on "multiple" policies: previously raised `NotImplementedError`, now return the total number of cached items across all decorated functions' key pairs.
+
+- 🛠 **Improvements:**
+  - Multiple-policy `purge` / `apurge` no longer use the blocking `KEYS` command followed by one giant `DEL`. Keys are now enumerated with `SCAN` and deleted in batches with `UNLINK` (default 500 keys per command), so purging a large cache never stalls the Redis server. Behavior and return value are unchanged. See the design note `docs/design/purge.md`.
+
+- 📚 **Documentation:**
+  - New design notes: "Vacuuming Expired Per-Field Cache Entries" (`docs/design/field-ttl-vacuum.md`) and "Purging Cache Structures Without Blocking Redis" (`docs/design/purge.md`).
+
 ## v0.8.0
 
 > 📅 2026-09-17
