@@ -1232,6 +1232,30 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         finally:
             self._stats.reset(token)
 
+    def purge(self, batch_size: int = 500) -> int:
+        """Delete every Redis key this cache owns.
+
+        A convenience delegating to :meth:`AbstractPolicy.purge
+        <redis_func_cache.policies.abstract.AbstractPolicy.purge>`, which contains
+        the full description.
+
+        Args:
+            batch_size: The number of keys per deletion command.
+
+        Returns:
+            The number of keys deleted.
+
+        .. versionadded:: TODO
+        """
+        return self.policy.purge(batch_size)
+
+    async def apurge(self, batch_size: int = 500) -> int:
+        """Async version of :meth:`purge`.
+
+        .. versionadded:: TODO
+        """
+        return await self.policy.apurge(batch_size)
+
     def vacuum(self, batch_size: int = 500) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
 

@@ -70,9 +70,13 @@ class BaseSinglePolicy(AbstractPolicy):
         return self._keys
 
     @override
-    def purge(self) -> int:
+    def purge(self, batch_size: int = 500) -> int:
         """
         Delete the cache's Redis keys synchronously.
+
+        Args:
+            batch_size: Ignored — a single policy owns exactly one static key pair,
+                deleted with one command.
 
         Returns:
             Number of keys deleted.
@@ -83,9 +87,13 @@ class BaseSinglePolicy(AbstractPolicy):
         return client.delete(*self.calc_keys())
 
     @override
-    async def apurge(self) -> int:
+    async def apurge(self, batch_size: int = 500) -> int:
         """
-        Delete the cache's Redis keys asynchronously.
+        Async version of :meth:`purge`.
+
+        Args:
+            batch_size: Ignored — a single policy owns exactly one static key pair,
+                deleted with one command.
 
         Returns:
             Number of keys deleted.
@@ -200,36 +208,66 @@ class BaseMultiplePolicy(AbstractPolicy):
         return f"{k}:0", f"{k}:1"
 
     @override
-    def purge(self) -> int:
+    def purge(self, batch_size: int = 500) -> int:
         """
         Delete all Redis keys for this policy synchronously.
 
+        Keys are enumerated with `SCAN` (never the blocking `KEYS`) and deleted
+        in batches with `UNLINK`, so the Redis server stays responsive regardless
+        of how many key pairs this policy owns.
+
+        Args:
+            batch_size: The number of keys per deletion command.
+
         Returns:
             Number of keys deleted.
+
+        .. versionadded:: TODO
+            The *batch_size* parameter.
         """
         client = self.cache.get_client()
         if not is_redis_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
-        if keys := client.keys(pat):
-            return client.delete(*keys)
-        return 0
+        removed = 0
+        batch: list[KeyT] = []
+        for key in client.scan_iter(match=pat):  # type: ignore[union-attr]
+            batch.append(key)
+            if len(batch) >= batch_size:
+                removed += client.unlink(*batch)
+                batch.clear()
+        if batch:
+            removed += client.unlink(*batch)
+        return removed
 
     @override
-    async def apurge(self) -> int:
+    async def apurge(self, batch_size: int = 500) -> int:
         """
-        Delete all Redis keys for this policy asynchronously.
+        Async version of :meth:`purge`.
+
+        Args:
+            batch_size: The number of keys per deletion command.
 
         Returns:
             Number of keys deleted.
+
+        .. versionadded:: TODO
+            The *batch_size* parameter.
         """
         client = self.cache.get_client()
         if not is_redis_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
-        if keys := await client.keys(pat):  # type: ignore[union-attr]
-            return await client.delete(*keys)  # type: ignore[union-attr]
-        return 0
+        removed = 0
+        batch: list[KeyT] = []
+        async for key in client.scan_iter(match=pat):  # type: ignore[union-attr]
+            batch.append(key)
+            if len(batch) >= batch_size:
+                removed += await client.unlink(*batch)  # type: ignore[union-attr]
+                batch.clear()
+        if batch:
+            removed += await client.unlink(*batch)  # type: ignore[union-attr]
+        return removed
 
     @override
     def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:

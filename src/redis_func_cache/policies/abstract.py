@@ -256,9 +256,12 @@ class AbstractPolicy(ABC):
         return removed
 
     @abstractmethod
-    def purge(self) -> int:
+    def purge(self, batch_size: int = 500) -> int:
         """
         Purge the cache.
+
+        Args:
+            batch_size: The number of keys per deletion command.
 
         Returns:
             Number of items removed (if implemented).
@@ -269,9 +272,12 @@ class AbstractPolicy(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    async def apurge(self) -> int:
+    async def apurge(self, batch_size: int = 500) -> int:
         """
         Asynchronously purge the cache.
+
+        Args:
+            batch_size: The number of keys per deletion command.
 
         Returns:
             Number of items removed (if implemented).

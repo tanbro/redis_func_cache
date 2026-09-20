@@ -42,6 +42,7 @@ Contents
    CHANGELOG
    CONTRIBUTING
    design/field-ttl-vacuum
+   design/purge
    AUTHORS
    LICENSE
 
