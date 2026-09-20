@@ -16,6 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, KeyT, ScriptTextT
 
     from ..cache import RedisFuncCache
+    from ..typing import RedisClientT
 
 
 __all__ = ("AbstractPolicy",)
@@ -160,7 +161,7 @@ class AbstractPolicy(ABC):
         return self._lua_scripts
 
     @abstractmethod
-    def calc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         """
         Return the (sorted-set key, hash-map key) pairs to vacuum.
 
@@ -179,7 +180,7 @@ class AbstractPolicy(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    async def acalc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         """
         Async version of :meth:`calc_key_pairs`.
 

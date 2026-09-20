@@ -20,6 +20,8 @@ from .abstract import AbstractPolicy
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
 
+    from ..typing import RedisClientT
+
 __all__ = ("BaseClusterMultiplePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseSinglePolicy")
 
 
@@ -121,11 +123,11 @@ class BaseSinglePolicy(AbstractPolicy):
         return await client.hlen(keys[1])  # type: ignore[union-attr, return-value]
 
     @override
-    def calc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         return [self.calc_keys()]
 
     @override
-    async def acalc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         return [self.calc_keys()]
 
 
@@ -230,12 +232,12 @@ class BaseMultiplePolicy(AbstractPolicy):
         return 0
 
     @override
-    def calc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:0"
         return [(zset_key, _hash_key_of(zset_key)) for zset_key in client.scan_iter(match=pat)]  # type: ignore[union-attr]
 
     @override
-    async def acalc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:0"
         return [(zset_key, _hash_key_of(zset_key)) async for zset_key in client.scan_iter(match=pat)]  # type: ignore[union-attr]
 
