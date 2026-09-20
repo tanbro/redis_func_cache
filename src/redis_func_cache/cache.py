@@ -219,7 +219,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
         update_ttl: bool = True,
-        raise_redis_error: bool = True,
+        ignore_redis_errors: bool = False,
         prefix: str = DEFAULT_PREFIX,
         serializer: SerializerSetterValueT = "json",
     ):
@@ -290,7 +290,15 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
                 .. versionadded:: 0.5
 
-            raise_redis_error: Whether to re-raise RedisError when read or write to a redis server/cluster.
+            ignore_redis_errors: Whether to ignore :class:`redis.RedisError` raised when reading from or writing to the redis server/cluster.
+
+                - When ``False`` (default), the error is re-raised to the caller of the decorated function.
+                - When ``True``, the error is logged and recorded in :attr:`Stats.err`, and the cache degrades gracefully:
+
+                  - a read error is treated as a cache miss, and the user function executes as usual;
+                  - a write error is discarded, and the user function's return value is still returned, just not cached.
+
+                Assigned to property :attr:`ignore_redis_errors`.
 
                 .. versionadded:: TODO
 
@@ -351,7 +359,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         self.maxsize = maxsize
         self.ttl = ttl
         self.update_ttl = update_ttl
-        self.raise_redis_error = raise_redis_error
+        self.ignore_redis_errors = ignore_redis_errors
         # Only accept a policy instance. Bind its internal cache reference
         # to a weakref proxy of this RedisFuncCache instance so policy methods
         # can access the cache via `self.cache`.
@@ -445,12 +453,12 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         self._update_ttl = bool(value)
 
     @property
-    def raise_redis_error(self) -> bool:
-        return self._raise_redis_error
+    def ignore_redis_errors(self) -> bool:
+        return self._ignore_redis_errors
 
-    @raise_redis_error.setter
-    def raise_redis_error(self, value: bool):
-        self._raise_redis_error = bool(value)
+    @ignore_redis_errors.setter
+    def ignore_redis_errors(self, value: bool):
+        self._ignore_redis_errors = bool(value)
 
     @property
     def serializer(self) -> SerializerPairT:
@@ -703,7 +711,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         deserialize_func: DeserializerT | None = None,
         bound: BoundArguments | None = None,
         field_ttl: int = 0,
-        raise_redis_error: bool = True,
+        ignore_redis_errors: bool | None = None,
         **options,
     ) -> Any:
         """Execute the given user function with the provided arguments.
@@ -721,6 +729,15 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 - If it is not provided, the policy will use all arguments to calculate the cache key and hash value.
 
             field_ttl: Time-to-live (in seconds) for the cached field.
+
+            ignore_redis_errors: Whether to ignore :class:`redis.RedisError` raised when reading from or writing to the redis backend.
+
+                - When :data:`None` (default), fall back to the instance-level :attr:`ignore_redis_errors` setting.
+                - When ``False``, the error is re-raised to the caller.
+                - When ``True``, the error is logged and recorded in :attr:`Stats.err`, and the cache degrades gracefully.
+
+                .. versionadded:: TODO
+
             options: Additional options from :meth:`decorate`'s `**kwargs`.
 
         Returns:
@@ -733,6 +750,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         logger = getLogger(__name__)
         mode = self._mode.get()
         stats = self._stats.get()
+        if ignore_redis_errors is None:
+            ignore_redis_errors = self.ignore_redis_errors
         script_0, script_1 = self.policy.lua_scripts
         if not is_redis_sync_script(script_0) or not is_redis_sync_script(script_1):
             raise RuntimeError("Redis lua script must be in synchronous mode on a non async function")
@@ -746,9 +765,10 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             except RedisError as redis_error:
                 if stats:
                     stats.err += 1
-                if raise_redis_error:
+                if ignore_redis_errors:
+                    logger.error(f"{self.__class__.__name__}::exec RedisError: %s", redis_error)
+                else:
                     raise
-                logger.error(f"{self.__class__.__name__}::exec RedisError: %s", redis_error)
             else:
                 if stats:
                     stats.read += 1
@@ -784,9 +804,10 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             except RedisError as redis_error:
                 if stats:
                     stats.err += 1
-                if raise_redis_error:
+                if ignore_redis_errors:
+                    logger.error(f"{self.__class__.__name__}::exec RedisError: %s", redis_error)
+                else:
                     raise
-                logger.error(f"{self.__class__.__name__}::exec RedisError: %s", redis_error)
             else:
                 if stats:
                     stats.write += 1
@@ -801,16 +822,18 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         deserialize_func: DeserializerT | None = None,
         bound: BoundArguments | None = None,
         field_ttl: int = 0,
-        raise_redis_error: bool = True,
+        ignore_redis_errors: bool | None = None,
         **options,
     ) -> Any:
         """Asynchronous version of :meth:`.exec`"""
         logger = getLogger(__name__)
         mode = self._mode.get()
         stats = self._stats.get()
+        if ignore_redis_errors is None:
+            ignore_redis_errors = self.ignore_redis_errors
         script_0, script_1 = self.policy.lua_scripts
         if not is_redis_async_script(script_0) or not is_redis_async_script(script_1):
-            raise RuntimeError("Redis lua script must be in synchronous mode on a non async function")
+            raise RuntimeError("Redis lua script must be in asynchronous mode on an async function")
         if stats:
             stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
@@ -821,9 +844,10 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             except RedisError as redis_error:
                 if stats:
                     stats.err += 1
-                if raise_redis_error:
+                if ignore_redis_errors:
+                    logger.error(f"{self.__class__.__name__}::aexec RedisError: %s", redis_error)
+                else:
                     raise
-                logger.error(f"{self.__class__.__name__}::aexec RedisError: %s", redis_error)
             else:
                 if stats:
                     stats.read += 1
@@ -837,7 +861,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
-        user_retval = user_function(*user_args, **user_kwds)
+        user_retval = await user_function(*user_args, **user_kwds)
         if stats:
             stats.exec += 1
         # Only put to cache if mode has WRITE flag
@@ -859,9 +883,10 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             except RedisError as redis_error:
                 if stats:
                     stats.err += 1
-                if raise_redis_error:
+                if ignore_redis_errors:
+                    logger.error(f"{self.__class__.__name__}::aexec RedisError: %s", redis_error)
+                else:
                     raise
-                logger.error(f"{self.__class__.__name__}::aexec RedisError: %s", redis_error)
             else:
                 if stats:
                     stats.write += 1
@@ -874,7 +899,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         *,
         serializer: SerializerSetterValueT | None = None,
         ttl: int | None = None,
-        raise_redis_error: bool | None = None,
+        ignore_redis_errors: bool | None = None,
         excludes: Sequence[str] | None = None,
         excludes_positional: Sequence[int] | None = None,
         **options,
@@ -915,6 +940,14 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                     This feature is **experimental** and requires Redis 7.4 or above.
 
                 .. versionadded:: 0.5
+
+            ignore_redis_errors: Whether to ignore :class:`redis.RedisError` raised when reading from or writing to the redis backend.
+
+                - When :data:`None` (default), fall back to the instance-level :attr:`ignore_redis_errors` setting.
+                - When ``False``, the error is re-raised to the caller.
+                - When ``True``, the error is logged and recorded in :attr:`Stats.err`, and the cache degrades gracefully.
+
+                .. versionadded:: TODO
 
             excludes: Optional sequence of parameter names specifying keyword arguments to exclude from cache key generation.
 
@@ -1020,7 +1053,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                         deserialize_func,
                         bound,
                         field_ttl,
-                        self.raise_redis_error if raise_redis_error is None else raise_redis_error,
+                        ignore_redis_errors,
                         **options,
                     )
 
@@ -1038,7 +1071,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                         deserialize_func,
                         bound,
                         field_ttl,
-                        self.raise_redis_error if raise_redis_error is None else raise_redis_error,
+                        ignore_redis_errors,
                         **options,
                     )
 
