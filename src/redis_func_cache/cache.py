@@ -12,9 +12,11 @@ from dataclasses import dataclass, replace
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
+from logging import getLogger
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, cast
 from warnings import warn
 
+from redis import RedisError
 from redis.commands.core import AsyncScript, Script
 
 try:  # pragma: no cover
@@ -201,6 +203,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
         """Number of cache misses"""
         hit: int = 0
         """Number of cache hits"""
+        err: int = 0
+        """Number of errors"""
 
     def __init__(
         self,
@@ -212,6 +216,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
         update_ttl: bool = True,
+        raise_redis_error: bool = True,
         prefix: str = DEFAULT_PREFIX,
         serializer: SerializerSetterValueT = "json",
     ):
@@ -282,6 +287,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 .. versionadded:: 0.5
 
+            raise_redis_error: Whether to re-raise RedisError when read or write to a redis server/cluster.
+
+                .. versionadded:: TODO
+
             prefix: The prefix for cache keys.
 
                 If not provided, the default is :data:`.DEFAULT_PREFIX`.
@@ -339,6 +348,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self.maxsize = maxsize
         self.ttl = ttl
         self.update_ttl = update_ttl
+        self.raise_redis_error = raise_redis_error
         # Only accept a policy instance. Bind its internal cache reference
         # to a weakref proxy of this RedisFuncCache instance so policy methods
         # can access the cache via `self.cache`.
@@ -432,6 +442,14 @@ class RedisFuncCache(Generic[RedisClientTV]):
         self._update_ttl = bool(value)
 
     @property
+    def raise_redis_error(self) -> bool:
+        return self._raise_redis_error
+
+    @raise_redis_error.setter
+    def raise_redis_error(self, value: bool):
+        self._raise_redis_error = bool(value)
+
+    @property
     def serializer(self) -> SerializerPairT:
         """The serializer and deserializer pair used by the cache.
 
@@ -506,34 +524,34 @@ class RedisFuncCache(Generic[RedisClientTV]):
         warn("property ‘client’ is deprecated since 0.5, use ‘get_client()’ instead", DeprecationWarning)
         return self.get_client()
 
-    def serialize(self, value: Any, f: SerializerT | None = None) -> EncodedT:
+    def serialize(self, value: Any, serializer: SerializerT | None = None) -> EncodedT:
         """Serialize the return value of the decorated function.
 
         The decorated function's return value is serialized to string or bytes and then stored in Redis when cached, and deserialized back to a Python object when retrieved.
 
         Args:
             value: The value to be serialized.
-            f: A custom serializer function. Defaults to :data:`None`, which means the class's default serializer will be used.
+            serializer: A custom serializer function. Defaults to :data:`None`, which means the class's default serializer will be used.
 
         Returns:
             The serialized value.
         """
-        if f:
-            return f(value)
+        if serializer:
+            return serializer(value)
         return self._serializer(value)
 
-    def deserialize(self, data: EncodedT, f: DeserializerT | None = None) -> Any:
+    def deserialize(self, data: EncodedT, deserializer: DeserializerT | None = None) -> Any:
         """Deserialize the return value of the decorated function.
 
         Args:
             data: The serialized data to be deserialized.
-            f: A custom deserializer function. Defaults to :data:`None`, which means the class's default deserializer will be used.
+            deserializer: A custom deserializer function. Defaults to :data:`None`, which means the class's default deserializer will be used.
 
         Returns:
             The deserialized value.
         """
-        if f:
-            return f(data)
+        if deserializer:
+            return deserializer(data)
         return self._deserializer(data)
 
     @classmethod
@@ -682,6 +700,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         deserialize_func: DeserializerT | None = None,
         bound: BoundArguments | None = None,
         field_ttl: int = 0,
+        raise_redis_error: bool = True,
         **options,
     ) -> Any:
         """Execute the given user function with the provided arguments.
@@ -708,6 +727,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             This method first calls :meth:`get` to attempt retrieving a cached result before executing the ``user_function``.
             If no cached result is found, it executes the ``user_function``, then calls :meth:`put` to store the result in the cache.
         """
+        logger = getLogger(__name__)
         mode = self._mode.get()
         stats = self._stats.get()
         script_0, script_1 = self.policy.lua_scripts
@@ -717,18 +737,25 @@ class RedisFuncCache(Generic[RedisClientTV]):
             stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
-        cached = None
         if mode.read:
-            cached = self.get(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
-            if stats:
-                stats.read += 1
-            if cached is None:
+            try:
+                cached = self.get(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
+            except RedisError as redis_error:
                 if stats:
-                    stats.miss += 1
+                    stats.err += 1
+                if raise_redis_error:
+                    raise
+                logger.error(f"{self.__class__.__name__}::exec RedisError: %s", redis_error)
             else:
                 if stats:
-                    stats.hit += 1
-                return self.deserialize(cached, deserialize_func)
+                    stats.read += 1
+                if cached is None:
+                    if stats:
+                        stats.miss += 1
+                else:
+                    if stats:
+                        stats.hit += 1
+                    return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
@@ -738,20 +765,28 @@ class RedisFuncCache(Generic[RedisClientTV]):
         # Only put to cache if mode has WRITE flag
         if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
-            self.put(
-                script_1,
-                keys,
-                hash_value,
-                user_retval_serialized,
-                self.maxsize,
-                self.update_ttl,
-                self.ttl,
-                0 if field_ttl is None else field_ttl,
-                options,
-                ext_args,
-            )
-            if stats:
-                stats.write += 1
+            try:
+                self.put(
+                    script_1,
+                    keys,
+                    hash_value,
+                    user_retval_serialized,
+                    self.maxsize,
+                    self.update_ttl,
+                    self.ttl,
+                    0 if field_ttl is None else field_ttl,
+                    options,
+                    ext_args,
+                )
+            except RedisError as redis_error:
+                if stats:
+                    stats.err += 1
+                if raise_redis_error:
+                    raise
+                logger.error(f"{self.__class__.__name__}::exec RedisError: %s", redis_error)
+            else:
+                if stats:
+                    stats.write += 1
         return user_retval
 
     async def aexec(
@@ -763,53 +798,70 @@ class RedisFuncCache(Generic[RedisClientTV]):
         deserialize_func: DeserializerT | None = None,
         bound: BoundArguments | None = None,
         field_ttl: int = 0,
+        raise_redis_error: bool = True,
         **options,
     ) -> Any:
         """Asynchronous version of :meth:`.exec`"""
+        logger = getLogger(__name__)
         mode = self._mode.get()
         stats = self._stats.get()
         script_0, script_1 = self.policy.lua_scripts
         if not is_redis_async_script(script_0) or not is_redis_async_script(script_1):
-            raise RuntimeError("Redis lua script must be in asynchronous mode on an async function")
+            raise RuntimeError("Redis lua script must be in synchronous mode on a non async function")
         if stats:
             stats.count += 1
         keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
         # Only attempt to get from cache if mode has READ flag
-        cached = None
         if mode.read:
-            cached = await self.aget(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
-            if stats:
-                stats.read += 1
-            if cached is None:
+            try:
+                cached = await self.aget(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
+            except RedisError as redis_error:
                 if stats:
-                    stats.miss += 1
+                    stats.err += 1
+                if raise_redis_error:
+                    raise
+                logger.error(f"{self.__class__.__name__}::aexec RedisError: %s", redis_error)
             else:
                 if stats:
-                    stats.hit += 1
-                return self.deserialize(cached, deserialize_func)
+                    stats.read += 1
+                if cached is None:
+                    if stats:
+                        stats.miss += 1
+                else:
+                    if stats:
+                        stats.hit += 1
+                    return self.deserialize(cached, deserialize_func)
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
             raise CacheMissError("The cache does not hit and function will not execute")
-        user_retval = await user_function(*user_args, **user_kwds)
+        user_retval = user_function(*user_args, **user_kwds)
         if stats:
             stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
             user_retval_serialized = self.serialize(user_retval, serialize_func)
-            await self.aput(
-                script_1,
-                keys,
-                hash_value,
-                user_retval_serialized,
-                self.maxsize,
-                self.update_ttl,
-                self.ttl,
-                0 if field_ttl is None else field_ttl,
-                options,
-                ext_args,
-            )
-            if stats:
-                stats.write += 1
+            try:
+                await self.aput(
+                    script_1,
+                    keys,
+                    hash_value,
+                    user_retval_serialized,
+                    self.maxsize,
+                    self.update_ttl,
+                    self.ttl,
+                    0 if field_ttl is None else field_ttl,
+                    options,
+                    ext_args,
+                )
+            except RedisError as redis_error:
+                if stats:
+                    stats.err += 1
+                if raise_redis_error:
+                    raise
+                logger.error(f"{self.__class__.__name__}::aexec RedisError: %s", redis_error)
+            else:
+                if stats:
+                    stats.write += 1
         return user_retval
 
     def decorate(
@@ -819,6 +871,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         *,
         serializer: SerializerSetterValueT | None = None,
         ttl: int | None = None,
+        raise_redis_error: bool = True,
         excludes: Sequence[str] | None = None,
         excludes_positional: Sequence[int] | None = None,
         **options,
