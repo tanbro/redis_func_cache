@@ -13,7 +13,7 @@ from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 from warnings import warn
 
 from redis import RedisError
@@ -138,7 +138,10 @@ if is_module(cloudpickle):  # pragma: no cover
     _serializers["cloudpickle"] = (_cloudpickle_encode, lambda x: pickle.loads(x))
 
 
-class RedisFuncCache(Generic[RedisClientTV]):
+PolicyTV = TypeVar("PolicyTV", bound=AbstractPolicy)
+
+
+class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
     """A function cache class backed by Redis.
 
     This class provides a decorator-based caching mechanism for functions, storing their results in Redis.
@@ -209,7 +212,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def __init__(
         self,
         name: str,
-        policy: AbstractPolicy,
+        policy: PolicyTV,
         *,
         client: RedisClientTV | None = None,
         factory: Callable[[], RedisClientTV] | None = None,
@@ -480,7 +483,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             raise ValueError("serializer must be a string or a sequence type of a pair of callable objects")
 
     @property
-    def policy(self) -> AbstractPolicy:
+    def policy(self) -> PolicyTV:
         """Instance of the caching policy.
 
         Note:

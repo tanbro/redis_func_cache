@@ -9,7 +9,7 @@ from ._catches import close_all_async_resources
 @pytest.fixture(scope="session")
 def event_loop():
     """为异步测试创建一个会话范围的事件循环。"""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    loop = asyncio.new_event_loop()
     yield loop
     try:
         # 确保在关闭事件循环前清理所有异步资源
