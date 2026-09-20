@@ -871,7 +871,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         *,
         serializer: SerializerSetterValueT | None = None,
         ttl: int | None = None,
-        raise_redis_error: bool = True,
+        raise_redis_error: bool | None = None,
         excludes: Sequence[str] | None = None,
         excludes_positional: Sequence[int] | None = None,
         **options,
@@ -1017,6 +1017,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                         deserialize_func,
                         bound,
                         field_ttl,
+                        self.raise_redis_error if raise_redis_error is None else raise_redis_error,
                         **options,
                     )
 
@@ -1034,6 +1035,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                         deserialize_func,
                         bound,
                         field_ttl,
+                        self.raise_redis_error if raise_redis_error is None else raise_redis_error,
                         **options,
                     )
 
