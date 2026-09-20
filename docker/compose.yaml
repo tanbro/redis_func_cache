@@ -1,7 +1,7 @@
 name: redis_func_cache
 
 include:
-  - docker-compose.redis.yml
+  - redis.compose.yaml
 
 services:
   unittest:
