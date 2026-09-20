@@ -935,6 +935,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                     However, the corresponding hash key in the `ZSET` portion is **not** removed automatically.
                     Instead, it is only "lazily" cleaned up when accessed, or removed by the eviction policy when a new value is added.
                     During this period, the `ZSET` portion continues to occupy memory, and the reported number of cache items does not decrease.
+                    Use :meth:`vacuum` to remove such stale members explicitly, see also the design note
+                    [`docs/design/field-ttl-vacuum.md`](https://redis-func-cache.readthedocs.io/en/latest/design/field-ttl-vacuum.html).
 
                 Warning:
                     This feature is **experimental** and requires Redis 7.4 or above.
@@ -1229,3 +1231,27 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             yield stats
         finally:
             self._stats.reset(token)
+
+    def vacuum(self, batch_size: int = 500) -> int:
+        """Remove ZSET members whose hash fields have expired ("ghost" entries).
+
+        A convenience delegating to :meth:`AbstractPolicy.vacuum
+        <redis_func_cache.policies.abstract.AbstractPolicy.vacuum>`, which contains
+        the full description.
+
+        Args:
+            batch_size: The number of members to fetch per scan step.
+
+        Returns:
+            The number of ghost entries removed.
+
+        .. versionadded:: TODO
+        """
+        return self.policy.vacuum(batch_size)
+
+    async def avacuum(self, batch_size: int = 500) -> int:
+        """Async version of :meth:`vacuum`.
+
+        .. versionadded:: TODO
+        """
+        return await self.policy.avacuum(batch_size)

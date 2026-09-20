@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import sys
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 if sys.version_info < (3, 12):  # pragma: no cover
     from typing_extensions import override
@@ -17,7 +17,17 @@ from ..typing import is_redis_async_client, is_redis_sync_client
 from ..utils import b64digest, calculate_callable_fullname, get_callable_bytecode
 from .abstract import AbstractPolicy
 
+if TYPE_CHECKING:  # pragma: no cover
+    from redis.typing import KeyT
+
 __all__ = ("BaseClusterMultiplePolicy", "BaseClusterSinglePolicy", "BaseMultiplePolicy", "BaseSinglePolicy")
+
+
+def _hash_key_of(zset_key: str | bytes) -> str | bytes:
+    """Derive the hash-map key ("...:1") from a sorted-set key ("...:0") produced by a pattern scan."""
+    if isinstance(zset_key, bytes):
+        return zset_key[:-2] + b":1"
+    return zset_key[:-2] + ":1"
 
 
 class BaseSinglePolicy(AbstractPolicy):
@@ -109,6 +119,14 @@ class BaseSinglePolicy(AbstractPolicy):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         keys = self.calc_keys()
         return await client.hlen(keys[1])  # type: ignore[union-attr, return-value]
+
+    @override
+    def calc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+        return [self.calc_keys()]
+
+    @override
+    async def acalc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+        return [self.calc_keys()]
 
 
 class BaseClusterSinglePolicy(BaseSinglePolicy):
@@ -210,6 +228,45 @@ class BaseMultiplePolicy(AbstractPolicy):
         if keys := await client.keys(pat):  # type: ignore[union-attr]
             return await client.delete(*keys)  # type: ignore[union-attr]
         return 0
+
+    @override
+    def calc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:0"
+        return [(zset_key, _hash_key_of(zset_key)) for zset_key in client.scan_iter(match=pat)]  # type: ignore[union-attr]
+
+    @override
+    async def acalc_key_pairs(self, client) -> list[tuple[KeyT, KeyT]]:
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:0"
+        return [(zset_key, _hash_key_of(zset_key)) async for zset_key in client.scan_iter(match=pat)]  # type: ignore[union-attr]
+
+    @override
+    def get_size(self) -> int:
+        """
+        Get the total number of cached items across all decorated functions.
+
+        Multiple policies hold one key pair per decorated function; the reported
+        size is the sum of the hash lengths of every key pair.
+
+        Returns:
+            Total number of items in the cache.
+        """
+        client = self.cache.get_client()
+        if not is_redis_sync_client(client):
+            raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:1"
+        return sum(client.hlen(hmap_key) for hmap_key in client.scan_iter(match=pat))  # type: ignore[union-attr]
+
+    @override
+    async def aget_size(self) -> int:
+        """Async version of :meth:`get_size`."""
+        client = self.cache.get_client()
+        if not is_redis_async_client(client):
+            raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
+        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:1"
+        total = 0
+        async for hmap_key in client.scan_iter(match=pat):  # type: ignore[union-attr]
+            total += await client.hlen(hmap_key)  # type: ignore[union-attr]
+        return total
 
 
 class BaseClusterMultiplePolicy(BaseMultiplePolicy):

@@ -41,6 +41,7 @@ Contents
    README
    CHANGELOG
    CONTRIBUTING
+   design/field-ttl-vacuum
    AUTHORS
    LICENSE
 
