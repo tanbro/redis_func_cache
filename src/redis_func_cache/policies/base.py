@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import sys
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
@@ -13,8 +12,9 @@ else:  # pragma: no cover
     from typing import override
 
 
+from ..fingerprint import hash_fingerprint
 from ..typing import is_redis_async_client, is_redis_sync_client
-from ..utils import b64digest, calculate_callable_fullname, get_callable_bytecode
+from ..utils import b64digest, calculate_callable_fullname
 from .abstract import AbstractPolicy
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -201,9 +201,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         if fn is None:
             raise TypeError("Can not calculate hash for None")
         fullname = calculate_callable_fullname(fn)
-        h = hashlib.md5(fullname.encode())
-        h.update(get_callable_bytecode(fn))
-        checksum = b64digest(h).decode()
+        checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
 
@@ -340,8 +338,6 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         if fn is None:
             raise TypeError("Can not calculate hash for None")
         fullname = calculate_callable_fullname(fn)
-        h = hashlib.md5(fullname.encode())
-        h.update(get_callable_bytecode(fn))
-        checksum = b64digest(h).decode()
+        checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
         k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"

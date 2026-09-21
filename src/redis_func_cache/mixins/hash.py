@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import pickle
 from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
-from ..utils import b64digest, calculate_callable_fullname, get_callable_bytecode
+from ..fingerprint import hash_fingerprint
+from ..utils import b64digest
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
@@ -69,32 +68,6 @@ class HashConfig:
     """
 
 
-# Cache of hash objects seeded with a callable's fingerprint (its fullname plus optional bytecode — the inputs that never change for a given function object), per (algorithm, bytecode flag, function).
-# Hash digests are defined over the byte stream, so seeding incrementally is identical to hashing the concatenation;
-# a seeded object can thus be shared as long as callers .copy() it before feeding per-invocation data.
-#
-# The cache key deliberately holds only the fields the fingerprint consumes — configs
-# differing in serializer/decoder produce identical fingerprints and share entries.
-# ``lru_cache`` keys on the callable object itself (functions hash by identity), so a live function can never collide with a stale entry.
-# The trade-off of identity keying is a strong reference: collected functions linger until LRU-evicted, which the bounded maxsize caps — only pathological dynamic-callable usage can reach it.
-MAX_FINGERPRINT_HASH_ENTRIES = 1024
-
-
-@lru_cache(maxsize=MAX_FINGERPRINT_HASH_ENTRIES)
-def _fingerprint_hash(algorithm: str, use_bytecode: bool, fn: Callable) -> Hash:
-    """Return the hash object seeded with the fingerprint of ``fn``.
-
-    The fingerprint (callable fullname plus optional bytecode) is immutable for a
-    given function object, so it is hashed once and reused via ``copy()``. The
-    cached object itself must never be updated — always operate on a copy.
-    """
-    h = hashlib.new(algorithm)
-    h.update(calculate_callable_fullname(fn).encode())
-    if use_bytecode:
-        h.update(get_callable_bytecode(fn))
-    return h
-
-
 class AbstractHashMixin(ABC):
     """An abstract mixin class for hash function name, source code, and arguments.
 
@@ -149,7 +122,7 @@ class AbstractHashMixin(ABC):
         if fn is None:
             raise TypeError("Can not calculate hash for None")
         conf = self.__hash_config__
-        h = _fingerprint_hash(conf.algorithm, conf.use_bytecode, fn).copy()
+        h = hash_fingerprint(conf.algorithm, conf.use_bytecode, fn).copy()
         if args is not None:
             h.update(conf.serializer(args))
         if kwds is not None:
