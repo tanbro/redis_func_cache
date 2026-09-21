@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:  # pragma: no cover
     from weakref import CallableProxyType
@@ -55,6 +55,7 @@ class AbstractPolicy(ABC):
         """
         self._cache: CallableProxyType[RedisFuncCache] | None = None
         self._lua_scripts: tuple[Script, Script] | tuple[AsyncScript, AsyncScript] | None = None
+        self._vacuum_script: Script | AsyncScript | None = None
 
     @property
     def cache(self) -> CallableProxyType[RedisFuncCache]:
@@ -160,6 +161,21 @@ class AbstractPolicy(ABC):
             )
         return self._lua_scripts
 
+    @property
+    def vacuum_script(self) -> Script | AsyncScript:
+        """
+        Register and return the vacuum Lua script as a Redis Script/AsyncScript object.
+
+        Registered lazily on first access and cached, mirroring :attr:`lua_scripts`.
+
+        Returns:
+            The registered vacuum Script or AsyncScript object.
+        """
+        if self._vacuum_script is None:
+            client = self.cache.get_client()
+            self._vacuum_script = client.register_script(self.read_vacuum_script())
+        return self._vacuum_script
+
     @abstractmethod
     def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         """
@@ -215,7 +231,7 @@ class AbstractPolicy(ABC):
         client = self.cache.get_client()
         if not is_redis_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        script = client.register_script(self.read_vacuum_script())
+        script = cast(Script, self.vacuum_script)
         removed = 0
         for zset_key, hmap_key in self.calc_key_pairs(client):
             cursor: int | str | bytes = 0
@@ -244,7 +260,7 @@ class AbstractPolicy(ABC):
         client = self.cache.get_client()
         if not is_redis_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
-        script = client.register_script(self.read_vacuum_script())
+        script = cast(AsyncScript, self.vacuum_script)
         removed = 0
         for zset_key, hmap_key in await self.acalc_key_pairs(client):
             cursor: int | str | bytes = 0
