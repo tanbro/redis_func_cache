@@ -114,7 +114,7 @@ def read_lua_file(file: str) -> str:
     It uses the :mod:`importlib.resources` to locate the file.
     """
     if __package__ is None:
-        raise RuntimeError("‘__package__’ is None")
+        raise RuntimeError("‘__package__’ is None")  # pragma: no cover
     return dedent(importlib.resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
 
 

@@ -68,7 +68,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ("RedisFuncCache",)
 
 
-_serializers: dict[str, SerializerPairT] = {
+_serializers: dict[SerializerName, SerializerPairT] = {
     "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x)),
     "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
 }
@@ -395,7 +395,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=self._DEFAULT_MODE)
         self._stats: ContextVar[RedisFuncCache.Stats | None] = ContextVar("stats", default=None)
 
-    __serializers__: ClassVar[Mapping[str, SerializerPairT]] = _serializers
+    __serializers__: ClassVar[Mapping[SerializerName, SerializerPairT]] = _serializers
 
     @property
     def name(self) -> str:
