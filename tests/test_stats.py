@@ -13,7 +13,7 @@ def clean_caches():
     # 测试前清理同步缓存
     for cache in {**CACHES, **MULTI_CACHES}.values():
         try:
-            cache.policy.purge(redis_client=cache.get_client())
+            cache.policy.purge(redis_client=cache.get_redis_client())
         except RuntimeError:
             # 忽略异步客户端的清理错误
             pass
@@ -28,7 +28,7 @@ def clean_caches():
     # 测试后清理同步缓存
     for cache in {**CACHES, **MULTI_CACHES}.values():
         try:
-            cache.policy.purge(redis_client=cache.get_client())
+            cache.policy.purge(redis_client=cache.get_redis_client())
         except RuntimeError:
             # 忽略异步客户端的清理错误
             pass

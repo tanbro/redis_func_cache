@@ -14,11 +14,11 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_client())
+        cache.policy.purge(redis_client=cache.get_redis_client())
     yield
     # 测试后清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_client())
+        cache.policy.purge(redis_client=cache.get_redis_client())
 
 
 def test_update_ttl_default_behavior():
@@ -32,7 +32,7 @@ def test_update_ttl_default_behavior():
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL
         )
-        short_ttl_cache.policy.purge(redis_client=short_ttl_cache.get_client())
+        short_ttl_cache.policy.purge(redis_client=short_ttl_cache.get_redis_client())
 
         @short_ttl_cache
         def echo(x):
@@ -63,7 +63,7 @@ def test_update_ttl_default_behavior():
             # 在update_ttl=True模式下，即使过了初始TTL，也应该命中缓存
             mock_put.assert_not_called()
 
-        short_ttl_cache.policy.purge(redis_client=short_ttl_cache.get_client())
+        short_ttl_cache.policy.purge(redis_client=short_ttl_cache.get_redis_client())
 
 
 def test_update_ttl_false_behavior():
@@ -78,7 +78,7 @@ def test_update_ttl_false_behavior():
             ttl=2,  # 2秒TTL
             update_ttl=False,  # 不更新TTL
         )
-        no_update_ttl_cache.policy.purge(redis_client=no_update_ttl_cache.get_client())
+        no_update_ttl_cache.policy.purge(redis_client=no_update_ttl_cache.get_redis_client())
 
         @no_update_ttl_cache
         def echo(x):
@@ -109,4 +109,4 @@ def test_update_ttl_false_behavior():
             # 在update_ttl=False模式下，过了初始TTL应该触发重新存储
             mock_put.assert_called_once()
 
-        no_update_ttl_cache.policy.purge(redis_client=no_update_ttl_cache.get_client())
+        no_update_ttl_cache.policy.purge(redis_client=no_update_ttl_cache.get_redis_client())

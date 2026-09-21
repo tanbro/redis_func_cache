@@ -13,11 +13,11 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_client())
+        cache.policy.purge(redis_client=cache.get_redis_client())
     yield
     # 测试后清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_client())
+        cache.policy.purge(redis_client=cache.get_redis_client())
 
 
 @pytest.mark.parametrize("cache_name,cache", CACHES.items())
@@ -130,7 +130,7 @@ def test_excludes_with_different_values(cache_name, cache):
 def test_excludes_with_custom_cache():
     """测试在自定义缓存实例中使用 excludes 参数。"""
     custom_cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=10)
-    custom_cache.policy.purge(redis_client=custom_cache.get_client())
+    custom_cache.policy.purge(redis_client=custom_cache.get_redis_client())
 
     @custom_cache(excludes=["session"])
     def get_user_data(session, user_id: int):
@@ -149,4 +149,4 @@ def test_excludes_with_custom_cache():
         assert result2 == "user_123_data"
         mock_put.assert_not_called()
 
-    custom_cache.policy.purge(redis_client=custom_cache.get_client())
+    custom_cache.policy.purge(redis_client=custom_cache.get_redis_client())

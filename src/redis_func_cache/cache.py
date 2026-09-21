@@ -267,7 +267,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
             factory: Optional callable that returns a Redis client instance.
 
-                If provided, the callable will be invoked every time :meth:`get_client`
+                If provided, the callable will be invoked every time :meth:`get_redis_client`
                 is called or the cache instance requires a redis client internally.
 
                 Caution:
@@ -519,7 +519,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         """
         return self._policy
 
-    def get_client(self) -> RedisClientTV:
+    def get_redis_client(self) -> RedisClientTV:
         """Get the redis client instance used in the cache.
 
         Returns:
@@ -535,6 +535,9 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
                         Thus the cache class will call the factory every time it needs a client internally.
 
+        .. versionchanged:: TODO
+            Renamed from ``get_client``; the old name still works but is deprecated.
+
         .. versionadded:: 0.5
         """
         # Prefer factory when available (recommended for concurrent use).
@@ -544,16 +547,25 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             return self._redis_client_instance
         raise RuntimeError("No redis client or factory provided.")
 
+    def get_client(self) -> RedisClientTV:  # pragma: no cover
+        """Equivalent to :meth:`get_redis_client`.
+
+        .. deprecated:: TODO
+            use :meth:`get_redis_client` instead.
+        """
+        warn("method ‘get_client’ is deprecated, use ‘get_redis_client()’ instead", DeprecationWarning)
+        return self.get_redis_client()
+
     @property
     def client(self) -> RedisClientTV:  # pragma: no cover
         """
-        Equivalent to call :meth:`get_client`.
+        Equivalent to call :meth:`get_redis_client`.
 
         .. deprecated:: 0.5
-            use :meth:`get_client` instead.
+            use :meth:`get_redis_client` instead.
         """
-        warn("property ‘client’ is deprecated since 0.5, use ‘get_client()’ instead", DeprecationWarning)
-        return self.get_client()
+        warn("property ‘client’ is deprecated since 0.5, use ‘get_redis_client()’ instead", DeprecationWarning)
+        return self.get_redis_client()
 
     def serialize(self, value: Any, serializer: SerializerT | None = None) -> EncodedT:
         """Serialize the return value of the decorated function.
@@ -771,8 +783,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         stats = self._stats.get()
         if ignore_redis_errors is None:
             ignore_redis_errors = self.ignore_redis_errors
-        client = self.get_client()
-        script_0, script_1 = self.policy.lua_scripts(client)
+        redis_client = self.get_redis_client()
+        script_0, script_1 = self.policy.lua_scripts(redis_client)
         if not is_redis_sync_script(script_0) or not is_redis_sync_script(script_1):
             raise RuntimeError("Redis lua script must be in synchronous mode on a non async function")
         if stats:
@@ -850,8 +862,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         stats = self._stats.get()
         if ignore_redis_errors is None:
             ignore_redis_errors = self.ignore_redis_errors
-        client = self.get_client()
-        script_0, script_1 = self.policy.lua_scripts(client)
+        redis_client = self.get_redis_client()
+        script_0, script_1 = self.policy.lua_scripts(redis_client)
         if not is_redis_async_script(script_0) or not is_redis_async_script(script_1):
             raise RuntimeError("Redis lua script must be in asynchronous mode on an async function")
         if stats:
@@ -1267,14 +1279,14 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         .. versionadded:: TODO
         """
-        return self.policy.purge(self.get_client(), batch_size)
+        return self.policy.purge(self.get_redis_client(), batch_size)
 
     async def apurge(self, batch_size: int = 500) -> int:
         """Async version of :meth:`purge`.
 
         .. versionadded:: TODO
         """
-        return await self.policy.apurge(self.get_client(), batch_size)
+        return await self.policy.apurge(self.get_redis_client(), batch_size)
 
     def vacuum(self, batch_size: int = 500) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
@@ -1291,11 +1303,11 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         .. versionadded:: TODO
         """
-        return self.policy.vacuum(self.get_client(), batch_size)
+        return self.policy.vacuum(self.get_redis_client(), batch_size)
 
     async def avacuum(self, batch_size: int = 500) -> int:
         """Async version of :meth:`vacuum`.
 
         .. versionadded:: TODO
         """
-        return await self.policy.avacuum(self.get_client(), batch_size)
+        return await self.policy.avacuum(self.get_redis_client(), batch_size)

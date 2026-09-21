@@ -34,7 +34,7 @@ def cache(async_redis_client):
     try:
         loop = asyncio.get_event_loop()
         if not loop.is_closed():
-            loop.run_until_complete(cache_instance.policy.apurge(redis_client=cache_instance.get_client()))
+            loop.run_until_complete(cache_instance.policy.apurge(redis_client=cache_instance.get_redis_client()))
     except Exception:  # noqa: BLE001, S110
         pass
 
@@ -115,7 +115,7 @@ class TestAsyncContext:
 
         val = uuid4().hex
         # 确保缓存中没有值
-        await cache.policy.apurge(redis_client=cache.get_client())
+        await cache.policy.apurge(redis_client=cache.get_redis_client())
 
         # 在 write_only 上下文中调用
         with cache.write_only():  # noqa: SIM117

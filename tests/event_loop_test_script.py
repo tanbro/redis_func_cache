@@ -30,7 +30,7 @@ async def main():
     print("Starting event loop close error test...")
 
     # 清理之前的缓存
-    coros = (cache.policy.apurge(redis_client=cache.get_client()) for cache in ASYNC_CACHES.values())
+    coros = (cache.policy.apurge(redis_client=cache.get_redis_client()) for cache in ASYNC_CACHES.values())
     await asyncio.gather(*coros)
 
     # 测试所有缓存
