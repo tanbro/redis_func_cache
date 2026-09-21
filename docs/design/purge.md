@@ -110,7 +110,7 @@ cache.purge()  # drop every structure this cache owns (each function's ZSET + HA
 
 - `cache.purge(batch_size=500)` deletes every key the cache owns and returns the
   number deleted. `cache.apurge()` is the async mirror; the policy-level
-  `cache.policy.purge()` remains available.
+  `cache.policy.purge(redis_client)` remains available — the policy-level signature takes the client explicitly, while the cache-level `cache.purge()` obtains it for you.
 - The `batch_size` parameter is new and keyword-friendly; the return value keeps its
   meaning (number of keys removed), so existing callers are unaffected.
 - The sync/async client guards and `RuntimeError` messages stay as they were.

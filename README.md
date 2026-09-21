@@ -356,7 +356,7 @@ It works almost the same as the standard library's `functools.lru_cache`, except
 
 ### Async Functions
 
-To decorate async functions, you should pass an `Async Redis client` to [`RedisFuncCache`][]'s `client` argument:
+To decorate async functions, you should supply an `Async Redis client` to [`RedisFuncCache`][] via its `factory` (or `redis_client`) argument:
 
 ```python
 from redis.asyncio import Redis as AsyncRedis
@@ -1113,10 +1113,10 @@ Core class:
 ```mermaid
 classDiagram
     class RedisFuncCache {
-        -client: RedisClientTV
+        -redis_client: RedisClientTV
         -policy: AbstractPolicy
         -serializer: SerializerPairT
-        +__init__(name, policy, client, serializer)
+        +__init__(name, policy, redis_client, serializer)
         +__call__(func)
         +decorate(func)
         +exec(user_function, user_args, user_kwds)

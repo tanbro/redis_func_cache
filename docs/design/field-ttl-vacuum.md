@@ -103,7 +103,7 @@ print(f"removed {removed} expired entries")
 
 - `cache.vacuum(batch_size=500)` removes every ZSET member whose hash field has
   expired and returns the number removed. `cache.avacuum()` is the async mirror.
-- It is also available directly on the policy: `cache.policy.vacuum()`.
+- It is also available directly on the policy: `cache.policy.vacuum(redis_client)`, taking the client explicitly (see the client lifecycle contract in `AbstractPolicy`).
 - It raises `RuntimeError` when called against a client whose sync/async nature does
   not match the call, mirroring `purge` / `apurge`.
 

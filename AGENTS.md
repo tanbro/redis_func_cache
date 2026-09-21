@@ -19,7 +19,7 @@ A Python Redis-based function caching library with decorator-based API, supporti
 @cache(policy=LruTPolicy())
 
 # ❌ NOT thread-safe
-cache = RedisFuncCache(client=redis_client)
+cache = RedisFuncCache(redis_client=redis_client)
 
 # ✅ Thread-safe for concurrent use
 cache = RedisFuncCache(factory=lambda: redis.Redis())
