@@ -68,11 +68,11 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ("RedisFuncCache",)
 
 
+_json_encode = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode()
+_json_decode = lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x)
+
 _serializers: dict[SerializerName, SerializerPairT] = {
-    "json": (
-        lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode(),
-        lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x),
-    ),
+    "json": (_json_encode, _json_decode),
     "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
 }
 if is_module(dill):  # pragma: no cover
@@ -357,6 +357,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             __call__: Equivalent to the :meth:`decorate` method.
             __serializers__ (Mapping[str, SerializerPairT]): A dictionary of serializers.
         """
+        self._logger = getLogger(f"{__name__}.{self.__class__.__name__}")
         self.name = name
         self.prefix = prefix
         self.maxsize = maxsize
@@ -592,7 +593,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         Returns:
             The hit return value, or :data:`None` if the value is missing.
         """
-        encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
+        encoded_options = _json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         return script(keys=keys, args=chain((int(update_ttl), ttl, hash_value, encoded_options), ext_args))
 
@@ -608,7 +609,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         ext_args: Iterable[EncodableT] | None = None,
     ) -> EncodedT | None:
         """Async version of :meth:`get`"""
-        encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
+        encoded_options = _json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         return await script(keys=keys, args=chain((int(update_ttl), ttl, hash_, encoded_options), ext_args))
 
@@ -640,7 +641,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         If the cache reaches its :attr:`maxsize`, it will remove one item according to its :attr:`policy` before inserting the new item.
         """
-        encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
+        encoded_options = _json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         script(
             keys=keys,
@@ -662,7 +663,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         ext_args: Iterable[EncodableT] | None = None,
     ):
         """Async version of :meth:`put`"""
-        encoded_options = json.dumps(options or {}, ensure_ascii=False).encode()
+        encoded_options = _json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         await script(
             keys=keys, args=chain((maxsize, int(update_ttl), ttl, hash_, value, field_ttl, encoded_options), ext_args)
@@ -750,7 +751,6 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             This method first calls :meth:`get` to attempt retrieving a cached result before executing the ``user_function``.
             If no cached result is found, it executes the ``user_function``, then calls :meth:`put` to store the result in the cache.
         """
-        logger = getLogger(__name__)
         mode = self._mode.get()
         stats = self._stats.get()
         if ignore_redis_errors is None:
@@ -769,7 +769,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 if stats:
                     stats.err += 1
                 if ignore_redis_errors:
-                    logger.error(f"{self.__class__.__name__}::exec RedisError: %s", redis_error)
+                    self._logger.error("exec RedisError: %s", redis_error)
                 else:
                     raise
             else:
@@ -808,7 +808,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 if stats:
                     stats.err += 1
                 if ignore_redis_errors:
-                    logger.error(f"{self.__class__.__name__}::exec RedisError: %s", redis_error)
+                    self._logger.error("exec RedisError: %s", redis_error)
                 else:
                     raise
             else:
@@ -829,7 +829,6 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         **options,
     ) -> Any:
         """Asynchronous version of :meth:`.exec`"""
-        logger = getLogger(__name__)
         mode = self._mode.get()
         stats = self._stats.get()
         if ignore_redis_errors is None:
@@ -848,7 +847,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 if stats:
                     stats.err += 1
                 if ignore_redis_errors:
-                    logger.error(f"{self.__class__.__name__}::aexec RedisError: %s", redis_error)
+                    self._logger.error("aexec RedisError: %s", redis_error)
                 else:
                     raise
             else:
@@ -887,7 +886,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 if stats:
                     stats.err += 1
                 if ignore_redis_errors:
-                    logger.error(f"{self.__class__.__name__}::aexec RedisError: %s", redis_error)
+                    self._logger.error("aexec RedisError: %s", redis_error)
                 else:
                     raise
             else:
