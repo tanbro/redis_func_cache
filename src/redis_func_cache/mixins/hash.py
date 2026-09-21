@@ -136,6 +136,10 @@ class AbstractHashMixin(ABC):
         return conf.decoder(hash)
 
 
+JSON_SERIALIZER = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode()
+HEX_DIGEST_DECODER = lambda x: x.hexdigest()
+
+
 class JsonMd5HashMixin(AbstractHashMixin):
     """
     Serializes the function name, source code, and arguments using the :mod:`json` module,
@@ -146,7 +150,7 @@ class JsonMd5HashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=lambda x: json.dumps(x).encode())
+    __hash_config__ = HashConfig(algorithm="md5", serializer=JSON_SERIALIZER)
 
 
 class JsonMd5HexHashMixin(AbstractHashMixin):
@@ -159,9 +163,7 @@ class JsonMd5HexHashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="md5", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
-    )
+    __hash_config__ = HashConfig(algorithm="md5", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
 
 
 class JsonMd5Base64HashMixin(AbstractHashMixin):
@@ -174,11 +176,7 @@ class JsonMd5Base64HashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="md5",
-        serializer=lambda x: json.dumps(x).encode(),
-        decoder=b64digest,
-    )
+    __hash_config__ = HashConfig(algorithm="md5", serializer=JSON_SERIALIZER, decoder=b64digest)
 
 
 class JsonSha1HashMixin(AbstractHashMixin):
@@ -191,7 +189,7 @@ class JsonSha1HashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=lambda x: json.dumps(x).encode())
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER)
 
 
 class JsonSha1HexHashMixin(AbstractHashMixin):
@@ -204,9 +202,7 @@ class JsonSha1HexHashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="sha1", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
-    )
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
 
 
 class JsonSha1Base64HashMixin(AbstractHashMixin):
@@ -219,11 +215,7 @@ class JsonSha1Base64HashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="sha1",
-        serializer=lambda x: json.dumps(x).encode(),
-        decoder=b64digest,
-    )
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER, decoder=b64digest)
 
 
 class JsonSha256HashMixin(AbstractHashMixin):
@@ -236,7 +228,7 @@ class JsonSha256HashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(algorithm="sha256", serializer=lambda x: json.dumps(x).encode())
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER)
 
 
 class JsonSha256HexHashMixin(AbstractHashMixin):
@@ -249,9 +241,7 @@ class JsonSha256HexHashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="sha256", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
-    )
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
 
 
 class JsonSha256Base64HashMixin(AbstractHashMixin):
@@ -264,11 +254,7 @@ class JsonSha256Base64HashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="sha256",
-        serializer=lambda x: json.dumps(x).encode(),
-        decoder=b64digest,
-    )
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER, decoder=b64digest)
 
 
 class JsonSha512HashMixin(AbstractHashMixin):
@@ -281,7 +267,7 @@ class JsonSha512HashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(algorithm="sha512", serializer=lambda x: json.dumps(x).encode())
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER)
 
 
 class JsonSha512HexHashMixin(AbstractHashMixin):
@@ -294,9 +280,7 @@ class JsonSha512HexHashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="sha512", serializer=lambda x: json.dumps(x).encode(), decoder=lambda x: x.hexdigest()
-    )
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
 
 
 class JsonSha512Base64HashMixin(AbstractHashMixin):
@@ -309,11 +293,7 @@ class JsonSha512Base64HashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(
-        algorithm="sha512",
-        serializer=lambda x: json.dumps(x).encode(),
-        decoder=b64digest,
-    )
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER, decoder=b64digest)
 
 
 class PickleMd5HashMixin(AbstractHashMixin):
@@ -340,7 +320,7 @@ class PickleMd5HexHashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
 
 
 class PickleMd5Base64HashMixin(AbstractHashMixin):
@@ -378,7 +358,7 @@ class PickleSha1HexHashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
 
 
 class PickleSha1Base64HashMixin(AbstractHashMixin):
@@ -417,7 +397,7 @@ class PickleSha256HexHashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
 
 
 class PickleSha256Base64HashMixin(AbstractHashMixin):
@@ -456,7 +436,7 @@ class PickleSha512HexHashMixin(AbstractHashMixin):
         :parts: 1
     """
 
-    __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=lambda x: x.hexdigest())
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
 
 
 class PickleSha512Base64HashMixin(AbstractHashMixin):

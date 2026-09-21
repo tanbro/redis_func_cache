@@ -69,7 +69,10 @@ __all__ = ("RedisFuncCache",)
 
 
 _serializers: dict[SerializerName, SerializerPairT] = {
-    "json": (lambda x: json.dumps(x).encode(), lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x)),
+    "json": (
+        lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode(),
+        lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x),
+    ),
     "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
 }
 if is_module(dill):  # pragma: no cover
