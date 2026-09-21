@@ -15,6 +15,8 @@
 
 - 🛠 **Improvements:**
   - Multiple-policy `purge` / `apurge` no longer use the blocking `KEYS` command followed by one giant `DEL`. Keys are now enumerated with `SCAN` and deleted in batches with `UNLINK` (default 500 keys per command), so purging a large cache never stalls the Redis server. Behavior and return value are unchanged. See the design note `docs/design/purge.md`.
+  - Hot-path reductions: the per-callable fingerprint hash (fullname + bytecode) is now computed once per function object and cached in a new `fingerprint` module, shared by the hash mixins and the multiple policies (previously re-hashed on every call, twice under multiple policies); per-call logger lookups and empty-options JSON encoding are eliminated; the vacuum Lua script text is read from package resources once instead of on every `vacuum`/`avacuum` call. Hash values and Redis key names are unchanged.
+  - Note on serializer output: the JSON serializer used for cache-key hashing and for storing return values now emits `ensure_ascii=False` and compact separators (`(",", ":")`). Non-ASCII arguments and values serialize smaller and faster, but the byte output changes — existing cache entries are keyed differently and are invalidated once on upgrade, then repopulated transparently.
 
 - 📚 **Documentation:**
   - New design notes: "Vacuuming Expired Per-Field Cache Entries" (`docs/design/field-ttl-vacuum.md`) and "Purging Cache Structures Without Blocking Redis" (`docs/design/purge.md`).
