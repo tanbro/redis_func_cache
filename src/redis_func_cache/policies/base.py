@@ -65,7 +65,8 @@ class BaseSinglePolicy(AbstractPolicy):
             Tuple of (sorted set key, hash map key).
         """
         if self._keys is None:
-            k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}"
+            prefix, name = self._require_bound()
+            k = f"{prefix}{name}:{self.__key__}"
             self._keys = f"{k}:0", f"{k}:1"
         return self._keys
 
@@ -169,7 +170,8 @@ class BaseClusterSinglePolicy(BaseSinglePolicy):
             Tuple of (sorted set key, hash map key).
         """
         if self._keys is None:
-            k = f"{self.cache.prefix}{{{self.cache.name}:{self.__key__}}}"
+            prefix, name = self._require_bound()
+            k = f"{prefix}{{{name}:{self.__key__}}}"
             self._keys = f"{k}:0", f"{k}:1"
         return self._keys
 
@@ -204,9 +206,10 @@ class BaseMultiplePolicy(AbstractPolicy):
         """
         if fn is None:
             raise TypeError("Can not calculate hash for None")
+        prefix, name = self._require_bound()
         fullname = calculate_callable_fullname(fn)
         checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
-        k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{checksum}"
+        k = f"{prefix}{name}:{self.__key__}:{fullname}#{checksum}"
         return f"{k}:0", f"{k}:1"
 
     @override
@@ -229,7 +232,8 @@ class BaseMultiplePolicy(AbstractPolicy):
         """
         if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
+        prefix, name = self._require_bound()
+        pat = f"{prefix}{name}:{self.__key__}:*"
         removed = 0
         batch: list[KeyT] = []
         for key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
@@ -257,7 +261,8 @@ class BaseMultiplePolicy(AbstractPolicy):
         """
         if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
-        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
+        prefix, name = self._require_bound()
+        pat = f"{prefix}{name}:{self.__key__}:*"
         removed = 0
         batch: list[KeyT] = []
         async for key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
@@ -271,12 +276,14 @@ class BaseMultiplePolicy(AbstractPolicy):
 
     @override
     def calc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
-        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:0"
+        prefix, name = self._require_bound()
+        pat = f"{prefix}{name}:{self.__key__}:*:0"
         return [(zset_key, _hash_key_of(zset_key)) for zset_key in redis_client.scan_iter(match=pat)]  # type: ignore[union-attr]
 
     @override
     async def acalc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
-        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:0"
+        prefix, name = self._require_bound()
+        pat = f"{prefix}{name}:{self.__key__}:*:0"
         return [(zset_key, _hash_key_of(zset_key)) async for zset_key in redis_client.scan_iter(match=pat)]  # type: ignore[union-attr]
 
     @override
@@ -295,7 +302,8 @@ class BaseMultiplePolicy(AbstractPolicy):
         """
         if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:1"
+        prefix, name = self._require_bound()
+        pat = f"{prefix}{name}:{self.__key__}:*:1"
         return sum(redis_client.hlen(hmap_key) for hmap_key in redis_client.scan_iter(match=pat))  # type: ignore[union-attr]
 
     @override
@@ -303,7 +311,8 @@ class BaseMultiplePolicy(AbstractPolicy):
         """Async version of :meth:`get_size`."""
         if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
-        pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:1"
+        prefix, name = self._require_bound()
+        pat = f"{prefix}{name}:{self.__key__}:*:1"
         total = 0
         async for hmap_key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
             total += await redis_client.hlen(hmap_key)  # type: ignore[union-attr]
@@ -340,7 +349,8 @@ class BaseClusterMultiplePolicy(BaseMultiplePolicy):
         """
         if fn is None:
             raise TypeError("Can not calculate hash for None")
+        prefix, name = self._require_bound()
         fullname = calculate_callable_fullname(fn)
         checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
-        k = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:{fullname}#{{{checksum}}}"
+        k = f"{prefix}{name}:{self.__key__}:{fullname}#{{{checksum}}}"
         return f"{k}:0", f"{k}:1"

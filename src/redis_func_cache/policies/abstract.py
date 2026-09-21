@@ -4,9 +4,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
-if TYPE_CHECKING:  # pragma: no cover
-    from weakref import CallableProxyType
-
 from redis.commands.core import AsyncScript, Script
 
 from ..typing import is_redis_async_client, is_redis_sync_client
@@ -15,7 +12,6 @@ from ..utils import read_lua_file
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, KeyT, ScriptTextT
 
-    from ..cache import RedisFuncCache
     from ..typing import RedisClientT
 
 
@@ -43,37 +39,44 @@ class AbstractPolicy(ABC):
 
         Every method that talks to Redis takes the client as an explicit
         ``redis_client`` argument — supplied by :class:`RedisFuncCache`, which
-        obtains it from the user's ``client`` or ``factory``. Policy code must
-        **never** call ``self.cache.get_client()`` itself and must **never**
-        store a client on the instance: with a ``factory``, clients are
-        per-operation and must not outlive the call. The only cacheable
-        artifacts are client-independent ones (script *text*, key names).
+        obtains it from the user's ``redis_client`` or ``factory``. Policy code
+        must **never** obtain a client itself and must **never** store a client
+        on the instance: with a ``factory``, clients are per-operation and must
+        not outlive the call. The only cacheable artifacts are
+        client-independent ones (script *text*, key names, the bound
+        :attr:`_prefix` / :attr:`_name` values).
     """
 
     __key__: str
     __scripts__: tuple[str, str]
 
     def __init__(self) -> None:
-        """
-        Args:
-            cache: Optional weakref proxy to the :class:`RedisFuncCache` instance using this policy.
+        """Initialize the policy with no bound cache identity yet.
 
         Note:
-            The cache argument may be omitted when instantiating a policy. The
-            `RedisFuncCache` will bind itself to the policy instance by setting
-            this attribute to a weakref proxy during cache construction.
+            The policy may be instantiated standalone. :class:`RedisFuncCache`
+            binds its key namespace (``prefix`` and ``name``) onto the policy via
+            :meth:`_bind` during cache construction — a plain value copy, not an
+            object reference, so no reference cycle exists between the two.
         """
-        self._cache: CallableProxyType[RedisFuncCache] | None = None
+        self._prefix: str | None = None
+        self._name: str | None = None
 
-    @property
-    def cache(self) -> CallableProxyType[RedisFuncCache]:
+    def _bind(self, prefix: str, name: str) -> None:
+        """Bind the cache key namespace (``prefix``, ``name``) onto this policy.
+
+        Called by :class:`RedisFuncCache` at construction time and whenever its
+        ``prefix`` or ``name`` properties are reassigned. Values are copied, so
+        the policy holds no reference to the cache instance.
         """
-        Returns:
-            The :class:`RedisFuncCache` instance (via weakref proxy) that uses this policy.
-        """
-        if self._cache is None:
+        self._prefix = prefix
+        self._name = name
+
+    def _require_bound(self) -> tuple[str, str]:
+        """Return the bound ``(prefix, name)``, raising if the policy is unbound."""
+        if self._prefix is None or self._name is None:
             raise RuntimeError("Policy instance is not bound to a RedisFuncCache")
-        return self._cache
+        return self._prefix, self._name
 
     @abstractmethod
     def calc_keys(

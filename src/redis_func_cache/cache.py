@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import pickle
-import weakref
 from collections import OrderedDict
 from collections.abc import Callable, Coroutine, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
@@ -237,11 +236,13 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             policy: A pre-instantiated :class:`AbstractPolicy` instance to use for
                     eviction and key/hash calculation.
 
-                    The provided policy instance will be bound to this cache by setting
-                    its internal cache reference to a weakref proxy of this cache. If you
-                    need a fresh policy instance per cache, create a new policy object
-                    and pass it here. Reusing the same policy instance across multiple
-                    caches is discouraged as policies commonly hold cache-specific state.
+                    The provided policy instance will be bound to this cache by
+                    copying the key namespace (``prefix`` and ``name``) onto it — a
+                    plain value copy, so no reference cycle exists between the two.
+                    If you need a fresh policy instance per cache, create a new policy
+                    object and pass it here. Reusing the same policy instance across
+                    multiple caches is discouraged as policies commonly hold
+                    cache-specific state.
 
                 .. versionchanged:: 0.7
                     The ``policy`` argument now accepts a pre-instantiated policy instance, **NOT a class**.
@@ -374,13 +375,12 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         self.ttl = ttl
         self.update_ttl = update_ttl
         self.ignore_redis_errors = ignore_redis_errors
-        # Only accept a policy instance. Bind its internal cache reference
-        # to a weakref proxy of this RedisFuncCache instance so policy methods
-        # can access the cache via `self.cache`.
+        # Only accept a policy instance, then copy the key namespace onto it so
+        # policy methods can build key names without referencing this cache.
         if not isinstance(policy, AbstractPolicy):
             raise TypeError("policy must be an instance of AbstractPolicy")
         self._policy = policy
-        self._policy._cache = weakref.proxy(self)
+        self._policy._bind(self.prefix, self.name)
         # Accept both a concrete client instance and an optional factory.
         # Prefer `factory` when present. Keep compatibility for callers that
         # accidentally passed a callable as `client` by emitting a DeprecationWarning
@@ -428,6 +428,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         if not value:
             raise ValueError("name must be a non-empty string")
         self._name = value
+        if getattr(self, "_policy", None) is not None:
+            self._policy._bind(self.prefix, value)
 
     @property
     def prefix(self) -> str:
@@ -440,6 +442,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         if not value:
             raise ValueError("prefix must be a non-empty string")
         self._prefix = value
+        if getattr(self, "_policy", None) is not None:
+            self._policy._bind(value, self.name)
 
     @property
     def maxsize(self) -> int:
