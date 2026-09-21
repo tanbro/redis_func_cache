@@ -54,8 +54,6 @@ class AbstractPolicy(ABC):
             this attribute to a weakref proxy during cache construction.
         """
         self._cache: CallableProxyType[RedisFuncCache] | None = None
-        self._lua_scripts: tuple[Script, Script] | tuple[AsyncScript, AsyncScript] | None = None
-        self._vacuum_script: Script | AsyncScript | None = None
 
     @property
     def cache(self) -> CallableProxyType[RedisFuncCache]:
@@ -144,37 +142,46 @@ class AbstractPolicy(ABC):
         """
         return clean_lua_script(read_lua_file("vacuum.lua"))
 
-    @property
-    def lua_scripts(self) -> tuple[Script, Script] | tuple[AsyncScript, AsyncScript]:
+    def lua_scripts(self, client: RedisClientT) -> tuple[Script, Script] | tuple[AsyncScript, AsyncScript]:
         """
-        Register and return Lua scripts as Redis Script/AsyncScript objects.
+        Register the get/put Lua scripts against the given client and return them.
+
+        Registration is a local operation (the script SHA is computed, no server
+        round trip), so it is repeated per call against the *current* client: with
+        a ``factory``, each call may receive a different client instance, and the
+        returned Script objects must follow it.
+
+        Args:
+            client: The redis client to register the scripts with.
 
         Returns:
-            Tuple of registered Script or AsyncScript objects.
+            Tuple of registered Script or AsyncScript objects (get, put).
         """
-        if self._lua_scripts is None:
-            client = self.cache.get_client()
-            script_texts = self.read_lua_scripts()
-            self._lua_scripts = (
+        script_texts = self.read_lua_scripts()
+        # Which side of the union applies follows the client; callers narrow via
+        # the existing sync/async script checks.
+        return cast(
+            "tuple[Script, Script] | tuple[AsyncScript, AsyncScript]",
+            (
                 client.register_script(script_texts[0]),
                 client.register_script(script_texts[1]),
-            )
-        return self._lua_scripts
+            ),
+        )
 
-    @property
-    def vacuum_script(self) -> Script | AsyncScript:
+    def vacuum_script(self, client: RedisClientT) -> Script | AsyncScript:
         """
-        Register and return the vacuum Lua script as a Redis Script/AsyncScript object.
+        Register the vacuum Lua script against the given client and return it.
 
-        Registered lazily on first access and cached, mirroring :attr:`lua_scripts`.
+        Mirrors :meth:`lua_scripts`: registration is local and repeated per call
+        against the *current* client.
+
+        Args:
+            client: The redis client to register the script with.
 
         Returns:
             The registered vacuum Script or AsyncScript object.
         """
-        if self._vacuum_script is None:
-            client = self.cache.get_client()
-            self._vacuum_script = client.register_script(self.read_vacuum_script())
-        return self._vacuum_script
+        return client.register_script(self.read_vacuum_script())
 
     @abstractmethod
     def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
@@ -231,7 +238,7 @@ class AbstractPolicy(ABC):
         client = self.cache.get_client()
         if not is_redis_sync_client(client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        script = cast(Script, self.vacuum_script)
+        script = cast(Script, self.vacuum_script(client))
         removed = 0
         for zset_key, hmap_key in self.calc_key_pairs(client):
             cursor: int | str | bytes = 0
@@ -260,7 +267,7 @@ class AbstractPolicy(ABC):
         client = self.cache.get_client()
         if not is_redis_async_client(client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
-        script = cast(AsyncScript, self.vacuum_script)
+        script = cast(AsyncScript, self.vacuum_script(client))
         removed = 0
         for zset_key, hmap_key in await self.acalc_key_pairs(client):
             cursor: int | str | bytes = 0

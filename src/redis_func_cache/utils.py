@@ -4,6 +4,7 @@ import importlib.resources
 import types
 from base64 import b64encode
 from collections.abc import Callable
+from functools import lru_cache
 from textwrap import dedent
 from typing import TYPE_CHECKING
 from warnings import warn
@@ -59,6 +60,7 @@ def b64digest(x: Hash) -> bytes:
     return b64encode(x.digest()).rstrip(b"=")
 
 
+@lru_cache
 def calculate_callable_fullname(val: Callable) -> str:
     if not callable(val):
         raise TypeError("object must be callable")
@@ -81,6 +83,7 @@ def calculate_callable_fullname(val: Callable) -> str:
     return f"{module}:{qualname}"
 
 
+@lru_cache
 def get_callable_bytecode(val: Callable) -> bytes:
     """Retrieve the bytecode of the given callable object.
 
@@ -101,6 +104,7 @@ def get_callable_bytecode(val: Callable) -> bytes:
         return b""
 
 
+@lru_cache
 def read_lua_file(file: str) -> str:
     """Read a Lua file from the package resources.
 
@@ -118,6 +122,7 @@ def read_lua_file(file: str) -> str:
     return dedent(importlib.resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
 
 
+@lru_cache
 def clean_lua_script(source: str) -> str:
     """Remove comments and empty lines from a Lua script.
 

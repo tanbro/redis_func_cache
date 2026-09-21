@@ -755,7 +755,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         stats = self._stats.get()
         if ignore_redis_errors is None:
             ignore_redis_errors = self.ignore_redis_errors
-        script_0, script_1 = self.policy.lua_scripts
+        client = self.get_client()
+        script_0, script_1 = self.policy.lua_scripts(client)
         if not is_redis_sync_script(script_0) or not is_redis_sync_script(script_1):
             raise RuntimeError("Redis lua script must be in synchronous mode on a non async function")
         if stats:
@@ -833,7 +834,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         stats = self._stats.get()
         if ignore_redis_errors is None:
             ignore_redis_errors = self.ignore_redis_errors
-        script_0, script_1 = self.policy.lua_scripts
+        client = self.get_client()
+        script_0, script_1 = self.policy.lua_scripts(client)
         if not is_redis_async_script(script_0) or not is_redis_async_script(script_1):
             raise RuntimeError("Redis lua script must be in asynchronous mode on an async function")
         if stats:
