@@ -217,8 +217,9 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         name: str,
         policy: PolicyTV,
         *,
-        client: RedisClientTV | None = None,
+        redis_client: RedisClientTV | None = None,
         factory: Callable[[], RedisClientTV] | None = None,
+        client: RedisClientTV | None = None,
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
         update_ttl: bool = True,
@@ -245,7 +246,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 .. versionchanged:: 0.7
                     The ``policy`` argument now accepts a pre-instantiated policy instance, **NOT a class**.
 
-            client: Optional Redis client instance to use.
+            redis_client: Optional Redis client instance to use.
 
                 This argument may be an already-created Redis client instance (for
                 simple scripts/tests), or ``None`` when a ``factory`` is supplied.
@@ -257,16 +258,25 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 - :class:`redis.cluster.RedisCluster`
                 - :class:`redis.asyncio.cluster.RedisCluster`
 
+                .. versionchanged:: TODO
+                    Renamed from ``client``; ``client=`` still works but is deprecated.
+
                 .. versionchanged:: 0.7
                     Prefer providing a ``factory`` for concurrent/production use;
-                    use ``client`` only for simple cases or compatibility.
+                    use ``redis_client`` only for simple cases or compatibility.
 
             factory: Optional callable that returns a Redis client instance.
 
                 If provided, the callable will be invoked every time :meth:`get_client`
                 is called or the cache instance requires a redis client internally.
-                When both ``factory`` and ``client`` are provided,
-                ``factory`` takes precedence and will be used to obtain clients.
+
+                Caution:
+                    The factory should return lightweight wrappers around a **shared
+                    connection pool** (e.g. ``redis.Redis.from_pool(pool)``), and every
+                    client it produces must address the same logical Redis dataset.
+                    Creating a brand-new connection per call leaks connections, and
+                    rotating servers silently scatters cache keys and maintenance
+                    operations across servers.
 
                 .. versionadded:: 0.7
 
@@ -382,8 +392,10 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             if not callable(factory):
                 raise TypeError("`factory` must be a callable")
             self._redis_client_factory = factory
+        elif redis_client is not None:  # pragma: no cover
+            self._redis_client_instance = redis_client
         elif client is not None:  # pragma: no cover
-            # backward compatibility
+            # deprecated alias of `redis_client`
             if callable(client):
                 warn(
                     "Passing a callable as `client` is deprecated; use `factory=` instead",
@@ -391,9 +403,13 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 )
                 self._redis_client_factory = client  # type: ignore
             else:
+                warn(
+                    "The `client` argument is deprecated; use `redis_client=` instead",
+                    DeprecationWarning,
+                )
                 self._redis_client_instance = client
         else:
-            raise RuntimeError("Either `client` or `factory` must be provided.")
+            raise RuntimeError("Either `redis_client` or `factory` must be provided.")
         # other arguments
         self.serializer = serializer
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=self._DEFAULT_MODE)
@@ -1251,14 +1267,14 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         .. versionadded:: TODO
         """
-        return self.policy.purge(batch_size)
+        return self.policy.purge(self.get_client(), batch_size)
 
     async def apurge(self, batch_size: int = 500) -> int:
         """Async version of :meth:`purge`.
 
         .. versionadded:: TODO
         """
-        return await self.policy.apurge(batch_size)
+        return await self.policy.apurge(self.get_client(), batch_size)
 
     def vacuum(self, batch_size: int = 500) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
@@ -1275,11 +1291,11 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         .. versionadded:: TODO
         """
-        return self.policy.vacuum(batch_size)
+        return self.policy.vacuum(self.get_client(), batch_size)
 
     async def avacuum(self, batch_size: int = 500) -> int:
         """Async version of :meth:`vacuum`.
 
         .. versionadded:: TODO
         """
-        return await self.policy.avacuum(batch_size)
+        return await self.policy.avacuum(self.get_client(), batch_size)

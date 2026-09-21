@@ -59,7 +59,7 @@ def test_multiple_policy_purge():
     cache.decorate(echo_a)("a")
     cache.decorate(echo_b)("b")
 
-    assert cache.policy.purge() == 4  # 每个函数一个 ZSET + 一个 HASH
+    assert cache.policy.purge(redis_client=cache.get_client()) == 4  # 每个函数一个 ZSET + 一个 HASH
     pat = f"{cache.prefix}{cache.name}:*"
     assert list(client.scan_iter(match=pat)) == []
 
@@ -78,7 +78,7 @@ def test_multiple_policy_purge_with_small_batch_size():
     cache.decorate(echo_a)("a")
     cache.decorate(echo_b)("b")
 
-    assert cache.policy.purge(batch_size=1) == 4
+    assert cache.policy.purge(redis_client=cache.get_client(), batch_size=1) == 4
     pat = f"{cache.prefix}{cache.name}:*"
     assert list(client.scan_iter(match=pat)) == []
 

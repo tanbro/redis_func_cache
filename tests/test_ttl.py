@@ -12,11 +12,11 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CACHES.values():
-        cache.policy.purge()
+        cache.policy.purge(redis_client=cache.get_client())
     yield
     # 测试后清理
     for cache in CACHES.values():
-        cache.policy.purge()
+        cache.policy.purge(redis_client=cache.get_client())
 
 
 def test_cache_ttl():

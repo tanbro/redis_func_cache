@@ -70,72 +70,76 @@ class BaseSinglePolicy(AbstractPolicy):
         return self._keys
 
     @override
-    def purge(self, batch_size: int = 500) -> int:
+    def purge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
         Delete the cache's Redis keys synchronously.
 
         Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
             batch_size: Ignored — a single policy owns exactly one static key pair,
                 deleted with one command.
 
         Returns:
             Number of keys deleted.
         """
-        client = self.cache.get_client()
-        if not is_redis_sync_client(client):
+        if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        return client.delete(*self.calc_keys())
+        return redis_client.delete(*self.calc_keys())
 
     @override
-    async def apurge(self, batch_size: int = 500) -> int:
+    async def apurge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
         Async version of :meth:`purge`.
 
         Args:
+            redis_client: An asynchronous redis client obtained from the bound cache.
             batch_size: Ignored — a single policy owns exactly one static key pair,
                 deleted with one command.
 
         Returns:
             Number of keys deleted.
         """
-        client = self.cache.get_client()
-        if not is_redis_async_client(client):
+        if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
-        return await client.delete(*self.calc_keys())  # type: ignore[union-attr]
+        return await redis_client.delete(*self.calc_keys())  # type: ignore[union-attr]
 
     @override
-    def get_size(self) -> int:
+    def get_size(self, redis_client: RedisClientT) -> int:
         """
         Get the number of items in the cache synchronously.
 
+        Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
+
         Returns:
             Number of items in the cache.
         """
-        client = self.cache.get_client()
-        if not is_redis_sync_client(client):
+        if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        return client.hlen(self.calc_keys()[1])
+        return redis_client.hlen(self.calc_keys()[1])
 
     @override
-    async def aget_size(self) -> int:
+    async def aget_size(self, redis_client: RedisClientT) -> int:
         """
         Get the number of items in the cache asynchronously.
 
+        Args:
+            redis_client: An asynchronous redis client obtained from the bound cache.
+
         Returns:
             Number of items in the cache.
         """
-        client = self.cache.get_client()
-        if not is_redis_async_client(client):
+        if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         keys = self.calc_keys()
-        return await client.hlen(keys[1])  # type: ignore[union-attr, return-value]
+        return await redis_client.hlen(keys[1])  # type: ignore[union-attr, return-value]
 
     @override
-    def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         return [self.calc_keys()]
 
     @override
-    async def acalc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         return [self.calc_keys()]
 
 
@@ -206,7 +210,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         return f"{k}:0", f"{k}:1"
 
     @override
-    def purge(self, batch_size: int = 500) -> int:
+    def purge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
         Delete all Redis keys for this policy synchronously.
 
@@ -223,23 +227,22 @@ class BaseMultiplePolicy(AbstractPolicy):
         .. versionadded:: TODO
             The *batch_size* parameter.
         """
-        client = self.cache.get_client()
-        if not is_redis_sync_client(client):
+        if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         removed = 0
         batch: list[KeyT] = []
-        for key in client.scan_iter(match=pat):  # type: ignore[union-attr]
+        for key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
             batch.append(key)
             if len(batch) >= batch_size:
-                removed += client.unlink(*batch)
+                removed += redis_client.unlink(*batch)
                 batch.clear()
         if batch:
-            removed += client.unlink(*batch)
+            removed += redis_client.unlink(*batch)
         return removed
 
     @override
-    async def apurge(self, batch_size: int = 500) -> int:
+    async def apurge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
         Async version of :meth:`purge`.
 
@@ -252,58 +255,58 @@ class BaseMultiplePolicy(AbstractPolicy):
         .. versionadded:: TODO
             The *batch_size* parameter.
         """
-        client = self.cache.get_client()
-        if not is_redis_async_client(client):
+        if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
         removed = 0
         batch: list[KeyT] = []
-        async for key in client.scan_iter(match=pat):  # type: ignore[union-attr]
+        async for key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
             batch.append(key)
             if len(batch) >= batch_size:
-                removed += await client.unlink(*batch)  # type: ignore[union-attr]
+                removed += await redis_client.unlink(*batch)  # type: ignore[union-attr]
                 batch.clear()
         if batch:
-            removed += await client.unlink(*batch)  # type: ignore[union-attr]
+            removed += await redis_client.unlink(*batch)  # type: ignore[union-attr]
         return removed
 
     @override
-    def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:0"
-        return [(zset_key, _hash_key_of(zset_key)) for zset_key in client.scan_iter(match=pat)]  # type: ignore[union-attr]
+        return [(zset_key, _hash_key_of(zset_key)) for zset_key in redis_client.scan_iter(match=pat)]  # type: ignore[union-attr]
 
     @override
-    async def acalc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:0"
-        return [(zset_key, _hash_key_of(zset_key)) async for zset_key in client.scan_iter(match=pat)]  # type: ignore[union-attr]
+        return [(zset_key, _hash_key_of(zset_key)) async for zset_key in redis_client.scan_iter(match=pat)]  # type: ignore[union-attr]
 
     @override
-    def get_size(self) -> int:
+    def get_size(self, redis_client: RedisClientT) -> int:
         """
         Get the total number of cached items across all decorated functions.
 
         Multiple policies hold one key pair per decorated function; the reported
         size is the sum of the hash lengths of every key pair.
 
+        Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
+
         Returns:
             Total number of items in the cache.
         """
-        client = self.cache.get_client()
-        if not is_redis_sync_client(client):
+        if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:1"
-        return sum(client.hlen(hmap_key) for hmap_key in client.scan_iter(match=pat))  # type: ignore[union-attr]
+        return sum(redis_client.hlen(hmap_key) for hmap_key in redis_client.scan_iter(match=pat))  # type: ignore[union-attr]
 
     @override
-    async def aget_size(self) -> int:
+    async def aget_size(self, redis_client: RedisClientT) -> int:
         """Async version of :meth:`get_size`."""
-        client = self.cache.get_client()
-        if not is_redis_async_client(client):
+        if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*:1"
         total = 0
-        async for hmap_key in client.scan_iter(match=pat):  # type: ignore[union-attr]
-            total += await client.hlen(hmap_key)  # type: ignore[union-attr]
+        async for hmap_key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
+            total += await redis_client.hlen(hmap_key)  # type: ignore[union-attr]
         return total
 
 

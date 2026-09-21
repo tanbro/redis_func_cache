@@ -71,7 +71,6 @@ dev = [
   {include-group = "docs"},
 ]
 docs = [
-  "importlib_metadata;python_version<'3.8'",
   "Sphinx>=7",
   "myst-parser",
   "sphinx-book-theme",

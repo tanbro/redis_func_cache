@@ -40,7 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .typing import Hash
 
 
-__all__ = ("b64digest", "clean_lua_script", "get_callable_bytecode", "read_lua_file")
+__all__ = ("b64digest", "get_callable_bytecode", "read_lua_file")
 
 
 def b64digest(x: Hash) -> bytes:
@@ -114,30 +114,15 @@ def read_lua_file(file: str) -> str:
     Returns:
         The contents of the Lua file as a string.
 
-    This function locates and reads the entire text content of a specified Lua file.
-    It uses the :mod:`importlib.resources` to locate the file.
-    """
-    if __package__ is None:
-        raise RuntimeError("‘__package__’ is None")  # pragma: no cover
-    return dedent(importlib.resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
-
-
-@lru_cache
-def clean_lua_script(source: str) -> str:
-    """Remove comments and empty lines from a Lua script.
-
-    Args:
-        source: The Lua script source code to be cleaned.
-
-    Returns:
-        The cleaned Lua script as a string.
-
     Note:
-        This function utilizes the :mod:`pygments` library to remove comments and empty lines from the Lua script.
-        If :mod:`pygments` is not installed, the source code will be returned unchanged.
+        - This function locates and reads the entire text content of a specified Lua file.
+          It uses the :mod:`importlib.resources` to locate the file.
+        - This function utilizes the :mod:`pygments` library to remove comments and empty lines from the Lua script.
+          If :mod:`pygments` is not installed, the source code will be returned unchanged.
     """
-    if is_module(pygments):
-        lexer = get_lexer_by_name("lua")  # pyright: ignore[reportPossiblyUnboundVariable]
+    source = dedent(importlib.resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
+    if is_module(pygments):  # pragma: no cover
+        lexer = get_lexer_by_name("lua")
         if lexer is None:  # pragma: no cover
             warn("Lua lexer not found in pygments, return source code as is", RuntimeWarning)
             return source
@@ -145,8 +130,7 @@ def clean_lua_script(source: str) -> str:
         code = "".join(tok_str for _, tok_str in lexer.get_tokens(source))
         # remote empty lines
         return "\n".join(s for line in code.splitlines() if (s := line.strip()))
-    else:  # pragma: no cover
-        return source
+    return source
 
 
 if is_module(pygments):

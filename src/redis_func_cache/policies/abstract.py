@@ -10,7 +10,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from redis.commands.core import AsyncScript, Script
 
 from ..typing import is_redis_async_client, is_redis_sync_client
-from ..utils import clean_lua_script, read_lua_file
+from ..utils import read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, KeyT, ScriptTextT
@@ -38,6 +38,16 @@ class AbstractPolicy(ABC):
       - __scripts__: A tuple of two Lua script filenames (get, put).
 
     The use of :attr:`__key__` or :attr:`__scripts__` depends on the implementation of :meth:`calc_keys` and :meth:`calc_hash`.
+
+    .. admonition:: Redis client lifecycle contract
+
+        Every method that talks to Redis takes the client as an explicit
+        ``redis_client`` argument — supplied by :class:`RedisFuncCache`, which
+        obtains it from the user's ``client`` or ``factory``. Policy code must
+        **never** call ``self.cache.get_client()`` itself and must **never**
+        store a client on the instance: with a ``factory``, clients are
+        per-operation and must not outlive the call. The only cacheable
+        artifacts are client-independent ones (script *text*, key names).
     """
 
     __key__: str
@@ -128,10 +138,7 @@ class AbstractPolicy(ABC):
         Returns:
             Tuple of cleaned Lua script texts (get, put).
         """
-        return (
-            clean_lua_script(read_lua_file(self.__scripts__[0])),
-            clean_lua_script(read_lua_file(self.__scripts__[1])),
-        )
+        return (read_lua_file(self.__scripts__[0]), read_lua_file(self.__scripts__[1]))
 
     def read_vacuum_script(self) -> str:
         """
@@ -140,9 +147,9 @@ class AbstractPolicy(ABC):
         Returns:
             The cleaned vacuum Lua script text.
         """
-        return clean_lua_script(read_lua_file("vacuum.lua"))
+        return read_lua_file("vacuum.lua")
 
-    def lua_scripts(self, client: RedisClientT) -> tuple[Script, Script] | tuple[AsyncScript, AsyncScript]:
+    def lua_scripts(self, redis_client: RedisClientT) -> tuple[Script, Script] | tuple[AsyncScript, AsyncScript]:
         """
         Register the get/put Lua scripts against the given client and return them.
 
@@ -152,10 +159,17 @@ class AbstractPolicy(ABC):
         returned Script objects must follow it.
 
         Args:
-            client: The redis client to register the scripts with.
+            redis_client: The redis client to register the scripts with.
 
         Returns:
             Tuple of registered Script or AsyncScript objects (get, put).
+
+        .. versionchanged:: TODO
+            Was a cached property taking no arguments. Caching bound the returned
+            Script objects to whichever client was current on first access, so
+            with a ``factory`` all script calls were funneled through a stale
+            client. It is now a method registering against the client passed in;
+            subclasses that overrode the property must adapt.
         """
         script_texts = self.read_lua_scripts()
         # Which side of the union applies follows the client; callers narrow via
@@ -163,12 +177,12 @@ class AbstractPolicy(ABC):
         return cast(
             "tuple[Script, Script] | tuple[AsyncScript, AsyncScript]",
             (
-                client.register_script(script_texts[0]),
-                client.register_script(script_texts[1]),
+                redis_client.register_script(script_texts[0]),
+                redis_client.register_script(script_texts[1]),
             ),
         )
 
-    def vacuum_script(self, client: RedisClientT) -> Script | AsyncScript:
+    def vacuum_script(self, redis_client: RedisClientT) -> Script | AsyncScript:
         """
         Register the vacuum Lua script against the given client and return it.
 
@@ -176,15 +190,19 @@ class AbstractPolicy(ABC):
         against the *current* client.
 
         Args:
-            client: The redis client to register the script with.
+            redis_client: The redis client to register the script with.
 
         Returns:
             The registered vacuum Script or AsyncScript object.
+
+        .. versionchanged:: TODO
+            Was a cached property taking no arguments, for the same reason as
+            :meth:`lua_scripts`; it now registers against the client passed in.
         """
-        return client.register_script(self.read_vacuum_script())
+        return redis_client.register_script(self.read_vacuum_script())
 
     @abstractmethod
-    def calc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         """
         Return the (sorted-set key, hash-map key) pairs to vacuum.
 
@@ -192,7 +210,7 @@ class AbstractPolicy(ABC):
         static key pair, multiple policies enumerate their pairs by pattern.
 
         Args:
-            client: A synchronous redis client, already guarded by the caller.
+            redis_client: A synchronous redis client, already guarded by the caller.
 
         Returns:
             List of (sorted-set key, hash-map key) pairs.
@@ -203,7 +221,7 @@ class AbstractPolicy(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    async def acalc_key_pairs(self, client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
         """
         Async version of :meth:`calc_key_pairs`.
 
@@ -212,7 +230,7 @@ class AbstractPolicy(ABC):
         """
         raise NotImplementedError()  # pragma: no cover
 
-    def vacuum(self, batch_size: int = 500) -> int:
+    def vacuum(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
         Remove ZSET members whose hash fields have expired ("ghost" entries).
 
@@ -225,22 +243,22 @@ class AbstractPolicy(ABC):
         the cursor returns to zero.
 
         Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
             batch_size: The number of members to fetch per scan step.
 
         Returns:
             The number of ghost entries removed.
 
         Raises:
-            RuntimeError: If the bound redis client is asynchronous.
+            RuntimeError: If the given redis client is asynchronous.
 
         .. versionadded:: TODO
         """
-        client = self.cache.get_client()
-        if not is_redis_sync_client(client):
+        if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        script = cast(Script, self.vacuum_script(client))
+        script = cast(Script, self.vacuum_script(redis_client))
         removed = 0
-        for zset_key, hmap_key in self.calc_key_pairs(client):
+        for zset_key, hmap_key in self.calc_key_pairs(redis_client):
             cursor: int | str | bytes = 0
             while True:
                 cursor, removed_in_chunk = script(keys=(zset_key, hmap_key), args=(cursor, batch_size))
@@ -249,27 +267,27 @@ class AbstractPolicy(ABC):
                     break
         return removed
 
-    async def avacuum(self, batch_size: int = 500) -> int:
+    async def avacuum(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
         Async version of :meth:`vacuum`.
 
         Args:
+            redis_client: An asynchronous redis client obtained from the bound cache.
             batch_size: The number of members to fetch per scan step.
 
         Returns:
             The number of ghost entries removed.
 
         Raises:
-            RuntimeError: If the bound redis client is synchronous.
+            RuntimeError: If the given redis client is synchronous.
 
         .. versionadded:: TODO
         """
-        client = self.cache.get_client()
-        if not is_redis_async_client(client):
+        if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
-        script = cast(AsyncScript, self.vacuum_script(client))
+        script = cast(AsyncScript, self.vacuum_script(redis_client))
         removed = 0
-        for zset_key, hmap_key in await self.acalc_key_pairs(client):
+        for zset_key, hmap_key in await self.acalc_key_pairs(redis_client):
             cursor: int | str | bytes = 0
             while True:
                 cursor, removed_in_chunk = await script(keys=(zset_key, hmap_key), args=(cursor, batch_size))
@@ -279,11 +297,12 @@ class AbstractPolicy(ABC):
         return removed
 
     @abstractmethod
-    def purge(self, batch_size: int = 500) -> int:
+    def purge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
         Purge the cache.
 
         Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
             batch_size: The number of keys per deletion command.
 
         Returns:
@@ -295,11 +314,12 @@ class AbstractPolicy(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    async def apurge(self, batch_size: int = 500) -> int:
+    async def apurge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
         Asynchronously purge the cache.
 
         Args:
+            redis_client: An asynchronous redis client obtained from the bound cache.
             batch_size: The number of keys per deletion command.
 
         Returns:
@@ -311,9 +331,12 @@ class AbstractPolicy(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    def get_size(self) -> int:
+    def get_size(self, redis_client: RedisClientT) -> int:
         """
         Get the number of items in the cache.
+
+        Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
 
         Returns:
             The cache size.
@@ -324,9 +347,12 @@ class AbstractPolicy(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    async def aget_size(self) -> int:
+    async def aget_size(self, redis_client: RedisClientT) -> int:
         """
         Asynchronously get the number of items in the cache.
+
+        Args:
+            redis_client: An asynchronous redis client obtained from the bound cache.
 
         Returns:
             The cache size.

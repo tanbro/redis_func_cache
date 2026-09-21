@@ -10,11 +10,11 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CLUSTER_MULTI_CACHES.values():
-        cache.policy.purge()
+        cache.policy.purge(redis_client=cache.get_client())
     yield
     # 测试后清理
     for cache in CLUSTER_MULTI_CACHES.values():
-        cache.policy.purge()
+        cache.policy.purge(redis_client=cache.get_client())
 
 
 @pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")

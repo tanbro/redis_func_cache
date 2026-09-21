@@ -153,7 +153,7 @@ def test_multiple_policy_get_size():
         assert cache.decorate(ttl=600)(echo_a)(v) == v
     assert cache.decorate(ttl=600)(echo_b)("d") == "d"
 
-    assert cache.policy.get_size() == 4
+    assert cache.policy.get_size(redis_client=cache.get_client()) == 4
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -171,4 +171,4 @@ async def test_multiple_policy_aget_size():
         assert await cache.decorate(ttl=600)(echo_a)(v) == v
     assert await cache.decorate(ttl=600)(echo_b)("c") == "c"
 
-    assert await cache.policy.aget_size() == 3
+    assert await cache.policy.aget_size(redis_client=cache.get_client()) == 3

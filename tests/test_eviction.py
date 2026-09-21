@@ -19,18 +19,18 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CACHES.values():
-        cache.policy.purge()
+        cache.policy.purge(redis_client=cache.get_client())
     yield
     # 测试后清理
     for cache in CACHES.values():
-        cache.policy.purge()
+        cache.policy.purge(redis_client=cache.get_client())
 
 
 def test_lru_order_correctness():
     """测试LRU缓存顺序的正确性。"""
     maxsize = 3
     cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
     @cache
     def echo(x):
@@ -60,14 +60,14 @@ def test_lru_order_correctness():
         mock_get.assert_called_once()
         mock_put.assert_called_once()
 
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
 
 def test_fifo_order_correctness():
     """测试FIFO缓存顺序的正确性。"""
     maxsize = 3
     cache = RedisFuncCache(__name__, FifoPolicy(), factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
     @cache
     def echo(x):
@@ -97,14 +97,14 @@ def test_fifo_order_correctness():
         mock_get.assert_called_once()
         mock_put.assert_called_once()
 
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
 
 def test_lfu_order_correctness():
     """测试LFU缓存顺序的正确性。"""
     maxsize = 3
     cache = RedisFuncCache(__name__, LfuPolicy(), factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
     @cache
     def echo(x):
@@ -135,14 +135,14 @@ def test_lfu_order_correctness():
         mock_get.assert_called_once()
         mock_put.assert_called_once()
 
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
 
 def test_eviction_edge_cases():
     """测试缓存淘汰的边界情况。"""
     maxsize = 3
     cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
     @cache
     def echo(x):
@@ -154,21 +154,21 @@ def test_eviction_edge_cases():
     # 测试缓存刚好满载情况
     for i in range(2, maxsize + 1):  # 从2开始，因为1已经添加了
         assert echo(i) == i
-    assert cache.policy.get_size() == maxsize
+    assert cache.policy.get_size(redis_client=cache.get_client()) == maxsize
 
     # 测试大量元素连续淘汰
     for i in range(maxsize + 1, maxsize * 3):
         assert echo(i) == i
-        assert cache.policy.get_size() == maxsize
+        assert cache.policy.get_size(redis_client=cache.get_client()) == maxsize
 
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
 
 def test_mru_eviction():
     """测试MRU淘汰策略。"""
     maxsize = 3
     cache = RedisFuncCache(__name__, MruPolicy(), factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
     @cache
     def echo(x):
@@ -178,7 +178,7 @@ def test_mru_eviction():
     for i in range(maxsize):
         assert echo(i) == i
 
-    assert cache.policy.get_size() == maxsize
+    assert cache.policy.get_size(redis_client=cache.get_client()) == maxsize
 
     # 访问第一个元素，使其变为最近使用
     assert echo(0) == 0
@@ -188,7 +188,7 @@ def test_mru_eviction():
     assert result == maxsize
 
     # 验证缓存大小仍然正确
-    assert cache.policy.get_size() == maxsize
+    assert cache.policy.get_size(redis_client=cache.get_client()) == maxsize
 
     # 验证0已被淘汰，其他元素仍在缓存中
     with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
@@ -198,16 +198,16 @@ def test_mru_eviction():
 
     # 对于剩下的元素(1, 2, 3)，我们需要检查它们是否在缓存中
     # 但由于MRU的行为可能比较复杂，我们简化测试只验证缓存大小
-    assert cache.policy.get_size() == maxsize
+    assert cache.policy.get_size(redis_client=cache.get_client()) == maxsize
 
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
 
 def test_cache_data_consistency():
     """测试缓存数据的一致性。"""
     maxsize = 3
     cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
 
     @cache
     def echo(x):
@@ -225,4 +225,4 @@ def test_cache_data_consistency():
         if i in values:
             assert echo(i) == values[i]
 
-    cache.policy.purge()
+    cache.policy.purge(redis_client=cache.get_client())
