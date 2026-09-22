@@ -24,53 +24,44 @@ cache = RedisFuncCache(
     factory=lambda: Redis.from_url("redis://"),
     serializer=(serialize, deserialize),
 )
+```
 
 This is too low-level for several real-world use cases:
+- Synchronous-only. serialize must return a value immediately. Any I/O (e.g. writing to object storage) blocks the caller or the event loop.
+- No lifecycle hooks. There is no place to run logic before serialization or after deserialization.
+- No failure strategy. If serialization or an external store fails, the library has no defined fallback — it can only propagate the exception.
+- No context. The serializer does not receive information about the decorated function, its arguments, or the TTL, which are often needed to build stable storage keys.
 
-Synchronous-only. serialize must return a value immediately. Any I/O (e.g. writing to object storage) blocks the caller or the event loop.
-
-No lifecycle hooks. There is no place to run logic before serialization or after deserialization.
-
-No failure strategy. If serialization or an external store fails, the library has no defined fallback — it can only propagate the exception.
-
-No context. The serializer does not receive information about the decorated function, its arguments, or the TTL, which are often needed to build stable storage keys.
-
-Concrete use case
+#### Concrete use case
 An application caches the result of a function that returns a multi-megabyte HTML page.
-
 Caching the page directly in Redis is an abuse: it consumes Redis memory, blocks the single-threaded event loop on large reads/writes, and slows replication.
 
 The desired design is a two-tier cache:
-
-Redis stores only a small reference (a pointer) plus metadata.
-
-Object storage (S3-like) stores the actual payload.
+- Redis stores only a small reference (a pointer) plus metadata.
+- Object storage (S3-like) stores the actual payload.
 
 redis_func_cache should manage the Redis side — key computation, eviction policy, TTL, concurrency control — without knowing anything about S3.
 
 A hook system provides exactly the extension point needed: the application replaces the large value with a small reference on the write path, and resolves the reference back to the value on the read path.
 
-Design Goals
+#### Design Goals
 Backward compatible. No hooks configured ⇒ behavior identical to today.
 
-Composable. Multiple hooks can be registered and run in order.
+- Composable. Multiple hooks can be registered and run in order.
+- Symmetric. Hooks exist on both the write path and the read path.
+- Async-aware. Hooks work for both synchronous and asynchronous decorated functions, mirroring the library's existing sync/async split.
+- Non-invasive. The core cache logic (key calculation, Lua scripts, eviction) is unchanged.
+- Explicit failure handling. Applications can define fallback behavior for hook failures.
 
-Symmetric. Hooks exist on both the write path and the read path.
-
-Async-aware. Hooks work for both synchronous and asynchronous decorated functions, mirroring the library's existing sync/async split.
-
-Non-invasive. The core cache logic (key calculation, Lua scripts, eviction) is unchanged.
-
-Explicit failure handling. Applications can define fallback behavior for hook failures.
-
-Non-Goals
-Built-in S3 support. The library must not depend on any specific object store.
+Non-Goals:
+- Built-in S3 support. The library must not depend on any specific object store.
 
 A general middleware framework. Hooks are scoped to the cache-entry lifecycle only.
 
 Changes to the eviction algorithm or Redis data structures.
 
-Lifecycle and Hook Points
+#### Lifecycle and Hook Points
+
 Write path (cache miss, after the user function returns)
 
 ```text
@@ -179,6 +170,7 @@ class HookContext:
     ttl: int | None
     # possibly: policy name, serializer name, etc.
 ```
+
 The context is read-only from the hook's perspective. It gives hooks enough information to build deterministic storage keys and to make decisions based on the call site.
 
 #### Registration
