@@ -1268,7 +1268,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         finally:
             self._stats.reset(token)
 
-    def purge(self, batch_size: int = 500) -> int:
+    def purge(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Delete every Redis key this cache owns.
 
         A convenience delegating to :meth:`AbstractPolicy.purge
@@ -1283,16 +1283,16 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         .. versionadded:: TODO
         """
-        return self.policy.purge(self.get_redis_client(), batch_size)
+        return self.policy.purge(self.get_redis_client() if redis_client is None else redis_client, batch_size)
 
-    async def apurge(self, batch_size: int = 500) -> int:
+    async def apurge(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Async version of :meth:`purge`.
 
         .. versionadded:: TODO
         """
-        return await self.policy.apurge(self.get_redis_client(), batch_size)
+        return await self.policy.apurge(self.get_redis_client() if redis_client is None else redis_client, batch_size)
 
-    def vacuum(self, batch_size: int = 500) -> int:
+    def vacuum(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
 
         A convenience delegating to :meth:`AbstractPolicy.vacuum
@@ -1307,11 +1307,11 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         .. versionadded:: TODO
         """
-        return self.policy.vacuum(self.get_redis_client(), batch_size)
+        return self.policy.vacuum(self.get_redis_client() if redis_client is None else redis_client, batch_size)
 
-    async def avacuum(self, batch_size: int = 500) -> int:
+    async def avacuum(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Async version of :meth:`vacuum`.
 
         .. versionadded:: TODO
         """
-        return await self.policy.avacuum(self.get_redis_client(), batch_size)
+        return await self.policy.avacuum(self.get_redis_client() if redis_client is None else redis_client, batch_size)
