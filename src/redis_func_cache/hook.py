@@ -34,9 +34,11 @@ class HandlerProtocol(Protocol):
     Return conventions:
 
     - ``before_serialize`` / ``before_deserialize`` return ``(handled, value)``.
+      ``value`` always replaces the working value; ``handled`` decides whether
+      the library still runs its own serialize/deserialize step.
     - ``after_serialize`` / ``after_deserialize`` return the replacement value
-      directly; there is no default library step left for them to skip, so no
-      ``handled`` flag is needed.
+      directly — not a tuple. After these boundaries no default library step
+      remains to skip, so a ``handled`` flag would carry no information.
 
     The ``*_async`` variants are used by the asynchronous execution path. When
     an ``*_async`` method is absent, the asynchronous path falls back to the
