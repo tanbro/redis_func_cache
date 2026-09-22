@@ -11,6 +11,7 @@ __all__ = (
     "LruTScriptsMixin",
     "MruScriptsMixin",
     "RrScriptsMixin",
+    "make_scripts_mixin",
 )
 
 
@@ -25,6 +26,12 @@ class AbstractScriptsMixin(ABC):
     """
 
     __scripts__: tuple[str, str]
+
+
+def make_scripts_mixin(
+    name: str, scripts: tuple[str, str], base: type[AbstractScriptsMixin] | None = None
+) -> type[AbstractScriptsMixin]:
+    return type(name, (AbstractScriptsMixin if base is None else base,), {"__scripts__": scripts})
 
 
 class FifoScriptsMixin(AbstractScriptsMixin):
