@@ -96,7 +96,7 @@ class AbstractPolicy(ABC):
         Returns:
             Tuple of two Redis key names (e.g., for set and hash).
         """
-        raise NotImplementedError()  # pragma: no cover
+        ...
 
     @abstractmethod
     def calc_hash(
@@ -116,7 +116,7 @@ class AbstractPolicy(ABC):
         Returns:
             The calculated hash value.
         """
-        raise NotImplementedError()  # pragma: no cover
+        ...
 
     def calc_ext_args(
         self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
@@ -221,7 +221,7 @@ class AbstractPolicy(ABC):
         Raises:
             NotImplementedError: If not implemented by subclass.
         """
-        raise NotImplementedError()  # pragma: no cover
+        ...
 
     @abstractmethod
     async def acalc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
@@ -231,7 +231,7 @@ class AbstractPolicy(ABC):
         Raises:
             NotImplementedError: If not implemented by subclass.
         """
-        raise NotImplementedError()  # pragma: no cover
+        ...
 
     def vacuum(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
         """
@@ -314,7 +314,7 @@ class AbstractPolicy(ABC):
         Raises:
             NotImplementedError: If not implemented by subclass.
         """
-        raise NotImplementedError()  # pragma: no cover
+        ...
 
     @abstractmethod
     async def apurge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
@@ -331,7 +331,7 @@ class AbstractPolicy(ABC):
         Raises:
             NotImplementedError: If not implemented by subclass.
         """
-        raise NotImplementedError()  # pragma: no cover
+        ...
 
     @abstractmethod
     def get_size(self, redis_client: RedisClientT) -> int:
@@ -347,7 +347,7 @@ class AbstractPolicy(ABC):
         Raises:
             NotImplementedError: If not implemented by subclass.
         """
-        raise NotImplementedError()  # pragma: no cover
+        ...
 
     @abstractmethod
     async def aget_size(self, redis_client: RedisClientT) -> int:
@@ -363,4 +363,4 @@ class AbstractPolicy(ABC):
         Raises:
             NotImplementedError: If not implemented by subclass.
         """
-        raise NotImplementedError()  # pragma: no cover
+        ...
