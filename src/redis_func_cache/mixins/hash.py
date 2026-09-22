@@ -42,6 +42,7 @@ __all__ = (
     "PickleSha512Base64HashMixin",
     "PickleSha512HashMixin",
     "PickleSha512HexHashMixin",
+    "make_hash_mixin",
 )
 
 
@@ -130,6 +131,12 @@ class AbstractHashMixin(ABC):
         if conf.decoder is None:
             return h.digest()
         return conf.decoder(h)
+
+
+def make_hash_mixin(
+    name: str, hash_config: HashConfig, base: type[AbstractHashMixin] | None = None
+) -> type[AbstractHashMixin]:
+    return type(name, (AbstractHashMixin if base is None else base,), {"__hash_config__": hash_config})
 
 
 JSON_SERIALIZER = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode()

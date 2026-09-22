@@ -1,5 +1,5 @@
 ---
-status: Draft
+status: accepted
 ---
 
 # Proposal: A Factory for Hash Mixin Combinations
