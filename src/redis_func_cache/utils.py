@@ -37,13 +37,13 @@ else:  # pragma: no cover
 from .typing import is_module
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .typing import Hash
+    from .typing import HashProtocol
 
 
 __all__ = ("b64digest", "get_callable_bytecode", "read_lua_file")
 
 
-def b64digest(x: Hash) -> bytes:
+def b64digest(x: HashProtocol) -> bytes:
     """Convert hash digest to base64 string.
 
     Args:

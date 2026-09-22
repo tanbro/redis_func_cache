@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from .utils import calculate_callable_fullname, get_callable_bytecode
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .typing import Hash
+    from .typing import HashProtocol
 
 __all__ = ("MAX_FINGERPRINT_HASH_ENTRIES", "hash_fingerprint")
 
@@ -32,7 +32,7 @@ projects), so the bound is only reached by pathological dynamic-callable usage.
 
 
 @lru_cache(maxsize=MAX_FINGERPRINT_HASH_ENTRIES)
-def hash_fingerprint(algorithm: str, use_bytecode: bool, fn: Callable) -> Hash:
+def hash_fingerprint(algorithm: str, use_bytecode: bool, fn: Callable) -> HashProtocol:
     """Return the hash object seeded with the fingerprint of ``fn``.
 
     The result is cached per ``(algorithm, use_bytecode, fn)``: the cache key holds

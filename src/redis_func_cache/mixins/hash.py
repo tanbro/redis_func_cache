@@ -13,7 +13,7 @@ from ..utils import b64digest
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
 
-    from ..typing import Hash
+    from ..typing import HashProtocol
 
 __all__ = (
     "AbstractHashMixin",
@@ -57,7 +57,7 @@ class HashConfig:
     """
     serializer: Callable[[Any], bytes]
     """function to serialize function positional and keyword arguments."""
-    decoder: Callable[[Hash], KeyT] | None = None
+    decoder: Callable[[HashProtocol], KeyT] | None = None
     """function to decode hash digest to member of a sorted/unsorted set and also field name of a hash map in redis.
 
     Default is :data:`None`, means no decoding and to use the raw digest bytes directly.
