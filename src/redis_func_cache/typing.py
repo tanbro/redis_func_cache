@@ -19,7 +19,6 @@ import redis.asyncio.cluster
 import redis.client
 import redis.cluster
 import redis.commands.core
-from redis.typing import EncodedT, KeyT
 
 CallableTV = TypeVar("CallableTV", bound=Callable)
 
@@ -50,90 +49,6 @@ class HashProtocol(Protocol):
     def digest(self) -> bytes: ...
     def hexdigest(self) -> str: ...
     def copy(self) -> Self: ...
-
-
-class HandlerProtocol(Protocol):
-    def before_deserialize(
-        self,
-        value: EncodedT,
-        *,
-        keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
-        func: Callable | None = None,
-        args: tuple | None = None,
-        kwds: dict | None = None,
-    ) -> tuple[bool, Any]: ...
-    def after_deserialize(
-        self,
-        value: Any,
-        *,
-        keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
-        func: Callable | None = None,
-        args: tuple | None = None,
-        kwds: dict | None = None,
-    ) -> tuple[bool, Any]: ...
-    def before_serialize(
-        self,
-        value: Any,
-        *,
-        keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
-        func: Callable | None = None,
-        args: tuple | None = None,
-        kwds: dict | None = None,
-    ) -> tuple[bool, Any]: ...
-    def after_serialize(
-        self,
-        value: EncodedT,
-        *,
-        keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
-        func: Callable | None = None,
-        args: tuple | None = None,
-        kwds: dict | None = None,
-    ) -> Any: ...
-
-    async def before_deserialize_async(
-        self,
-        value: EncodedT,
-        *,
-        keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
-        func: Callable | None = None,
-        args: tuple | None = None,
-        kwds: dict | None = None,
-    ) -> tuple[bool, Any]: ...
-    async def after_deserialize_async(
-        self,
-        value: Any,
-        *,
-        keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
-        func: Callable | None = None,
-        args: tuple | None = None,
-        kwds: dict | None = None,
-    ) -> tuple[bool, Any]: ...
-    async def before_serialize_async(
-        self,
-        value: Any,
-        *,
-        keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
-        func: Callable | None = None,
-        args: tuple | None = None,
-        kwds: dict | None = None,
-    ) -> tuple[bool, Any]: ...
-    async def after_serialize_async(
-        self,
-        value: EncodedT,
-        *,
-        keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
-        func: Callable | None = None,
-        args: tuple | None = None,
-        kwds: dict | None = None,
-    ) -> Any: ...
 
 
 def is_module(val: Any) -> TypeGuard[ModuleType]:
