@@ -116,6 +116,20 @@ Allow returning slightly stale data while refreshing the cache in the background
 
 For more detailed examples and advanced patterns, see [Important Considerations - Cache Stampede Risk](#important-considerations).
 
+## Redis Client Lifecycle
+
+The cache issues single Lua script invocations through the [redis-py][] client you supply (directly, or via `factory` for each operation). It does **not** manage connections, threads or event loops — those semantics are defined by redis-py, and how you wire the client is your application's decision. Please consult the redis-py documentation for your client type; the main points, at the time of writing:
+
+- **Synchronous `redis.Redis`** is thread-safe for command execution: each command runs on a connection drawn from the client's [`ConnectionPool`](https://redis-py.readthedocs.io/en/stable/connections.html#connection-pool), so one client (and its pool) may be shared across threads.
+- **`Pipeline` and `PubSub` objects** carry per-object state and must not be shared across threads. This library never creates them, but your own code should.
+- **`redis.asyncio` clients are bound to the event loop that created them.** Sharing one client or pool across event loops is undefined behavior. In multi-loop deployments (e.g. one loop per worker), create an independent pool per loop.
+- **Fork safety**: connections inherited across `fork()` are shared by two processes and corrupt silently. Rebuild the pool in the child process.
+
+Practical guidance for the `factory` argument:
+
+- The factory is invoked every time the cache needs a client, so it should return a **lightweight client sharing one pre-configured pool** — e.g. `redis.Redis.from_pool(pool)` — never construct a new pool per call. Creating a pool (or connection) per invocation leaks connections and defeats redis-py's server-side Lua script cache (`EVALSHA` falls back to `EVAL` for each fresh client).
+- All clients produced by one factory must address the same logical Redis dataset, otherwise cache keys and bookkeeping are scattered across servers.
+
 ## Other Key Limitations
 
 - **Generator functions** are not supported.

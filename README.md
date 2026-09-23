@@ -160,11 +160,18 @@ flowchart TD
 
 The library guarantees thread safety and concurrency security through the following design principles:
 
-1. Redis Concurrency
+1. Redis Client Handling
 
-   - The underlying redis-py client is not thread-safe. Each thread should use a separate client instance or a connection pool (`redis.ConnectionPool`) which is advised to avoid resource contention.
-   - It is recommended to use a **factory and pool** pattern for client instantiation, preventing race conditions during connection creation. A pre-configured connection pool helps manage Redis connections efficiently and prevents exhaustion under high concurrency.
-   - All Redis operations (e.g., get, put) are executed via Lua scripts to ensure atomicity, preventing race conditions during concurrent access.
+   - The cache does not manage connections itself. It issues commands — single Lua script invocations — through the [redis-py][] client you supply, either directly or via a `factory`.
+   - Client thread safety, event-loop affinity and connection lifecycle are **defined by redis-py, not by this library**. Consult the redis-py documentation for the client type you use. In short, at the time of writing:
+
+     - The synchronous `redis.Redis` client issues each command through a thread-safe connection pool, so sharing one client (and its pool) across threads is safe.
+     - `Pipeline` and `PubSub` objects keep per-object state and must not be shared across threads. This library never creates them, but your own code should be careful.
+     - `redis.asyncio` clients are bound to the event loop that created them. Using one client or pool from a different event loop is undefined behavior — create one pool per event loop.
+     - Connections must not be inherited across process forks; rebuild the pool in the child process.
+
+   - Prefer the **factory and pool** pattern: the factory should return lightweight clients sharing one pre-configured connection pool (e.g. `redis.Redis.from_pool(pool)`). A factory that creates a brand-new pool per call leaks connections and defeats redis-py's server-side Lua script cache.
+   - All cache operations (get, put) are executed via Lua scripts to ensure atomicity, preventing race conditions during concurrent access.
 
    Here is an example using `redis.ConnectionPool` to avoid conflicts when the cache accesses Redis:
 
