@@ -31,6 +31,21 @@ class AbstractScriptsMixin(ABC):
 def make_scripts_mixin(
     name: str, scripts: tuple[str, str], base: type[AbstractScriptsMixin] | None = None
 ) -> type[AbstractScriptsMixin]:
+    """Create a scripts mixin class from a pair of Lua script file names.
+
+    Args:
+        name: Name of the generated class.
+        scripts: A pair of file names for the 'get' and 'put' Lua scripts.
+        base: Base class to inherit. Default is :class:`.AbstractScriptsMixin`; if given,
+            it must be a subclass of :class:`.AbstractScriptsMixin` (or itself define a
+            compatible ``__scripts__``).
+
+    Returns:
+        A new mixin class. Each call returns a fresh class even for equal ``scripts``:
+        instances of two such classes do not satisfy ``isinstance`` checks against each
+        other. Compose the mixin once at definition time and target
+        :class:`.AbstractScriptsMixin` for type checks.
+    """
     return type(name, (AbstractScriptsMixin if base is None else base,), {"__scripts__": scripts})
 
 

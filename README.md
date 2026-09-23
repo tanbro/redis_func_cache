@@ -923,6 +923,27 @@ my_json_sha1_hex_cache = RedisFuncCache(
 )
 ```
 
+If none of the predefined combinations fits — for example, you want `msgpack` serialization with `sha3_256` — you can generate a mixin class with the [`make_hash_mixin`][redis_func_cache.mixins.hash.make_hash_mixin] factory instead of hand-writing one:
+
+```python
+import msgpack
+from redis_func_cache.mixins.hash import HashConfig, make_hash_mixin
+
+MsgpackSha3HashMixin = make_hash_mixin(
+    "MsgpackSha3HashMixin",
+    HashConfig(algorithm="sha3_256", serializer=msgpack.packb),
+)
+```
+
+Note that each call to the factory returns a fresh class, so type checks should target `AbstractHashMixin` rather than a particular factory call's result. The same pattern exists for scripts mixins via [`make_scripts_mixin`][redis_func_cache.mixins.scripts.make_scripts_mixin].
+
+```python
+from redis_func_cache.mixins.scripts import make_scripts_mixin
+
+MyScriptsMixin = make_scripts_mixin("MyScriptsMixin", ("my_get.lua", "my_put.lua"))
+```
+
+
 Or even write an entire new algorithm. For that, we subclass `AbstractHashMixin` and override the `calc_hash` method. For example:
 
 ```python

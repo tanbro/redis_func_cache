@@ -136,6 +136,25 @@ class AbstractHashMixin(ABC):
 def make_hash_mixin(
     name: str, hash_config: HashConfig, base: type[AbstractHashMixin] | None = None
 ) -> type[AbstractHashMixin]:
+    """Create a hash mixin class from a :class:`.HashConfig`.
+
+    Args:
+        name: Name of the generated class.
+        hash_config: Configuration for the generated class's :attr:`.__hash_config__`.
+        base: Base class to inherit. Default is :class:`.AbstractHashMixin`; if given,
+            it must be a subclass of :class:`.AbstractHashMixin` (or itself define a
+            compatible ``__hash_config__``).
+
+    Returns:
+        A new mixin class. Each call returns a fresh class even for equal configurations:
+        instances of two such classes do not satisfy ``isinstance`` checks against each
+        other. Compose the mixin once at definition time and target
+        :class:`.AbstractHashMixin` for type checks.
+
+    Note:
+        Hash values are stable only within a single library version. Changing the
+        serializer or decoder output changes cache keys and invalidates existing entries.
+    """
     return type(name, (AbstractHashMixin if base is None else base,), {"__hash_config__": hash_config})
 
 

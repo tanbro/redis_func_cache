@@ -30,22 +30,29 @@ fully open extension point — `algorithm` accepts any name `hashlib.new` suppor
 ## Proposal
 
 Add a factory that generates mixin classes on demand instead of enumerating the
-matrix, so new users never need to pick from 24 names:
+matrix:
 
 ```python
-JsonSha1HexHashMixin = make_hash_mixin(algorithm="sha1", serializer="json", decoder="hex")
-# or a custom combination:
-MsgpackSha3B64 = make_hash_mixin(algorithm="sha3_256", serializer=msgpack.packb, decoder="base64")
+MsgpackSha3B64 = make_hash_mixin("MsgpackSha3B64", HashConfig(algorithm="sha3_256", serializer=msgpack.packb))
 ```
 
-- The 24 existing classes stay as thin aliases over the factory — backward compatible,
-  no deprecation.
-- `serializer` accepts a serializer name (`"json"`, `"pickle"`) or a callable;
-  `decoder` accepts `"raw"`, `"hex"`, `"base64"` or a callable (reusing the module's
-  `b64digest` / `_HEX_DIGEST_DECODER` standard parts).
-- Each call returns a fresh class; for a `(algorithm, serializer, decoder)` triple the
-  result is deterministic, so returning a shared instance is safe and keeps
-  `isinstance` checks predictable.
+The factory takes the class name, a fully-specified :class:`HashConfig`, and an
+optional base class. It deliberately does **not** accept string shorthands such as
+`serializer="json"` / `decoder="hex"`: `HashConfig` is already the public, documented
+extension point whose value domain (arbitrary `hashlib` algorithms, arbitrary
+callables, `use_bytecode`) the string enums could only ever under-approximate. Two
+parallel half-open interfaces would force every advanced user back down to
+`HashConfig` anyway; the audience for the shorthand does not exist, since users who
+want a listed combination already have the 24 named classes.
+
+- The 24 existing classes stay hand-written (not aliases) — explicit classes keep
+  autodoc and `inheritance-diagram` working, and the boilerplate is stable.
+- Each call returns a fresh class. Two calls with equal configurations produce
+  classes that are not `isinstance`-compatible with each other; this is acceptable
+  because mixins are composed once at definition time and type checks in practice
+  target the stable `AbstractHashMixin` base. The factory does not memoize: caching
+  would add module-level mutable state (and name-vs-config key ambiguity) to serve
+  a usage pattern that does not occur.
 
 ## Non-goals
 
