@@ -17,7 +17,7 @@ from warnings import warn
 
 from redis import RedisError
 from redis.commands.core import AsyncScript, Script
-from redis.typing import EncodedT
+from redis.typing import EncodableT, EncodedT
 
 try:  # pragma: no cover
     import dill  # type: ignore[import-not-found]
@@ -66,9 +66,9 @@ from .typing import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.typing import EncodableT, KeyT
+    from redis.typing import KeyT
 
-    SerializerT = Callable[[Any], EncodedT]
+    SerializerT = Callable[[Any], EncodableT]
     DeserializerT = Callable[[EncodedT], Any]
     SerializerPairT = tuple[SerializerT, DeserializerT]
     SerializerSetterValueT = SerializerName | SerializerPairT
@@ -86,10 +86,10 @@ _serializers: dict[SerializerName, SerializerPairT] = {
 if is_module(dill):  # pragma: no cover
     _dill = dill
 
-    def _dill_encode(x: EncodableT) -> Any:
+    def _dill_encode(x: Any) -> bytes:
         return _dill.dumps(x)
 
-    def _dill_decode(x: Any) -> EncodableT:
+    def _dill_decode(x: EncodedT) -> Any:
         return _dill.loads(x)
 
     _serializers["dill"] = (_dill_encode, _dill_decode)
@@ -97,10 +97,10 @@ if is_module(dill):  # pragma: no cover
 if is_module(bson):  # pragma: no cover
     _bson = bson
 
-    def _bson_encode(x: EncodableT) -> Any:
+    def _bson_encode(x: Any) -> bytes:
         return _bson.encode({"": x})
 
-    def _bson_decode(x: Any) -> EncodableT:
+    def _bson_decode(x: EncodedT) -> Any:
         return _bson.decode(x)[""]
 
     _serializers["bson"] = (_bson_encode, _bson_decode)
@@ -108,11 +108,11 @@ if is_module(bson):  # pragma: no cover
 if is_module(msgpack):  # pragma: no cover
     _msgpack = msgpack
 
-    def _msgpack_encode(x: EncodableT) -> Any:
+    def _msgpack_encode(x: Any) -> bytes:
         # use_bin_type=True: bytes -> msgpack bin, str -> msgpack str (msgpack spec 2.0)
         return _msgpack.packb(x, use_bin_type=True)
 
-    def _msgpack_decode(x: Any) -> EncodableT:
+    def _msgpack_decode(x: EncodedT) -> Any:
         # raw=False: msgpack str -> python str, msgpack bin -> python bytes
         return _msgpack.unpackb(x, raw=False)
 
@@ -121,10 +121,10 @@ if is_module(msgpack):  # pragma: no cover
 if is_module(cbor2):  # pragma: no cover
     _cbor2 = cbor2
 
-    def _cbor2_encode(x: EncodableT) -> Any:
+    def _cbor2_encode(x: Any) -> bytes:
         return _cbor2.dumps(x)
 
-    def _cbor2_decode(x: Any) -> EncodableT:
+    def _cbor2_decode(x: EncodedT) -> Any:
         return _cbor2.loads(x)
 
     _serializers["cbor"] = (_cbor2_encode, _cbor2_decode)
@@ -132,10 +132,10 @@ if is_module(cbor2):  # pragma: no cover
 if is_module(yaml):  # pragma: no cover
     _yaml = yaml
 
-    def _yaml_encode(x: EncodableT) -> Any:
+    def _yaml_encode(x: Any) -> bytes:
         return _yaml.dump(x, Dumper=YamlDumper).encode()
 
-    def _yaml_decode(x: Any) -> EncodableT:
+    def _yaml_decode(x: EncodedT) -> Any:
         return _yaml.load(bytes(x) if isinstance(x, memoryview) else x, Loader=YamlLoader)
 
     _serializers["yaml"] = (_yaml_encode, _yaml_decode)
@@ -143,7 +143,7 @@ if is_module(yaml):  # pragma: no cover
 if is_module(cloudpickle):  # pragma: no cover
     _cloudpickle = cloudpickle
 
-    def _cloudpickle_encode(x: EncodableT) -> Any:
+    def _cloudpickle_encode(x: Any) -> bytes:
         return _cloudpickle.dumps(x)
 
     _serializers["cloudpickle"] = (_cloudpickle_encode, lambda x: pickle.loads(x))
@@ -589,7 +589,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         warn("property ‘client’ is deprecated since 0.5, use ‘get_redis_client()’ instead", DeprecationWarning)
         return self.get_redis_client()
 
-    def serialize(self, value: Any, serializer: SerializerT | None = None) -> EncodedT:
+    def serialize(self, value: Any, serializer: SerializerT | None = None) -> EncodableT:
         """Serialize the return value of the decorated function.
 
         The decorated function's return value is serialized to string or bytes and then stored in Redis when cached, and deserialized back to a Python object when retrieved.
@@ -879,14 +879,14 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             else:
                 handled, value = False, exec_retval
             if handled:
-                user_retval_serialized = cast(EncodedT, value)
+                user_retval_serialized = cast(EncodableT, value)
             else:
                 user_retval_serialized = self.serialize(value, serialize_func)
                 # --- after_serialize ---
                 # Returns the replacement value directly; no handled flag since
                 # no library default step remains to skip.
                 if handler is not None:
-                    user_retval_serialized = cast(EncodedT, handler.after_serialize(user_retval_serialized, ctx=ctx))
+                    user_retval_serialized = cast(EncodableT, handler.after_serialize(user_retval_serialized, ctx=ctx))
             try:
                 self.put(
                     script_1,
@@ -998,7 +998,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             else:
                 handled, value = False, user_retval
             if handled:
-                user_retval_serialized = cast(EncodedT, value)
+                user_retval_serialized = cast(EncodableT, value)
             else:
                 user_retval_serialized = self.serialize(value, serialize_func)
                 # --- after_serialize ---
@@ -1006,7 +1006,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 # no library default step remains to skip.
                 if handler is not None:
                     user_retval_serialized = cast(
-                        EncodedT, await handler.after_serialize_async(user_retval_serialized, ctx=ctx)
+                        EncodableT, await handler.after_serialize_async(user_retval_serialized, ctx=ctx)
                     )
             try:
                 await self.aput(

@@ -21,7 +21,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from redis.typing import EncodedT, KeyT
+from redis.typing import EncodableT, EncodedT, KeyT
 
 __all__ = (
     "HandlerContext",
@@ -117,7 +117,7 @@ class HandlerProtocol(Protocol):
         """
         ...
 
-    def after_serialize(self, value: EncodedT, *, ctx: HandlerContext) -> Any:
+    def after_serialize(self, value: EncodableT, *, ctx: HandlerContext) -> Any:
         """Post-process the serialized bytes before they are written to Redis.
 
         Only invoked when ``before_serialize`` did not take over the write.
@@ -165,7 +165,7 @@ class HandlerProtocol(Protocol):
         """Async-path counterpart of :meth:`before_serialize` (coroutine function)."""
         ...
 
-    async def after_serialize_async(self, value: EncodedT, *, ctx: HandlerContext) -> Any:
+    async def after_serialize_async(self, value: EncodableT, *, ctx: HandlerContext) -> Any:
         """Async-path counterpart of :meth:`after_serialize` (coroutine function)."""
 
     async def before_deserialize_async(self, value: EncodedT, *, ctx: HandlerContext) -> tuple[bool, Any]:
