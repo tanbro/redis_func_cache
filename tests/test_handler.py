@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import FrozenInstanceError
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
 
-from redis_func_cache import HandlerProtocol, LruPolicy, RedisFuncCache
+from redis_func_cache import HandlerContext, HandlerProtocol, LruPolicy, RedisFuncCache
 
 from ._catches import ASYNC_REDIS_FACTORY, REDIS_FACTORY
 
@@ -20,6 +21,7 @@ class RecordingHandler:
 
     def __init__(self, results: dict[str, Any] | None = None):
         self.calls: list[tuple[str, Any]] = []
+        self.contexts: list[HandlerContext] = []
         self.results = results or {}
 
     def _result(self, name: str, default: Any) -> Any:
@@ -27,21 +29,24 @@ class RecordingHandler:
             return self.results[name]
         return default
 
-    def before_serialize(self, value, **kwargs):
+    def before_serialize(self, value, *, ctx):
         self.calls.append(("before_serialize", value))
+        self.contexts.append(ctx)
         return self._result("before_serialize", (False, value))
 
-    def after_serialize(self, value, **kwargs):
+    def after_serialize(self, value, *, ctx):
         self.calls.append(("after_serialize", value))
-        result = self._result("after_serialize", value)
-        return result
+        self.contexts.append(ctx)
+        return self._result("after_serialize", value)
 
-    def before_deserialize(self, value, **kwargs):
+    def before_deserialize(self, value, *, ctx):
         self.calls.append(("before_deserialize", value))
+        self.contexts.append(ctx)
         return self._result("before_deserialize", (False, value))
 
-    def after_deserialize(self, value, **kwargs):
+    def after_deserialize(self, value, *, ctx):
         self.calls.append(("after_deserialize", value))
+        self.contexts.append(ctx)
         return self._result("after_deserialize", value)
 
 
@@ -50,6 +55,7 @@ class AsyncRecordingHandler:
 
     def __init__(self, results: dict[str, Any] | None = None):
         self.calls: list[tuple[str, Any]] = []
+        self.contexts: list[HandlerContext] = []
         self.results = results or {}
 
     def _result(self, name: str, default: Any) -> Any:
@@ -57,20 +63,24 @@ class AsyncRecordingHandler:
             return self.results[name]
         return default
 
-    async def before_serialize_async(self, value, **kwargs):
+    async def before_serialize_async(self, value, *, ctx):
         self.calls.append(("before_serialize", value))
+        self.contexts.append(ctx)
         return self._result("before_serialize", (False, value))
 
-    async def after_serialize_async(self, value, **kwargs):
+    async def after_serialize_async(self, value, *, ctx):
         self.calls.append(("after_serialize", value))
+        self.contexts.append(ctx)
         return self._result("after_serialize", value)
 
-    async def before_deserialize_async(self, value, **kwargs):
+    async def before_deserialize_async(self, value, *, ctx):
         self.calls.append(("before_deserialize", value))
+        self.contexts.append(ctx)
         return self._result("before_deserialize", (False, value))
 
-    async def after_deserialize_async(self, value, **kwargs):
+    async def after_deserialize_async(self, value, *, ctx):
         self.calls.append(("after_deserialize", value))
+        self.contexts.append(ctx)
         return self._result("after_deserialize", value)
 
 
@@ -132,8 +142,8 @@ def test_before_serialize_handled_false_uses_returned_value():
     c.policy.purge(redis_client=c.get_redis_client())
 
 
-def test_before_serialize_handled_true_skips_serialization():
-    """handled=True: value is bytes written directly, library serialization skipped."""
+def test_before_serialize_handled_true_skips_serialization_and_after():
+    """handled=True: value is bytes written directly; serialization and after_serialize are skipped."""
     raw = b"direct-bytes-payload"
     handler = RecordingHandler(results={"before_serialize": (True, raw)})
     c = _make_cache(handler)
@@ -144,6 +154,8 @@ def test_before_serialize_handled_true_skips_serialization():
 
     stored = _captured_put_value(c, lambda: echo(1))
     assert stored == raw
+    # Symmetric short-circuit: after_serialize must not run when before handled
+    assert "after_serialize" not in [name for name, _ in handler.calls]
     c.policy.purge(redis_client=c.get_redis_client())
 
 
@@ -226,7 +238,6 @@ def test_write_path_returns_original_value():
     handler = RecordingHandler(
         results={
             "before_serialize": (True, b"stored-bytes"),
-            "after_serialize": b"stored-bytes-2",
         }
     )
     c = _make_cache(handler)
@@ -246,7 +257,7 @@ def test_handler_subset_only_before_serialize():
         def __init__(self):
             self.calls = []
 
-        def before_serialize(self, value, **kwargs):
+        def before_serialize(self, value, *, ctx):
             self.calls.append(value)
             return True, b"only-before-serialize"
 
@@ -305,42 +316,43 @@ def test_mode_read_false_skips_read_handler():
     c.policy.purge(redis_client=c.get_redis_client())
 
 
-def test_validation_sync_method_must_not_be_coroutine():
-    """A sync-named method that is a coroutine function raises at registration."""
-
-    class BadHandler:
-        async def before_serialize(self, value, **kwargs):
-            return False, value
-
-    with pytest.raises(TypeError, match="before_serialize must not be a coroutine"):
-        _make_cache(BadHandler())
-
-
-def test_validation_async_method_must_be_coroutine():
-    """An *_async method that is not a coroutine function raises at registration."""
-
-    class BadHandler:
-        def before_serialize_async(self, value, **kwargs):
-            return False, value
-
-    with pytest.raises(TypeError, match="before_serialize_async must be a coroutine"):
-        _make_cache(BadHandler())
-
-
 def test_handler_protocol_exported():
     assert HandlerProtocol is not None
+    from redis_func_cache import HandlerContext as HC
     from redis_func_cache import HandlerProtocol as HP
 
     assert HP is HandlerProtocol
+    assert HC is HandlerContext
+
+
+def test_handler_context_is_frozen():
+    """HandlerContext is immutable."""
+    ctx = HandlerContext(keys=("k0", "k1"), hash_value="h", func=None)
+    with pytest.raises(FrozenInstanceError):
+        ctx.hash_value = "other"
+
+
+def test_before_serialize_bad_shape_propagates():
+    """A malformed before-boundary return value surfaces the natural unpack error (no library validation)."""
+    handler = RecordingHandler(results={"before_serialize": "not-a-tuple"})
+    c = _make_cache(handler)
+
+    @c
+    def echo(x):
+        return {"value": x}
+
+    with pytest.raises((TypeError, ValueError), match="unpack"):
+        echo(1)
+    c.policy.purge(redis_client=c.get_redis_client())
 
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_async_handler_full_cycle(async_cache: RedisFuncCache):
     """Async handler with all four async methods works end to end.
 
-    Write path: before_serialize handled=True stores raw bytes directly.
-    Read path: before_deserialize handled=True returns the final value,
-    skipping library deserialize and after_deserialize.
+    Write path: before_serialize handled=True stores raw bytes directly and
+    skips after_serialize. Read path: before_deserialize handled=True returns
+    the final value, skipping library deserialize and after_deserialize.
     """
     handler = AsyncRecordingHandler(
         results={
@@ -358,12 +370,15 @@ async def test_async_handler_full_cycle(async_cache: RedisFuncCache):
     # Miss → write path (before_serialize handled=True stores b"async-stored")
     assert await echo(1) == {"value": 1}
 
+    names = [name for name, _ in handler.calls]
+    assert "before_serialize" in names
+    # Symmetric short-circuit: after_serialize is skipped on the handled path
+    assert "after_serialize" not in names
+
     # Hit → before_deserialize handled=True returns final value
     assert await echo(1) == {"resolved": True}
 
     names = [name for name, _ in handler.calls]
-    assert "before_serialize" in names
-    assert "after_serialize" in names
     assert "before_deserialize" in names
     # after_deserialize is skipped when before_deserialize is handled
     assert "after_deserialize" not in names
@@ -389,22 +404,22 @@ async def test_async_before_deserialize_handled_true(async_cache: RedisFuncCache
 
 
 @pytest.mark.asyncio(loop_scope="function")
-async def test_async_falls_back_to_sync_methods(async_cache: RedisFuncCache):
-    """A sync-only handler works with the async execution path via fallback."""
-    handler = RecordingHandler(results={"after_deserialize": {"from_sync_fallback": True}})
-    c = _make_async_cache(handler)
+async def test_async_unsupported_boundary_raises_not_implemented(async_cache: RedisFuncCache):
+    """An unsupported boundary raising NotImplementedError propagates — the implementation's business, not the library's."""
+
+    class PartialAsyncHandler:
+        async def before_serialize_async(self, value, *, ctx):
+            raise NotImplementedError
+
+    c = _make_async_cache(PartialAsyncHandler())
 
     @c
     async def echo(x):
         await asyncio.sleep(0)
         return {"value": x}
 
-    assert await echo(1) == {"value": 1}
-    assert await echo(1) == {"from_sync_fallback": True}
-
-    names = [name for name, _ in handler.calls]
-    assert "before_serialize" in names
-    assert "after_deserialize" in names
+    with pytest.raises(NotImplementedError):
+        await echo(1)
     await c.policy.apurge(redis_client=c.get_redis_client())
 
 
@@ -446,26 +461,92 @@ async def test_async_after_serialize_returns_bytes_not_tuple(async_cache: RedisF
     await c.policy.apurge(redis_client=c.get_redis_client())
 
 
-def test_handler_context_kwargs_passed():
-    """Handler receives keys, hash_value, func, args, kwds keyword arguments."""
-    seen: dict[str, Any] = {}
+@pytest.mark.asyncio(loop_scope="function")
+async def test_async_before_serialize_bad_shape_propagates(async_cache: RedisFuncCache):
+    """A malformed async before-boundary return value surfaces the natural unpack error."""
+    handler = AsyncRecordingHandler(results={"before_serialize": 42})
+    c = _make_async_cache(handler)
 
-    class ContextHandler:
-        def before_serialize(self, value, **kwargs):
-            seen.update(kwargs)
-            return False, value
+    @c
+    async def echo(x):
+        await asyncio.sleep(0)
+        return {"value": x}
 
-    c = _make_cache(ContextHandler())
+    with pytest.raises(TypeError, match="not unpackable|unpack"):
+        await echo(1)
+    await c.policy.apurge(redis_client=c.get_redis_client())
+
+
+def test_handler_context_passed():
+    """Handler receives a HandlerContext with keys, hash_value, func, args, kwds."""
+    handler = RecordingHandler()
+    c = _make_cache(handler)
 
     def add(a, b):
         return a + b
 
     decorated = c(add)
     assert decorated(1, 2) == 3
-    assert "keys" in seen
-    assert "hash_value" in seen
-    assert seen["args"] == (1, 2)
-    assert seen["kwds"] == {}
+
+    ctx = handler.contexts[0]
+    assert isinstance(ctx, HandlerContext)
+    assert isinstance(ctx.keys, tuple) and len(ctx.keys) == 2
+    assert ctx.func is add
+    assert ctx.args == (1, 2)
+    assert ctx.kwds == {}
+    c.policy.purge(redis_client=c.get_redis_client())
+
+
+def test_handler_context_uses_bound_args_matching_key_computation():
+    """ctx.args/ctx.kwds are the excludes-filtered arguments, consistent with key calculation."""
+    handler = RecordingHandler()
+    c = _make_cache(handler)
+
+    def raw_call(user_id, token=None):
+        return user_id
+
+    decorated = c.decorate(excludes=["token"])(raw_call)
+    assert decorated(7, token="secret") == 7
+
+    ctx = handler.contexts[0]
+    assert ctx.args == (7,)
+    assert ctx.kwds == {}
+
+    # The same filtered args drive key computation: same effective args → same keys/hash
+    assert ctx.func is raw_call
+    assert ctx.keys == c.policy.calc_keys(raw_call, (7,), {})
+    assert ctx.hash_value == c.policy.calc_hash(raw_call, (7,), {})
+    c.policy.purge(redis_client=c.get_redis_client())
+
+
+def test_per_function_handler_overrides_instance_handler():
+    """A decorate-level handler replaces the instance-level handler."""
+    instance_handler = RecordingHandler(results={"after_serialize": b"instance-bytes"})
+    func_handler = RecordingHandler(results={"after_serialize": b"func-bytes"})
+    c = _make_cache(instance_handler)
+
+    @c.decorate(handler=func_handler)
+    def echo(x):
+        return {"value": x}
+
+    stored = _captured_put_value(c, lambda: echo(1))
+    assert stored == b"func-bytes"
+    assert instance_handler.calls == []
+    c.policy.purge(redis_client=c.get_redis_client())
+
+
+def test_per_function_handler_defaults_to_instance_handler():
+    """Without a decorate-level handler, the instance-level handler is used."""
+    instance_handler = RecordingHandler(results={"after_serialize": b"instance-bytes"})
+    c = _make_cache(instance_handler)
+
+    @c.decorate()
+    def echo(x):
+        return {"value": x}
+
+    stored = _captured_put_value(c, lambda: echo(1))
+    assert stored == b"instance-bytes"
+    assert instance_handler.calls
     c.policy.purge(redis_client=c.get_redis_client())
 
 
@@ -476,7 +557,7 @@ def test_before_deserialize_not_called_on_miss():
 
     @c
     def echo(x):
-        return {"value": x}
+        return {"value": 1}
 
     assert echo(1) == {"value": 1}  # miss
     assert "before_deserialize" not in [name for name, _ in handler.calls]

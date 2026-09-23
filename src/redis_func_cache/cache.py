@@ -54,7 +54,7 @@ else:  # pragma: no cover
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
-from .hook import HandlerProtocol, ainvoke_after, ainvoke_before, invoke_after, invoke_before, validate_handler
+from .handler import HandlerContext, HandlerProtocol
 from .policies.abstract import AbstractPolicy
 from .typing import (
     CallableTV,
@@ -376,7 +376,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
             handler: Optional handler wrapping the four serialization boundaries.
 
-                See :class:`~redis_func_cache.hook.HandlerProtocol` for the method
+                See :class:`~redis_func_cache.handler.HandlerProtocol` for the method
                 set, return conventions, and sync/async rules.
 
                 .. versionadded:: TODO
@@ -429,7 +429,6 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             raise RuntimeError("Either `redis_client` or `factory` must be provided.")
         # other arguments
         self.serializer = serializer
-        validate_handler(handler)
         self._handler = handler
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=self._DEFAULT_MODE)
         self._stats: ContextVar[RedisFuncCache.Stats | None] = ContextVar("stats", default=None)
@@ -767,6 +766,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         bound: BoundArguments | None = None,
         field_ttl: int = 0,
         ignore_redis_errors: bool | None = None,
+        handler: HandlerProtocol | None = None,
         **options,
     ) -> Any:
         """Execute the given user function with the provided arguments.
@@ -793,6 +793,11 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
                 .. versionadded:: TODO
 
+            handler: Optional handler overriding the instance-level handler for this call.
+
+                - When :data:`None` (default), the instance-level handler is used.
+                - See :class:`~redis_func_cache.handler.HandlerProtocol`.
+
             options: Additional options from :meth:`decorate`'s `**kwargs`.
 
         Returns:
@@ -812,8 +817,12 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             raise RuntimeError("Redis lua script must be in synchronous mode on a non async function")
         if stats:
             stats.count += 1
-        handler = self._handler
-        keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
+        handler = self._handler if handler is None else handler
+        # Effective arguments: the ones the key/hash are computed from, also
+        # exposed to handlers so references built from them stay consistent.
+        args, kwds = (bound.args, bound.kwargs) if bound else (user_args, user_kwds)
+        keys, hash_value, ext_args = self.prepare(user_function, args, kwds)
+        ctx = HandlerContext(keys=keys, hash_value=hash_value, func=user_function, args=args, kwds=kwds)
         # Only attempt to get from cache if mode has READ flag
         if mode.read:
             try:
@@ -834,25 +843,21 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 else:
                     if stats:
                         stats.hit += 1
-                    handler_ctx = {
-                        "keys": keys,
-                        "hash_value": hash_value,
-                        "func": user_function,
-                        "args": user_args,
-                        "kwds": user_kwds,
-                    }
                     # --- before_deserialize ---
-                    # 返回 (handled, value)。value 无条件替换 cached。
-                    # handled=True: 跳过库的反序列化和 after_deserialize，value 是最终值。
-                    # handled=False: value 是新的 bytes，库继续反序列化它。
-                    handled, handled_cached = invoke_before(handler, "before_deserialize", cached, handler_ctx)
-                    if handled:
-                        return handled_cached
-                    cached = cast(EncodedT, handled_cached)
+                    # Returns (handled, value). value always replaces cached.
+                    # handled=True: value is the final result — skip the library
+                    # deserialization AND after_deserialize.
+                    # handled=False: value is the new bytes; keep deserializing.
+                    if handler is not None:
+                        handled, cached = handler.before_deserialize(cached, ctx=ctx)
+                        if handled:
+                            return cached
                     cache_retval = self.deserialize(cached, deserialize_func)
                     # --- after_deserialize ---
-                    # 直接返回替换值，无 handled：后面没有库的默认处理可跳过。
-                    cache_retval = invoke_after(handler, "after_deserialize", cache_retval, handler_ctx)
+                    # Returns the replacement value directly; no handled flag
+                    # since no library default step remains to skip.
+                    if handler is not None:
+                        cache_retval = handler.after_deserialize(cache_retval, ctx=ctx)
                     return cache_retval
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
@@ -862,27 +867,26 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
-            handler_ctx = {
-                "keys": keys,
-                "hash_value": hash_value,
-                "func": user_function,
-                "args": user_args,
-                "kwds": user_kwds,
-            }
             # --- before_serialize ---
-            # 返回 (handled, value)。value 无条件替换"要序列化的值"，但不影响 exec_retval。
-            # handled=True: 跳过库的序列化，value 必须是 bytes/str，直接写入 Redis。
-            # handled=False: value 是新的 Python 对象，库继续序列化它。
-            handled, handled_exec_retval = invoke_before(handler, "before_serialize", exec_retval, handler_ctx)
-            if handled:
-                user_retval_serialized = cast(EncodedT, handled_exec_retval)
+            # Returns (handled, value). value replaces the value to serialize,
+            # but never affects exec_retval.
+            # handled=True: the handler owns everything after this boundary —
+            # value must be bytes/str and is written as-is; after_serialize is
+            # skipped (no library-produced bytes remain to post-process).
+            # handled=False: value is the new Python object; keep serializing.
+            if handler is not None:
+                handled, value = handler.before_serialize(exec_retval, ctx=ctx)
             else:
-                user_retval_serialized = self.serialize(handled_exec_retval, serialize_func)
-            # --- after_serialize ---
-            # 直接返回替换值，无 handled：后面没有库的默认处理可跳过。
-            user_retval_serialized = cast(
-                EncodedT, invoke_after(handler, "after_serialize", user_retval_serialized, handler_ctx)
-            )
+                handled, value = False, exec_retval
+            if handled:
+                user_retval_serialized = cast(EncodedT, value)
+            else:
+                user_retval_serialized = self.serialize(value, serialize_func)
+                # --- after_serialize ---
+                # Returns the replacement value directly; no handled flag since
+                # no library default step remains to skip.
+                if handler is not None:
+                    user_retval_serialized = cast(EncodedT, handler.after_serialize(user_retval_serialized, ctx=ctx))
             try:
                 self.put(
                     script_1,
@@ -918,6 +922,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         bound: BoundArguments | None = None,
         field_ttl: int = 0,
         ignore_redis_errors: bool | None = None,
+        handler: HandlerProtocol | None = None,
         **options,
     ) -> Any:
         """Asynchronous version of :meth:`.exec`"""
@@ -931,8 +936,12 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             raise RuntimeError("Redis lua script must be in asynchronous mode on an async function")
         if stats:
             stats.count += 1
-        handler = self._handler
-        keys, hash_value, ext_args = self.prepare(user_function, user_args, user_kwds, bound)
+        handler = handler if handler is not None else self._handler
+        # Effective arguments: the ones the key/hash are computed from, also
+        # exposed to handlers so references built from them stay consistent.
+        args, kwds = (bound.args, bound.kwargs) if bound else (user_args, user_kwds)
+        keys, hash_value, ext_args = self.prepare(user_function, args, kwds)
+        ctx = HandlerContext(keys=keys, hash_value=hash_value, func=user_function, args=args, kwds=kwds)
         # Only attempt to get from cache if mode has READ flag
         if mode.read:
             try:
@@ -953,25 +962,21 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 else:
                     if stats:
                         stats.hit += 1
-                    handler_ctx = {
-                        "keys": keys,
-                        "hash_value": hash_value,
-                        "func": user_function,
-                        "args": user_args,
-                        "kwds": user_kwds,
-                    }
                     # --- before_deserialize ---
-                    # 返回 (handled, value)。value 无条件替换 cached。
-                    # handled=True: 跳过库的反序列化和 after_deserialize，value 是最终值。
-                    # handled=False: value 是新的 bytes，库继续反序列化它。
-                    handled, handled_cached = await ainvoke_before(handler, "before_deserialize", cached, handler_ctx)
-                    if handled:
-                        return handled_cached
-                    cached = cast(EncodedT, handled_cached)
+                    # Returns (handled, value). value always replaces cached.
+                    # handled=True: value is the final result — skip the library
+                    # deserialization AND after_deserialize.
+                    # handled=False: value is the new bytes; keep deserializing.
+                    if handler is not None:
+                        handled, cached = await handler.before_deserialize_async(cached, ctx=ctx)
+                        if handled:
+                            return cached
                     cache_retval = self.deserialize(cached, deserialize_func)
                     # --- after_deserialize ---
-                    # 直接返回替换值，无 handled：后面没有库的默认处理可跳过。
-                    cache_retval = await ainvoke_after(handler, "after_deserialize", cache_retval, handler_ctx)
+                    # Returns the replacement value directly; no handled flag
+                    # since no library default step remains to skip.
+                    if handler is not None:
+                        cache_retval = await handler.after_deserialize_async(cache_retval, ctx=ctx)
                     return cache_retval
         # Only attempt to execute if mode has not NO_EXEC flag
         if not mode.exec:
@@ -981,27 +986,28 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             stats.exec += 1
         # Only put to cache if mode has WRITE flag
         if mode.write:
-            handler_ctx = {
-                "keys": keys,
-                "hash_value": hash_value,
-                "func": user_function,
-                "args": user_args,
-                "kwds": user_kwds,
-            }
             # --- before_serialize ---
-            # 返回 (handled, value)。value 无条件替换"要序列化的值"，但不影响 user_retval。
-            # handled=True: 跳过库的序列化，value 必须是 bytes/str，直接写入 Redis。
-            # handled=False: value 是新的 Python 对象，库继续序列化它。
-            handled, handled_user_retval = await ainvoke_before(handler, "before_serialize", user_retval, handler_ctx)
-            if handled:
-                user_retval_serialized = cast(EncodedT, handled_user_retval)
+            # Returns (handled, value). value replaces the value to serialize,
+            # but never affects user_retval.
+            # handled=True: the handler owns everything after this boundary —
+            # value must be bytes/str and is written as-is; after_serialize is
+            # skipped (no library-produced bytes remain to post-process).
+            # handled=False: value is the new Python object; keep serializing.
+            if handler is not None:
+                handled, value = await handler.before_serialize_async(user_retval, ctx=ctx)
             else:
-                user_retval_serialized = self.serialize(handled_user_retval, serialize_func)
-            # --- after_serialize ---
-            # 直接返回替换值，无 handled：后面没有库的默认处理可跳过。
-            user_retval_serialized = cast(
-                EncodedT, await ainvoke_after(handler, "after_serialize", user_retval_serialized, handler_ctx)
-            )
+                handled, value = False, user_retval
+            if handled:
+                user_retval_serialized = cast(EncodedT, value)
+            else:
+                user_retval_serialized = self.serialize(value, serialize_func)
+                # --- after_serialize ---
+                # Returns the replacement value directly; no handled flag since
+                # no library default step remains to skip.
+                if handler is not None:
+                    user_retval_serialized = cast(
+                        EncodedT, await handler.after_serialize_async(user_retval_serialized, ctx=ctx)
+                    )
             try:
                 await self.aput(
                     script_1,
@@ -1035,6 +1041,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         serializer: SerializerSetterValueT | None = None,
         ttl: int | None = None,
         ignore_redis_errors: bool | None = None,
+        handler: HandlerProtocol | None = None,
         excludes: Sequence[str] | None = None,
         excludes_positional: Sequence[int] | None = None,
         **options,
@@ -1083,6 +1090,14 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 - When :data:`None` (default), fall back to the instance-level :attr:`ignore_redis_errors` setting.
                 - When ``False``, the error is re-raised to the caller.
                 - When ``True``, the error is logged and recorded in :attr:`Stats.err`, and the cache degrades gracefully.
+
+                .. versionadded:: TODO
+
+            handler: Optional handler for the decorated function, overriding the instance-level handler.
+
+                - When :data:`None` (default), the instance-level handler is used.
+                - See :class:`~redis_func_cache.handler.HandlerProtocol` for the
+                  method set, return conventions, and sync/async rules.
 
                 .. versionadded:: TODO
 
@@ -1191,6 +1206,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                         bound,
                         field_ttl,
                         ignore_redis_errors,
+                        handler,
                         **options,
                     )
 
@@ -1209,6 +1225,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                         bound,
                         field_ttl,
                         ignore_redis_errors,
+                        handler,
                         **options,
                     )
 

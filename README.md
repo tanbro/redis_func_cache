@@ -76,7 +76,7 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 - Support [Redis][] **cluster**.
 - Multiple caching policies: LRU, FIFO, LFU, RR ...
 - Serialization formats: JSON, Pickle, Dill, MsgPack, YAML, BSON, CBOR, cloudpickle ...
-- Optional **handler** hooks around the four serialization boundaries — async-aware, for patterns like offloading large values to object storage while Redis stores only a small reference.
+- Optional **handler** extension around the four serialization boundaries — async-aware (`*_async` methods), settable per cache or per function, for patterns like offloading large values to object storage while Redis stores only a small reference.
 - Per-item TTL (Redis ≥ 7.4).
 - Maintenance operations: `vacuum` to clean expired entries, `purge` to drop all cache structures — both without blocking Redis.
 
@@ -471,7 +471,7 @@ Supported serializers: JSON, Pickle, Dill, MsgPack, YAML, BSON, CBOR, and cloudp
 
 When `serializer` is not enough — you need **async I/O**, **per-invocation context**, or the ability to **override only one direction** while keeping the library's default on the other — pass a `handler` to the cache constructor.
 
-A handler wraps four boundaries, each independently optional (unimplemented methods fall through to the library default):
+A handler wraps four boundaries. `HandlerProtocol` is a pure structural protocol — implementations need not inherit from it; implement the boundaries you support, and have unsupported ones `raise NotImplementedError` (the standard file-like-object pattern). The library calls the methods statically; there is no runtime validation, the type annotations are the contract:
 
 | Boundary | Sync | Async |
 | --- | --- | --- |
@@ -486,36 +486,54 @@ A handler wraps four boundaries, each independently optional (unimplemented meth
 - Async I/O, call context (`keys` / `args` / `func`), or partial override of the library's own steps → use `handler`.
 - The two combine: `serializer` defines the default encoding; `handler` may replace bytes at any boundary.
 
+#### Handler context
+
+Every handler method receives the value plus an immutable `HandlerContext` as a keyword-only argument:
+
+```python
+@dataclass(frozen=True)
+class HandlerContext:
+    keys: tuple[KeyT, KeyT]  # (zset_key, hash_key) for this cache entry
+    hash_value: KeyT         # hash field for this invocation
+    func: Callable | None    # the decorated function
+    args: tuple              # effective positional arguments
+    kwds: dict               # effective keyword arguments
+```
+
+`args` / `kwds` are the **effective** arguments — the same excludes-filtered arguments used to compute the cache keys — so references a handler builds from them stay consistent with cache identity.
+
 #### Return conventions
 
-- `before_serialize` / `before_deserialize` return `(handled, value)`. The `value` **always** replaces the working value; `handled` decides whether the library still runs its own serialize/deserialize step:
-  - `before_serialize`, `handled=True`: skip the library serializer — `value` must already be bytes and is written to Redis as-is.
-  - `before_deserialize`, `handled=True`: `value` is the final result — skip the library deserializer and `after_deserialize`.
+- `before_serialize` / `before_deserialize` return `(handled, value)`. The `value` **always** replaces the working value; `handled` decides whether the library still runs its own serialize/deserialize step. When `handled=True`, the handler owns everything after that boundary: the library performs **no** further processing on that side, including the corresponding `after_*` method:
+  - `before_serialize`, `handled=True`: skip the library serializer **and** `after_serialize` — `value` must already be bytes and is written to Redis as-is.
+  - `before_deserialize`, `handled=True`: `value` is the final result — skip the library deserializer **and** `after_deserialize`.
 - `after_serialize` / `after_deserialize` return the replacement value directly (not a tuple); there is no default library step left after them to skip.
 
-Sync methods must not be coroutine functions; `*_async` methods must be. The async path prefers `*_async` and falls back to the sync method when absent, so a sync-only handler works everywhere. Shapes are validated at construction (`TypeError`).
+Sync methods must not be coroutine functions; `*_async` methods must be. The asynchronous path calls **only** the `*_async` methods — there is **no** async-to-sync fallback, so a handler used with an async cache must support the `*_async` boundaries it cares about (by convention, unsupported boundaries `raise NotImplementedError`). This guarantees that blocking synchronous I/O can never be introduced onto the event loop implicitly.
+
+A handler may be set at cache level (constructor `handler=`) or per decorated function (`decorate(handler=...)`); the per-function value wins when given.
 
 #### Example: offload large values to object storage
 
 Only the two `before_*` methods are needed:
 
 ```python
-from redis_func_cache import HandlerProtocol, LruTPolicy, RedisFuncCache
+from redis_func_cache import HandlerContext, HandlerProtocol, LruTPolicy, RedisFuncCache
 
 LARGE = 1 << 20  # 1 MiB
 
 
-class ObjectStorageOffload:
+class ObjectStorageOffload(HandlerProtocol):
     """Store big payloads in object storage; Redis keeps only a reference."""
 
-    def before_serialize(self, value, **ctx):
+    def before_serialize(self, value, *, ctx: HandlerContext):
         payload = encode(value)  # your encoding, e.g. msgpack / HTML bytes
         if len(payload) <= LARGE:
             return False, value  # small: library serializes as usual
-        ref = object_store.put(payload)  # async app: use *_async methods
+        ref = object_store.put(payload, ctx.args)  # async app: override *_async methods too
         return True, encode_ref(ref)  # large: write only the reference bytes
 
-    def before_deserialize(self, data, **ctx):
+    def before_deserialize(self, data, *, ctx: HandlerContext):
         if not is_ref(data):
             return False, data  # small: library deserializes as usual
         payload = object_store.get(decode_ref(data))
@@ -528,9 +546,13 @@ cache = RedisFuncCache(
     factory=lambda: Redis.from_url("redis://"),
     handler=ObjectStorageOffload(),
 )
+
+# Or override per decorated function:
+@cache.decorate(handler=OtherHandler())
+def other_func(...): ...
 ```
 
-The library never learns about object storage: it sees a small value on write and a final value on read. Exceptions raised by a handler propagate to the caller — the library provides no retry or fallback policy; that belongs to the handler. See the design note [`docs/design/hander.md`](docs/design/hander.md) for the full specification, including mode interaction and non-goals.
+The library never learns about object storage: it sees a small value on write and a final value on read. Exceptions raised by a handler propagate to the caller — the library performs no runtime validation and provides no retry, fallback, or error counting; the type annotations are the contract, and reliability belongs entirely to the handler. See the design note [`docs/design/handler.md`](docs/design/handler.md) for the full specification, including mode interaction and non-goals.
 
 ### Handling Non-Serializable Arguments
 

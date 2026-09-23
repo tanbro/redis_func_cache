@@ -1,7 +1,7 @@
 from . import _version as version
 from ._version import __version__, __version_tuple__
 from .cache import RedisFuncCache
-from .hook import HandlerProtocol
+from .handler import HandlerContext, HandlerProtocol
 from .policies.fifo import (
     FifoClusterMultiplePolicy,
     FifoClusterPolicy,
