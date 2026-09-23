@@ -6,13 +6,8 @@ before/after it deserializes bytes on the read path — with paired sync and
 ``*_async`` methods for the two execution paths.
 
 :class:`HandlerProtocol` is a pure structural protocol: it carries no
-implementations. An implementation decides which boundaries to support and
-whether to do so synchronously, asynchronously, or both; unsupported
-boundaries should ``raise NotImplementedError``. The execution paths call
-these methods statically, one to one — what happens for an unsupported
-boundary is entirely the implementation's business. The library performs
-no runtime validation of handler behavior — the type annotations are the
-contract.
+implementations. An implementation conforms by matching its signatures;
+the type annotations are the contract, enforced by static checking.
 """
 
 from __future__ import annotations
@@ -74,11 +69,15 @@ class HandlerProtocol(Protocol):
     - ``after_deserialize``: post-process the deserialized value (e.g.
       enrich, validate, convert) before it is returned to the caller.
 
-    Each boundary exists in two flavors: the plain name is used by the
-    synchronous execution path; the ``*_async`` variant — a coroutine
-    function — is used by the asynchronous path. There is no fallback
-    between them. Implementations choose which of the eight methods to
-    provide; unsupported boundaries should ``raise NotImplementedError``.
+    Each boundary exists in two flavors, forming two groups: the plain
+    names serve the synchronous execution path, the ``*_async`` coroutine
+    functions serve the asynchronous path. There is no fallback between
+    them. An implementation provides at least one group — the one its
+    execution path uses — and the other group, if unused, may be kept as
+    ``raise NotImplementedError`` placeholders. Within a provided group
+    every method is defined; a method with nothing to do still returns
+    explicitly, passing its input through unchanged (see the return
+    conventions below).
 
     Return conventions differ between the two halves:
 
@@ -87,17 +86,19 @@ class HandlerProtocol(Protocol):
       states whether the implementation performed the library's job itself:
       when true, the library skips its own conversion **and every later
       step on that path** (including the corresponding ``after_*`` method);
-      when false, the library continues with ``value``.
+      when false, the library continues with ``value``. A method with
+      nothing to do returns ``(False, value)`` — explicitly unhandled,
+      with its input unchanged — so the library's default step runs as
+      usual.
     - An ``after_*`` method returns the replacement value directly — there
       is no library step left after it, so there is nothing for a
-      ``handled`` flag to control.
+      ``handled`` flag to control. A method with nothing to do returns
+      its input unchanged.
 
     Every method receives the value at that point as its first positional
     argument, plus the :class:`HandlerContext` of the current invocation as
     a keyword-only ``ctx`` argument. The protocol is purely structural: an
-    implementation does not need to inherit from this class. The library
-    performs no runtime validation; the annotations are the contract, and
-    exceptions raised by an implementation propagate to the caller.
+    implementation does not need to inherit from this class.
     """
 
     def before_serialize(self, value: Any, *, ctx: HandlerContext) -> tuple[bool, Any]:
@@ -113,7 +114,8 @@ class HandlerProtocol(Protocol):
             (or a str accepted by Redis); the library skips its serializer
             and ``after_serialize`` and writes ``value`` as-is. If false,
             the library serializes ``value`` and proceeds to
-            ``after_serialize``.
+            ``after_serialize``. A method with nothing to do returns
+            ``(False, value)`` unchanged.
         """
         ...
 
@@ -127,7 +129,8 @@ class HandlerProtocol(Protocol):
             ctx: The invocation context.
 
         Returns:
-            The replacement bytes to store in Redis.
+            The replacement bytes to store in Redis. A method with nothing
+            to do returns ``value`` unchanged.
         """
         ...
 
@@ -144,6 +147,7 @@ class HandlerProtocol(Protocol):
             result returned to the caller; the library skips its
             deserializer and ``after_deserialize``. If false, the library
             deserializes ``value`` and proceeds to ``after_deserialize``.
+            A method with nothing to do returns ``(False, value)`` unchanged.
         """
         ...
 
@@ -157,7 +161,8 @@ class HandlerProtocol(Protocol):
             ctx: The invocation context.
 
         Returns:
-            The replacement value to return to the caller.
+            The replacement value to return to the caller. A method with
+            nothing to do returns ``value`` unchanged.
         """
         ...
 

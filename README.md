@@ -659,9 +659,9 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
 
 ### Handler: Extending the Serialization Boundaries
 
-When `serializer` is not enough — you need **async I/O**, **per-invocation context**, or the ability to **override only one direction** while keeping the library's default on the other — pass a `handler` to the cache constructor.
+When `serializer` is not enough — you need **async I/O**, **per-invocation context**, or the ability to **take over only one direction** while keeping the library's default on the other — pass a `handler` to the cache constructor.
 
-A handler wraps four boundaries. `HandlerProtocol` is a pure structural protocol — implementations need not inherit from it; implement the boundaries you support, and have unsupported ones `raise NotImplementedError` (the standard file-like-object pattern). The library calls the methods statically; there is no runtime validation, the type annotations are the contract:
+A handler wraps four boundaries. `HandlerProtocol` is a pure structural protocol — implementations need not inherit from it; matching its signatures is the contract, checked statically. The eight methods form two groups (sync and `*_async`): implement at least the group your execution path uses — both if you serve both — and keep the other group as `raise NotImplementedError` placeholders if unused. Within an implemented group every method is defined: boundaries you don't use return their input unchanged and unhandled — `before_*`: `(False, value)`, `after_*`: the value:
 
 | Boundary | Sync | Async |
 | --- | --- | --- |
@@ -673,7 +673,7 @@ A handler wraps four boundaries. `HandlerProtocol` is a pure structural protocol
 **When to use which:**
 
 - Encoding format only (JSON, msgpack, …) or a sync custom encoding → use [`serializer`][].
-- Async I/O, call context (`keys` / `args` / `func`), or partial override of the library's own steps → use `handler`.
+- Async I/O, call context (`keys` / `args` / `func`), or taking over part of the library's own steps → use `handler`.
 - The two combine: `serializer` defines the default encoding; `handler` may replace bytes at any boundary.
 
 #### Handler context
@@ -698,29 +698,30 @@ class HandlerContext:
   - `before_serialize`, `handled=True`: skip the library serializer **and** `after_serialize` — `value` must already be bytes and is written to Redis as-is.
   - `before_deserialize`, `handled=True`: `value` is the final result — skip the library deserializer **and** `after_deserialize`.
 - `after_serialize` / `after_deserialize` return the replacement value directly (not a tuple); there is no default library step left after them to skip.
+- A boundary you don't use still returns explicitly and identically: `before_*` → `(False, value)` (unhandled, value unchanged — the library's default step runs), `after_*` → the value unchanged.
 
-Sync methods must not be coroutine functions; `*_async` methods must be. The asynchronous path calls **only** the `*_async` methods — there is **no** async-to-sync fallback, so a handler used with an async cache must support the `*_async` boundaries it cares about (by convention, unsupported boundaries `raise NotImplementedError`). This guarantees that blocking synchronous I/O can never be introduced onto the event loop implicitly.
+Sync methods must not be coroutine functions; `*_async` methods must be. The asynchronous path calls **only** the `*_async` methods — there is **no** async-to-sync fallback — so an async cache requires the `*_async` group; a sync-only handler keeps that group as `raise NotImplementedError` placeholders. This guarantees that blocking synchronous I/O can never be introduced onto the event loop implicitly.
 
 A handler may be set at cache level (constructor `handler=`) or per decorated function (`decorate(handler=...)`); the per-function value wins when given.
 
 #### Example: offload large values to object storage
 
-Only the two `before_*` methods are needed:
+The offload logic lives in the two `before_*` methods; the two `after_*` methods are identity functions, through which the library's own values pass unchanged:
 
 ```python
-from redis_func_cache import HandlerContext, HandlerProtocol, LruTPolicy, RedisFuncCache
+from redis_func_cache import HandlerContext, LruTPolicy, RedisFuncCache
 
 LARGE = 1 << 20  # 1 MiB
 
 
-class ObjectStorageOffload(HandlerProtocol):
+class ObjectStorageOffload:
     """Store big payloads in object storage; Redis keeps only a reference."""
 
     def before_serialize(self, value, *, ctx: HandlerContext):
         payload = encode(value)  # your encoding, e.g. msgpack / HTML bytes
         if len(payload) <= LARGE:
             return False, value  # small: library serializes as usual
-        ref = object_store.put(payload, ctx.args)  # async app: override *_async methods too
+        ref = object_store.put(payload, ctx.args)  # async app: also define the *_async methods
         return True, encode_ref(ref)  # large: write only the reference bytes
 
     def before_deserialize(self, data, *, ctx: HandlerContext):
@@ -728,6 +729,12 @@ class ObjectStorageOffload(HandlerProtocol):
             return False, data  # small: library deserializes as usual
         payload = object_store.get(decode_ref(data))
         return True, decode(payload)  # reference: resolve to the final value
+
+    def after_serialize(self, data, *, ctx: HandlerContext):
+        return data  # nothing to post-process: store the library's bytes as-is
+
+    def after_deserialize(self, value, *, ctx: HandlerContext):
+        return value  # nothing to post-process: return the library's value as-is
 
 
 cache = RedisFuncCache(
@@ -742,7 +749,7 @@ cache = RedisFuncCache(
 def other_func(...): ...
 ```
 
-The library never learns about object storage: it sees a small value on write and a final value on read. Exceptions raised by a handler propagate to the caller — the library performs no runtime validation and provides no retry, fallback, or error counting; the type annotations are the contract, and reliability belongs entirely to the handler. See the design note [`docs/design/handler.md`](docs/design/handler.md) for the full specification, including mode interaction and non-goals.
+The library never learns about object storage: it sees a small value on write and a final value on read. Exceptions raised by a handler propagate to the caller — the library provides no retry, fallback, or error counting; reliability belongs entirely to the handler. See the design note [`docs/design/handler.md`](docs/design/handler.md) for the full specification, including mode interaction and non-goals.
 
 ### Custom key format
 

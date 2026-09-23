@@ -251,7 +251,14 @@ def test_write_path_returns_original_value():
 
 
 def test_handler_subset_only_before_serialize():
-    """A handler may implement only one method."""
+    """A handler may define only the methods its usage actually reaches.
+
+    Per the contract, every method of the implemented group is defined —
+    identity returns for boundaries the handler does not use. This test
+    pins a narrower handler that defines only ``before_serialize``: it
+    works here because ``handled=True`` short-circuits
+    ``after_serialize`` and only the write path ever runs.
+    """
 
     class OnlyBeforeSerialize:
         def __init__(self):
@@ -405,7 +412,7 @@ async def test_async_before_deserialize_handled_true(async_cache: RedisFuncCache
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_async_unsupported_boundary_raises_not_implemented(async_cache: RedisFuncCache):
-    """An unsupported boundary raising NotImplementedError propagates — the implementation's business, not the library's."""
+    """A handler raising NotImplementedError propagates unchanged — no library error handling for handler failures."""
 
     class PartialAsyncHandler:
         async def before_serialize_async(self, value, *, ctx):
