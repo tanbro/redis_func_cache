@@ -35,15 +35,36 @@ Contents
 --------
 
 .. toctree::
-   :caption: Documentation
+   :caption: Getting Started
    :titlesonly:
 
    README
+
+.. toctree::
+   :caption: User Guide
+   :titlesonly:
+
+   usage/quickstart
+   usage/configuration
+   usage/advanced-usage
+   usage/considerations
+   usage/migration
+
+.. toctree::
+   :caption: Design Notes
+   :titlesonly:
+
+   design/handler
+   design/field-ttl-vacuum
+   design/purge
+   design/hash-mixin-factory
+
+.. toctree::
+   :caption: Project
+   :titlesonly:
+
    CHANGELOG
    CONTRIBUTING
-   design/field-ttl-vacuum
-   design/hash-mixin-factory
-   design/purge
    AUTHORS
    LICENSE
 

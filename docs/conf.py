@@ -100,6 +100,7 @@ myst_enable_extensions = [
     "tasklist"
 ]
 myst_fence_as_directive = ["mermaid"]
+myst_heading_anchors = 4
 
 # -- Options for intersphinx extension ---------------------------------------
 
