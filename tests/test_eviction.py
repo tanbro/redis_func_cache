@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from redis_func_cache import LruPolicy, RedisFuncCache
@@ -8,6 +6,7 @@ from redis_func_cache.policies.lfu import LfuPolicy
 from redis_func_cache.policies.mru import MruPolicy
 
 from ._catches import CACHES, redis_factory
+from ._mocks import patch_object
 
 
 def _echo(x):
@@ -48,14 +47,14 @@ def test_lru_order_correctness():
 
     # 验证缓存中包含正确的元素: 0, 2, 3
     # 通过再次访问这些元素应该命中缓存来验证
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         assert echo(0) == 0  # 应该命中
         assert echo(2) == 2  # 应该命中
         assert echo(3) == 3  # 应该命中
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素1应该未命中
-    with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "get", return_value=None) as mock_get, patch_object(cache, "put") as mock_put:
         assert echo(1) == 1  # 应该未命中
         mock_get.assert_called_once()
         mock_put.assert_called_once()
@@ -85,14 +84,14 @@ def test_fifo_order_correctness():
     assert echo(maxsize) == maxsize
 
     # 验证缓存中包含正确的元素: 1, 2, 3
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         assert echo(1) == 1  # 应该命中
         assert echo(2) == 2  # 应该命中
         assert echo(3) == 3  # 应该命中
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素0应该未命中
-    with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "get", return_value=None) as mock_get, patch_object(cache, "put") as mock_put:
         assert echo(0) == 0  # 应该未命中
         mock_get.assert_called_once()
         mock_put.assert_called_once()
@@ -123,14 +122,14 @@ def test_lfu_order_correctness():
     assert echo(maxsize) == maxsize
 
     # 验证缓存中包含正确的元素: 0, 1, 3
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         assert echo(0) == 0  # 应该命中
         assert echo(1) == 1  # 应该命中
         assert echo(3) == 3  # 应该命中
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素2应该未命中
-    with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "get", return_value=None) as mock_get, patch_object(cache, "put") as mock_put:
         assert echo(2) == 2  # 应该未命中
         mock_get.assert_called_once()
         mock_put.assert_called_once()
@@ -191,7 +190,7 @@ def test_mru_eviction():
     assert cache.policy.get_size(redis_client=cache.get_redis_client()) == maxsize
 
     # 验证0已被淘汰，其他元素仍在缓存中
-    with patch.object(cache, "get", return_value=None) as mock_get, patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "get", return_value=None) as mock_get, patch_object(cache, "put") as mock_put:
         assert echo(0) == 0  # 应该未命中，因为已被淘汰
         mock_get.assert_called_once()
         mock_put.assert_called_once()

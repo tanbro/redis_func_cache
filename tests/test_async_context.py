@@ -1,11 +1,12 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 from redis.asyncio import Redis as AsyncRedis
 
 from redis_func_cache import LruTPolicy, RedisFuncCache
+
+from ._mocks import patch_object
 
 
 @pytest.fixture
@@ -53,15 +54,15 @@ class TestAsyncContext:
 
         # 正常调用，缓存应生效
         assert await echo(val) == val
-        with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
+        with patch_object(cache, "aput") as mock_put:
             assert await echo(val) == val
             mock_put.assert_not_called()
 
         # 在 disable_rw 上下文中调用，缓存应完全禁用
         with cache.disable_rw():  # noqa: SIM117
             # 直接调用函数，不经过缓存
-            with patch.object(cache, "aget", side_effect=AsyncMock(return_value=None)) as mock_get:
-                with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
+            with patch_object(cache, "aget", return_value=None) as mock_get:
+                with patch_object(cache, "aput") as mock_put:
                     result = await echo(val)  # 不触发缓存读写
                     # 确保 get 未被调用
                     mock_get.assert_not_called()
@@ -71,8 +72,8 @@ class TestAsyncContext:
                     assert result == val
 
         # 离开上下文后，缓存应恢复正常
-        with patch.object(cache, "aget", side_effect=AsyncMock(return_value=cache.serialize(val))) as mock_get:  # noqa: SIM117
-            with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
+        with patch_object(cache, "aget", return_value=cache.serialize(val)) as mock_get:  # noqa: SIM117
+            with patch_object(cache, "aput") as mock_put:
                 result = await echo(val)
                 mock_get.assert_called_once()
                 mock_put.assert_not_called()
@@ -94,8 +95,8 @@ class TestAsyncContext:
         # 在 read_only 上下文中调用
         with cache.read_only():  # noqa: SIM117
             # 函数不应该被执行，只应该从缓存中获取
-            with patch.object(cache, "aget", side_effect=AsyncMock(return_value=cache.serialize(val))) as mock_get:
-                with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
+            with patch_object(cache, "aget", return_value=cache.serialize(val)) as mock_get:
+                with patch_object(cache, "aput") as mock_put:
                     result = await echo(val)
                     # 确保 get 被调用
                     mock_get.assert_called_once()
@@ -120,8 +121,8 @@ class TestAsyncContext:
         # 在 write_only 上下文中调用
         with cache.write_only():  # noqa: SIM117
             # 函数应该被执行，结果应该被写入缓存
-            with patch.object(cache, "aget", side_effect=AsyncMock(return_value=None)) as mock_get:
-                with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
+            with patch_object(cache, "aget", return_value=None) as mock_get:
+                with patch_object(cache, "aput") as mock_put:
                     result = await echo(val)
                     # 确保 get 未被调用
                     mock_get.assert_not_called()
@@ -131,8 +132,8 @@ class TestAsyncContext:
                     assert result == val
 
         # 离开上下文后，缓存应恢复正常
-        with patch.object(cache, "aget", side_effect=AsyncMock(return_value=cache.serialize(val))) as mock_get:  # noqa: SIM117
-            with patch.object(cache, "aput", side_effect=AsyncMock()) as mock_put:
+        with patch_object(cache, "aget", return_value=cache.serialize(val)) as mock_get:  # noqa: SIM117
+            with patch_object(cache, "aput") as mock_put:
                 result = await echo(val)
                 mock_get.assert_called_once()
                 mock_put.assert_not_called()

@@ -1,4 +1,3 @@
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -6,6 +5,7 @@ import pytest
 from redis_func_cache import LruPolicy, RedisFuncCache
 
 from ._catches import CACHES, redis_factory
+from ._mocks import patch_object
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +38,7 @@ def test_excludes(cache_name, cache):
     assert result1 == "book_123"
 
     # 第二次调用，使用不同的 pool 对象但相同的 book_id，应该命中缓存
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         result2 = get_data(pool2, book_id=123)
         assert result2 == "book_123"
         # 确保没有再次调用 put 方法，表示命中了缓存
@@ -63,7 +63,7 @@ def test_excludes_positional(cache_name, cache):
     assert result1 == "book_123"
 
     # 第二次调用，使用不同的 pool 对象但相同的 book_id，应该命中缓存
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         result2 = get_data(pool2, book_id=123)
         assert result2 == "book_123"
         # 确保没有再次调用 put 方法，表示命中了缓存
@@ -90,7 +90,7 @@ def test_excludes_and_excludes_positional_combined(cache_name, cache):
     assert result1 == "user_456_book_123"
 
     # 第二次调用，使用不同的 pool 对象和 config 但相同的 user_id 和 book_id，应该命中缓存
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         result2 = get_data(pool2, user_id=456, book_id=123, config=config2)
         assert result2 == "user_456_book_123"
         # 确保没有再次调用 put 方法，表示命中了缓存
@@ -115,13 +115,13 @@ def test_excludes_with_different_values(cache_name, cache):
     assert result1 == "book_123"
 
     # 第二次调用，使用不同的 pool 但相同的 book_id，应该命中缓存
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         result2 = get_data(pool2, book_id=123)
         assert result2 == "book_123"
         mock_put.assert_not_called()
 
     # 第三次调用，使用相同的 pool 但不同的 book_id，应该未命中缓存
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         result3 = get_data(pool1, book_id=456)
         assert result3 == "book_456"
         mock_put.assert_called_once()
@@ -144,7 +144,7 @@ def test_excludes_with_custom_cache():
     assert result1 == "user_123_data"
 
     # 第二次调用，使用不同的 session 但相同的 user_id，应该命中缓存
-    with patch.object(custom_cache, "put") as mock_put:
+    with patch_object(custom_cache, "put") as mock_put:
         result2 = get_user_data(session2, user_id=123)
         assert result2 == "user_123_data"
         mock_put.assert_not_called()

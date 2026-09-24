@@ -1,4 +1,3 @@
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -6,6 +5,7 @@ import pytest
 from redis_func_cache.cache import RedisFuncCache
 
 from ._catches import CACHES
+from ._mocks import patch_object
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +31,7 @@ def test_disable_rw(cache_name: str, cache: RedisFuncCache):
     val = uuid4().hex
     # 正常调用，缓存应生效
     assert echo(val) == val
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         assert cache.get_mode().read
         assert cache.get_mode().write
         assert echo(val) == val
@@ -42,7 +42,7 @@ def test_disable_rw(cache_name: str, cache: RedisFuncCache):
         assert not cache.get_mode().read
         assert not cache.get_mode().write
         # 直接调用函数，不经过缓存
-        with patch.object(cache, "get") as mock_get, patch.object(cache, "put") as mock_put:
+        with patch_object(cache, "get") as mock_get, patch_object(cache, "put") as mock_put:
             result = echo(val)  # 函数被执行，但不读写缓存
             # 确保 get 未被调用
             mock_get.assert_not_called()
@@ -52,8 +52,8 @@ def test_disable_rw(cache_name: str, cache: RedisFuncCache):
             assert result == val
 
     # 离开上下文后，缓存应恢复正常
-    with patch.object(cache, "get", return_value=cache.serialize(val)) as mock_get:  # noqa: SIM117
-        with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "get", return_value=cache.serialize(val)) as mock_get:  # noqa: SIM117
+        with patch_object(cache, "put") as mock_put:
             result = echo(val)
             mock_get.assert_called_once()
             mock_put.assert_not_called()

@@ -1,5 +1,4 @@
 import time
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -7,6 +6,7 @@ import pytest
 from redis_func_cache import RedisFuncCache
 
 from ._catches import CACHES, redis_factory
+from ._mocks import patch_object
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +47,7 @@ def test_update_ttl_default_behavior():
         time.sleep(1)
 
         # 第二次调用，应该命中缓存并更新TTL
-        with patch.object(short_ttl_cache, "put") as mock_put:
+        with patch_object(short_ttl_cache, "put") as mock_put:
             result2 = echo(val)
             assert result2 == val
             # 在update_ttl=True模式下，缓存命中不应该触发重新存储
@@ -57,7 +57,7 @@ def test_update_ttl_default_behavior():
         time.sleep(1.5)
 
         # 第三次调用，如果TTL被更新了，应该仍然命中缓存
-        with patch.object(short_ttl_cache, "put") as mock_put:
+        with patch_object(short_ttl_cache, "put") as mock_put:
             result3 = echo(val)
             assert result3 == val
             # 在update_ttl=True模式下，即使过了初始TTL，也应该命中缓存
@@ -93,7 +93,7 @@ def test_update_ttl_false_behavior():
         time.sleep(1)
 
         # 第二次调用，应该命中缓存但不更新TTL
-        with patch.object(no_update_ttl_cache, "put") as mock_put:
+        with patch_object(no_update_ttl_cache, "put") as mock_put:
             result2 = echo(val)
             assert result2 == val
             # 在update_ttl=False模式下，缓存命中不应该触发重新存储
@@ -103,7 +103,7 @@ def test_update_ttl_false_behavior():
         time.sleep(1.5)
 
         # 第三次调用，如果TTL没有被更新，应该触发重新计算
-        with patch.object(no_update_ttl_cache, "put") as mock_put:
+        with patch_object(no_update_ttl_cache, "put") as mock_put:
             result3 = echo(val)
             assert result3 == val
             # 在update_ttl=False模式下，过了初始TTL应该触发重新存储

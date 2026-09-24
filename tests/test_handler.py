@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Any, cast
-from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -14,6 +13,7 @@ from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.handler import HandlerContext, HandlerProtocol
 
 from ._catches import ASYNC_REDIS_FACTORY, REDIS_FACTORY
+from ._mocks import patch_object
 
 
 class RecordingHandler:
@@ -123,7 +123,7 @@ async def async_cache():
 
 def _captured_put_value(cache: RedisFuncCache, invoke) -> Any:
     """Run ``invoke`` and return the value passed to ``cache.put``."""
-    with patch.object(cache, "put") as mock_put:
+    with patch_object(cache, "put") as mock_put:
         invoke()
         mock_put.assert_called_once()
         return mock_put.call_args[0][3]
@@ -458,7 +458,7 @@ async def test_async_after_serialize_returns_bytes_not_tuple(async_cache: RedisF
         await asyncio.sleep(0)
         return {"value": x}
 
-    with patch.object(c, "aput") as mock_aput:
+    with patch_object(c, "aput") as mock_aput:
         await echo(1)
         mock_aput.assert_called_once()
         stored = mock_aput.call_args[0][3]

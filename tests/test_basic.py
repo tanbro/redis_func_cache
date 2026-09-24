@@ -1,5 +1,4 @@
 from random import randint
-from unittest.mock import patch
 
 import pytest
 
@@ -7,6 +6,7 @@ from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.utils import calculate_callable_fullname, get_callable_bytecode
 
 from ._catches import CACHES, MAXSIZE, MULTI_CACHES, redis_factory
+from ._mocks import patch_object
 
 
 def _echo(x):
@@ -83,16 +83,16 @@ def test_basic():
 
         # mock hit
         for i in range(cache.maxsize):
-            with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
-                with patch.object(cache, "put") as mock_put:
+            with patch_object(cache, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
+                with patch_object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
 
         # mock not hit
         for i in range(cache.maxsize):
-            with patch.object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
-                with patch.object(cache, "put") as mock_put:
+            with patch_object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
+                with patch_object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_called_once()
@@ -101,14 +101,14 @@ def test_basic():
         for i in range(cache.maxsize):
             assert _echo(i) == echo(i)
             assert i + 1 == cache.policy.get_size(redis_client=cache.get_redis_client())
-            with patch.object(cache, "put") as mock_put:
+            with patch_object(cache, "put") as mock_put:
                 assert i == echo(i)
                 mock_put.assert_not_called()
 
         # run again, should be all hit
         for i in range(cache.maxsize):
-            with patch.object(cache, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
-                with patch.object(cache, "put") as mock_put:
+            with patch_object(cache, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
+                with patch_object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
@@ -118,8 +118,8 @@ def test_basic():
         # run more than max size, should be not all hit
         n = randint(cache.maxsize + 1, 2 * cache.maxsize)
         for i in range(cache.maxsize, n):
-            with patch.object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
-                with patch.object(cache, "put") as mock_put:
+            with patch_object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
+                with patch_object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_called_once()
@@ -162,7 +162,7 @@ def test_complex_args():
         assert None is echo(None)
 
         # run again, should be all hit
-        with patch.object(cache, "put") as mock_put:
+        with patch_object(cache, "put") as mock_put:
             assert {"a": 1} == echo({"a": 1})
             assert [1, 2, 3] == echo([1, 2, 3])
             assert "1" == echo("1")
@@ -193,8 +193,8 @@ def test_cache_clear():
 
         # run again, should be all miss
         for i in range(cache.maxsize):
-            with patch.object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
-                with patch.object(cache, "put") as mock_put:
+            with patch_object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
+                with patch_object(cache, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_called_once()
@@ -230,7 +230,7 @@ def test_different_policies():
     assert lru_cache.maxsize == lru_cache.policy.get_size(redis_client=lru_cache.get_redis_client())
 
     # access the first item, should be hit
-    with patch.object(lru_cache, "put") as mock_put:
+    with patch_object(lru_cache, "put") as mock_put:
         assert 0 == echo(0)
         mock_put.assert_not_called()
 
@@ -261,7 +261,7 @@ def test_multiple_decorators():
 
         assert 1 == echo(1)
 
-        with patch.object(cache, "put") as mock_put:
+        with patch_object(cache, "put") as mock_put:
             assert 1 == echo(1)
             mock_put.assert_not_called()
 
@@ -306,7 +306,7 @@ def test_json_serializer():
     assert result == data
 
     # 确保再次调用会命中缓存
-    with patch.object(json_cache, "put") as mock_put:
+    with patch_object(json_cache, "put") as mock_put:
         result2 = echo(data)
         assert result2 == data
         mock_put.assert_not_called()
