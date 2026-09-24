@@ -286,15 +286,28 @@ See [docs/considerations.md](docs/usage/considerations.md#known-issues) for the 
 1. Run the tests:
 
    ```bash
-   python -m unittest
+   uv run --all-extras pytest --cov
    ```
 
 A Docker Compose file for unit testing is provided in the `docker` directory to simplify the process. You can run it by executing:
 
 ```bash
 cd docker
-docker compose up --abort-on-container-exit
+docker compose run --rm unittest
 ```
+
+It starts the Redis standalone server and cluster automatically (waits until healthy), runs lint, static checks and pytest against Python 3.10–3.14, and propagates the exit code.
+
+The test container uses `uv run --frozen`, which installs dependencies strictly from `uv.lock` and never updates it. Note that `uv.lock` is **not** tracked in SCM (`*.lock` is gitignored), so:
+
+- On a fresh checkout without `uv.lock`, the test script generates it once automatically before running.
+- If you change dependencies in `pyproject.toml`, regenerate the lock yourself, otherwise the container keeps testing against the outdated resolution:
+
+  ```bash
+  uv lock
+  ```
+
+The container mounts named volumes for the uv download cache and the per-version virtual environments (`/venvs`), so repeated runs only do incremental installs. To force a full rebuild, remove them with `docker compose down -v`.
 
 ## Develop
 

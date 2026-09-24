@@ -92,7 +92,7 @@ def test_purge_on_empty_cache():
 def test_purge_guard_against_async_client():
     """同步 purge 遇到异步客户端时抛出 RuntimeError。"""
     cache = make_async_cache(LruPolicy())
-    with pytest.raises(RuntimeError, match="synchronous"):
+    with pytest.raises(TypeError, match="synchronous"):
         cache.purge()
 
 
@@ -118,5 +118,5 @@ async def test_apurge(policy_factory):
 async def test_apurge_guard_against_sync_client():
     """异步 apurge 遇到同步客户端时抛出 RuntimeError。"""
     cache = make_sync_cache(LruPolicy())
-    with pytest.raises(RuntimeError, match="asynchronous"):
+    with pytest.raises(TypeError, match="asynchronous"):
         await cache.apurge()

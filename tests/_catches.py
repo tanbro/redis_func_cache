@@ -158,7 +158,7 @@ async def close_all_async_resources():
         await close_async_redis_client()
 
         # 关闭所有异步缓存实例中的客户端连接
-        tasks: list[Coroutine] = []
+        tasks: list[Coroutine] = []  # type:ignore[annotation-unchecked]
         for cache in ASYNC_CACHES.values():
             assert is_redis_async_client(cache.client)
             try:

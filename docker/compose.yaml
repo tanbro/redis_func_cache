@@ -16,6 +16,9 @@ services:
       - type: bind
         source: ..
         target: /workspace
+      # uv 下载缓存与各 Python 版本的 venv，跨容器运行复用
+      - uv-cache:/root/.cache/uv
+      - venvs:/venvs
     working_dir: /workspace
     environment:
       PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.cloud.tencent.com/pypi/simple}
@@ -24,3 +27,7 @@ services:
     entrypoint: bash
     command:
       - tests/run.sh
+
+volumes:
+  uv-cache:
+  venvs:

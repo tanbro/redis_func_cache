@@ -252,6 +252,7 @@ gemini-debug.log
 cline.json
 
 # Other agent/editor project config
+.agents/
 .warp/
 .crush/
 .codeium/

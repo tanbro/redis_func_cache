@@ -14,13 +14,80 @@ docs/_build
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.vscode/
 
 *.swp
 
 html/*
 
-**/Dockerfile
-**/Dockerfile.*
-**/*.Dockerfile
-**/docker-compose.*
-**/*.docker-compose.*
+.log
+
+.coverage
+
+# AI agents and assistants
+
+CLAUDE.md
+GEMINI.md
+WARP.md
+CRUSH.md
+QWEN.md
+
+# OpenAI Codex
+AGENTS.md
+.codex/
+
+# Aider
+.aider.input.history
+.aider.chat.history.md
+.aider.llm.history
+.aider.tags.cache.v*
+.aiderignore
+
+# Claude Code
+.claude/*.local.json
+.claude/**/*.log
+CLAUDE.local.md
+.claude/
+
+# Gemini CLI
+gemini-debug.log
+.gemini-clipboard/
+.gemini/
+
+# Cursor AI
+.cursorrules
+.cursor/
+.cursor.json
+.cursor-settings.yaml
+
+# Continue
+.continue/
+.continuerc.json
+
+# Cline
+.cline/
+.clinerules
+cline.json
+
+# Other agent/editor project config
+.agents/
+.warp/
+.crush/
+.codeium/
+.deepseek/
+.amazon-codewhisperer/
+.tabnineignore
+.tabnine/
+.zcodeignore
+.zcode/
+
+# GitHub Copilot
+.github/copilot-instructions.md
+
+# Windsurf Editor
+.windsurfrules
+.windsurf/
+
+# Replit AI Development
+.replit
+replit.nix
