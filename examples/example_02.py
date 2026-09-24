@@ -1,15 +1,15 @@
 import asyncio
 from time import time
 
-from redis.asyncio import Redis
+import redis.asyncio as aioredis
 
 from redis_func_cache import LruTPolicy, RedisFuncCache
 
-# Create a redis client
-redis_instance = Redis.from_url("redis://")
+# Create a redis client factory
+factory = lambda: aioredis.Redis.from_pool(aioredis.ConnectionPool.from_url("redis://"))
 
 # Create an lru cache, it connects Redis by previous created redis client
-lru_cache = RedisFuncCache(__name__, LruTPolicy(), client=redis_instance)
+lru_cache = RedisFuncCache(__name__, LruTPolicy(), factory=factory)
 
 
 @lru_cache  # Decorate a function to cache its result
