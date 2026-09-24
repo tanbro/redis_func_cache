@@ -18,11 +18,10 @@ async def a_slow_func():
     return "OK"
 
 
-with asyncio.Runner() as runner:
-    t = time()
-    r = runner.run(a_slow_func())
-    print(f"duration={time() - t}, {r=}")
+t = time()
+r = asyncio.run(a_slow_func())
+print(f"duration={time() - t}, {r=}")
 
-    t = time()
-    r = runner.run(a_slow_func())
-    print(f"duration={time() - t}, {r=}")
+t = time()
+r = asyncio.run(a_slow_func())
+print(f"duration={time() - t}, {r=}")

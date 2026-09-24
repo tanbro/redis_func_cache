@@ -2,6 +2,8 @@ exclude .*
 exclude codecov.yml
 exclude qodana.yaml
 exclude requirements.txt
+exclude AGENTS.md
+exclude CLAUDE.md
 
 prune .*
 
