@@ -46,7 +46,7 @@ def make_scripts_mixin(
         other. Compose the mixin once at definition time and target
         :class:`.AbstractScriptsMixin` for type checks.
     """
-    return type(name, (AbstractScriptsMixin if base is None else base,), {"__scripts__": scripts})
+    return type(name, (AbstractScriptsMixin if base is None else base,), {"__scripts__": scripts})  # pyright: ignore[reportReturnType]
 
 
 class FifoScriptsMixin(AbstractScriptsMixin):

@@ -155,7 +155,7 @@ def make_hash_mixin(
         Hash values are stable only within a single library version. Changing the
         serializer or decoder output changes cache keys and invalidates existing entries.
     """
-    return type(name, (AbstractHashMixin if base is None else base,), {"__hash_config__": hash_config})
+    return type(name, (AbstractHashMixin if base is None else base,), {"__hash_config__": hash_config})  # pyright: ignore[reportReturnType]
 
 
 JSON_SERIALIZER = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode()

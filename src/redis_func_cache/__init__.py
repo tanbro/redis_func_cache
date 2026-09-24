@@ -1,7 +1,6 @@
 from . import _version as version
 from ._version import __version__, __version_tuple__
 from .cache import RedisFuncCache
-from .handler import HandlerContext, HandlerProtocol
 from .policies.fifo import (
     FifoClusterMultiplePolicy,
     FifoClusterPolicy,
@@ -35,8 +34,6 @@ __all__ = (
     "FifoTClusterPolicy",
     "FifoTMultiplePolicy",
     "FifoTPolicy",
-    "HandlerContext",
-    "HandlerProtocol",
     "LfuClusterMultiplePolicy",
     "LfuClusterPolicy",
     "LfuMultiplePolicy",

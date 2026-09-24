@@ -40,6 +40,7 @@ def test_seeded_copy_matches_full_computation():
     h.update(get_callable_bytecode(_echo))
     h.update(conf.serializer((1,)))
     h.update(conf.serializer({"x": "中文"}))
+    assert conf.decoder is not None
     assert got == conf.decoder(h)
 
 

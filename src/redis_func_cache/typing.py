@@ -4,13 +4,14 @@ import sys
 from collections.abc import Callable
 from inspect import ismodule
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeGuard, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     if sys.version_info < (3, 11):  # pragma: no cover
         from typing_extensions import Self
     else:  # pragma: no cover
         from typing import Self
+    from typing import Protocol
 
     from _typeshed import ReadableBuffer
 
@@ -44,11 +45,13 @@ RedisScriptT = redis.commands.core.Script | redis.commands.core.AsyncScript
 SerializerName = Literal["json", "pickle", "dill", "bson", "msgpack", "yaml", "cbor", "cloudpickle"]
 
 
-class HashProtocol(Protocol):
-    def update(self, data: ReadableBuffer, /) -> None: ...
-    def digest(self) -> bytes: ...
-    def hexdigest(self) -> str: ...
-    def copy(self) -> Self: ...
+if TYPE_CHECKING:
+
+    class HashProtocol(Protocol):
+        def update(self, data: ReadableBuffer, /) -> None: ...
+        def digest(self) -> bytes: ...
+        def hexdigest(self) -> str: ...
+        def copy(self) -> Self: ...
 
 
 def is_module(val: Any) -> TypeGuard[ModuleType]:

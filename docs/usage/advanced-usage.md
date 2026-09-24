@@ -72,12 +72,12 @@ When `serializer` is not enough — you need **async I/O**, **per-invocation con
 
 A handler wraps four boundaries. `HandlerProtocol` is a pure structural protocol — implementations need not inherit from it; matching its signatures is the contract, checked statically. The eight methods form two groups (sync and `*_async`): implement at least the group your execution path uses — both if you serve both — and keep the other group as `raise NotImplementedError` placeholders if unused. Within an implemented group every method is defined: boundaries you don't use return their input unchanged and unhandled — `before_*`: `(False, value)`, `after_*`: the value:
 
-| Boundary | Sync | Async |
-| --- | --- | --- |
-| Write, before library serializes | `before_serialize` | `before_serialize_async` |
-| Write, after library serializes | `after_serialize` | `after_serialize_async` |
+| Boundary                          | Sync                 | Async                      |
+| --------------------------------- | -------------------- | -------------------------- |
+| Write, before library serializes  | `before_serialize`   | `before_serialize_async`   |
+| Write, after library serializes   | `after_serialize`    | `after_serialize_async`    |
 | Read, before library deserializes | `before_deserialize` | `before_deserialize_async` |
-| Read, after library deserializes | `after_deserialize` | `after_deserialize_async` |
+| Read, after library deserializes  | `after_deserialize`  | `after_deserialize_async`  |
 
 **When to use which:**
 
@@ -118,10 +118,11 @@ A handler may be set at cache level (constructor `handler=`) or per decorated fu
 The offload logic lives in the two `before_*` methods; the two `after_*` methods are identity functions, through which the library's own values pass unchanged:
 
 ```python
-from redis_func_cache import HandlerContext, LruTPolicy, RedisFuncCache
+import redis
+from redis_func_cache import LruTPolicy, RedisFuncCache
+from redis_func_cache.handler import HandlerContext
 
 LARGE = 1 << 20  # 1 MiB
-
 
 class ObjectStorageOffload:
     """Store big payloads in object storage; Redis keeps only a reference."""
@@ -145,11 +146,27 @@ class ObjectStorageOffload:
     def after_deserialize(self, value, *, ctx: HandlerContext):
         return value  # nothing to post-process: return the library's value as-is
 
+    # Asynchronous handlers are not implemented,
+    # but below coroutines MUST be defined to fit the HandlerProtocol!
+
+    async def before_serialize_async(self, value, *, ctx: HandlerContext):
+        raise NotImplementedError("asynchronous handler not implemented")
+
+    async def before_deserialize_async(self, data, *, ctx: HandlerContext):
+        raise NotImplementedError("asynchronous handler not implemented")
+
+    async def after_serialize_async(self, data, *, ctx: HandlerContext):
+        raise NotImplementedError("asynchronous handler not implemented")
+
+    async def after_deserialize_async(self, value, *, ctx: HandlerContext):
+        raise NotImplementedError("asynchronous handler not implemented")
+
+pool = redis.ConnectionPool.from_url("redis://")
 
 cache = RedisFuncCache(
     __name__,
     LruTPolicy(),
-    factory=lambda: Redis.from_url("redis://"),
+    factory=lambda: redis.Redis.from_pool(pool),
     handler=ObjectStorageOffload(),
 )
 
@@ -167,19 +184,19 @@ There are four basic policies that implement respective kinds of key formats:
 
 - [`BaseSinglePolicy`][]: All functions share the same key pair, [Redis][] cluster is NOT supported.
 
-    The format is: `<prefix><name>:<__key__>:<0|1>`
+  The format is: `<prefix><name>:<__key__>:<0|1>`
 
 - [`BaseMultiplePolicy`][]: Each function has its own key pair, [Redis][] cluster is NOT supported.
 
-    The format is: `<prefix><name>:<__key__>:<function_name>#<function_hash>:<0|1>`
+  The format is: `<prefix><name>:<__key__>:<function_name>#<function_hash>:<0|1>`
 
 - [`BaseClusterSinglePolicy`][]: All functions share the same key pair, [Redis][] cluster is supported.
 
-    The format is: `<prefix>{<name>:<__key__>}:<0|1>`
+  The format is: `<prefix>{<name>:<__key__>}:<0|1>`
 
 - [`BaseClusterMultiplePolicy`][]: Each function has its own key pair, and [Redis][] cluster is supported.
 
-    The format is: `<prefix><name>:<__key__>:<function_name>#{<function_hash>}:<0|1>`
+  The format is: `<prefix><name>:<__key__>:<function_name>#{<function_hash>}:<0|1>`
 
 Variables in the format string are defined as follows:
 
@@ -198,7 +215,7 @@ Variables in the format string are defined as follows:
 
 If you want to use a different format, you can subclass [`AbstractPolicy`][] or any of the above policy classes, and implement the `calc_keys` method, then pass the custom policy class to [`RedisFuncCache`][].
 
-The following example demonstrates how to customize the key format for an *LRU* policy:
+The following example demonstrates how to customize the key format for an _LRU_ policy:
 
 ```python
 from __future__ import annotations
@@ -214,13 +231,10 @@ from redis_func_cache.mixins.scripts import LruScriptsMixin
 if TYPE_CHECKING:
     from redis.typing import KeyT
 
-
 def factory():
-    return redis.from_url("redis://")
-
+    return redis.Redis.from_pool(redis.ConnectionPool.from_url("redis://"))
 
 MY_PREFIX = "my_prefix"
-
 
 class MyPolicy(LruScriptsMixin, PickleMd5HashMixin, AbstractPolicy):
     __key__ = "my_key"
@@ -232,9 +246,7 @@ class MyPolicy(LruScriptsMixin, PickleMd5HashMixin, AbstractPolicy):
         k = f"{self.cache.prefix}-{self.cache.name}-{fn.__name__}-{self.__key__}"
         return f"{k}-set", f"{k}-map"
 
-
 my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy(), factory=factory, prefix=MY_PREFIX)
-
 
 @my_cache
 def my_func(*args, **kwargs): ...
@@ -352,7 +364,6 @@ from redis_func_cache.mixins.scripts import make_scripts_mixin
 MyScriptsMixin = make_scripts_mixin("MyScriptsMixin", ("my_get.lua", "my_put.lua"))
 ```
 
-
 Or even write an entire new algorithm. For that, we subclass `AbstractHashMixin` and override the `calc_hash` method. For example:
 
 ```python
@@ -403,44 +414,35 @@ def some_func(*args, **kwargs): ...
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
-
 [decorator]: https://docs.python.org/glossary.html#term-decorator "A function returning another function, usually applied as a function transformation using the @wrapper syntax"
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
-
 [bson]: https://bsonspec.org/ "BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments."
 [msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
-
 [uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
-
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
 [`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy
-
 [`BaseSinglePolicy`]: redis_func_cache.policies.base.BaseSinglePolicy
 [`BaseMultiplePolicy`]: redis_func_cache.policies.base.BaseMultiplePolicy
 [`BaseClusterSinglePolicy`]: redis_func_cache.policies.base.BaseClusterSinglePolicy
 [`BaseClusterMultiplePolicy`]: redis_func_cache.policies.base.BaseClusterMultiplePolicy
-
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
 [`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"
 [`MruPolicy`]: redis_func_cache.policies.mru.MruPolicy "Most Recently Used policy"
 [`RrPolicy`]: redis_func_cache.policies.rr.RrPolicy "Random Remove policy"
 [`LruTPolicy`]: redis_func_cache.policies.lru.LruTPolicy "Time based Least Recently Used policy."
-
 [`FifoMultiplePolicy`]: redis_func_cache.policies.fifo.FifoMultiplePolicy
 [`LfuMultiplePolicy`]: redis_func_cache.policies.lfu.LfuMultiplePolicy
 [`LruMultiplePolicy`]: redis_func_cache.policies.lru.LruMultiplePolicy
 [`MruMultiplePolicy`]: redis_func_cache.policies.mru.MruMultiplePolicy
 [`RrMultiplePolicy`]: redis_func_cache.policies.rr.RrMultiplePolicy
 [`LruTMultiplePolicy`]: redis_func_cache.policies.lru.LruTMultiplePolicy
-
 [`FifoClusterPolicy`]: redis_func_cache.policies.fifo.FifoClusterPolicy
 [`LfuClusterPolicy`]: redis_func_cache.policies.lfu.LfuClusterPolicy
 [`LruClusterPolicy`]: redis_func_cache.policies.lru.LruClusterPolicy
 [`MruClusterPolicy`]: redis_func_cache.policies.mru.MruClusterPolicy
 [`RrClusterPolicy`]: redis_func_cache.policies.rr.RrClusterPolicy
 [`LruTClusterPolicy`]: redis_func_cache.policies.lru.LruTClusterPolicy
-
 [`LruTClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruTClusterMultiplePolicy

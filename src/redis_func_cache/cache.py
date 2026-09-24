@@ -54,7 +54,7 @@ else:  # pragma: no cover
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
-from .handler import HandlerContext, HandlerProtocol
+from .handler import HandlerContext
 from .policies.abstract import AbstractPolicy
 from .typing import (
     CallableTV,
@@ -68,10 +68,13 @@ from .typing import (
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
 
+    from .handler import HandlerProtocol
+
     SerializerT = Callable[[Any], EncodableT]
     DeserializerT = Callable[[EncodedT], Any]
     SerializerPairT = tuple[SerializerT, DeserializerT]
     SerializerSetterValueT = SerializerName | SerializerPairT
+
 
 __all__ = ("RedisFuncCache",)
 

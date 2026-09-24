@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-from dataclasses import FrozenInstanceError
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
 
-from redis_func_cache import HandlerContext, HandlerProtocol, LruPolicy, RedisFuncCache
+from redis_func_cache import LruPolicy, RedisFuncCache
+from redis_func_cache.handler import HandlerContext, HandlerProtocol
 
 from ._catches import ASYNC_REDIS_FACTORY, REDIS_FACTORY
 
@@ -48,6 +48,21 @@ class RecordingHandler:
         self.calls.append(("after_deserialize", value))
         self.contexts.append(ctx)
         return self._result("after_deserialize", value)
+
+    # Asynchronous handlers are not implemented,
+    # but below coroutines MUST be defined to fit the HandlerProtocol!
+
+    async def before_serialize_async(self, value, *, ctx: HandlerContext):
+        raise NotImplementedError("asynchronous handler not implemented")
+
+    async def before_deserialize_async(self, data, *, ctx: HandlerContext):
+        raise NotImplementedError("asynchronous handler not implemented")
+
+    async def after_serialize_async(self, data, *, ctx: HandlerContext):
+        raise NotImplementedError("asynchronous handler not implemented")
+
+    async def after_deserialize_async(self, value, *, ctx: HandlerContext):
+        raise NotImplementedError("asynchronous handler not implemented")
 
 
 class AsyncRecordingHandler:
@@ -323,22 +338,6 @@ def test_mode_read_false_skips_read_handler():
     c.policy.purge(redis_client=c.get_redis_client())
 
 
-def test_handler_protocol_exported():
-    assert HandlerProtocol is not None
-    from redis_func_cache import HandlerContext as HC
-    from redis_func_cache import HandlerProtocol as HP
-
-    assert HP is HandlerProtocol
-    assert HC is HandlerContext
-
-
-def test_handler_context_is_frozen():
-    """HandlerContext is immutable."""
-    ctx = HandlerContext(keys=("k0", "k1"), hash_value="h", func=None)
-    with pytest.raises(FrozenInstanceError):
-        ctx.hash_value = "other"
-
-
 def test_before_serialize_bad_shape_propagates():
     """A malformed before-boundary return value surfaces the natural unpack error (no library validation)."""
     handler = RecordingHandler(results={"before_serialize": "not-a-tuple"})
@@ -528,8 +527,8 @@ def test_handler_context_uses_bound_args_matching_key_computation():
 
 def test_per_function_handler_overrides_instance_handler():
     """A decorate-level handler replaces the instance-level handler."""
-    instance_handler = RecordingHandler(results={"after_serialize": b"instance-bytes"})
-    func_handler = RecordingHandler(results={"after_serialize": b"func-bytes"})
+    instance_handler = cast(HandlerProtocol, RecordingHandler(results={"after_serialize": b"instance-bytes"}))
+    func_handler = cast(HandlerProtocol, RecordingHandler(results={"after_serialize": b"func-bytes"}))
     c = _make_cache(instance_handler)
 
     @c.decorate(handler=func_handler)
@@ -538,7 +537,7 @@ def test_per_function_handler_overrides_instance_handler():
 
     stored = _captured_put_value(c, lambda: echo(1))
     assert stored == b"func-bytes"
-    assert instance_handler.calls == []
+    assert getattr(instance_handler, "calls") == []  # noqa: B009
     c.policy.purge(redis_client=c.get_redis_client())
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import atexit
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from os import getenv
 from typing import TYPE_CHECKING
 from warnings import warn
@@ -31,6 +31,7 @@ from redis_func_cache.policies.lfu import LfuClusterPolicy, LfuMultiplePolicy
 from redis_func_cache.policies.lru import LruClusterPolicy, LruMultiplePolicy, LruTClusterPolicy, LruTMultiplePolicy
 from redis_func_cache.policies.mru import MruClusterPolicy, MruMultiplePolicy
 from redis_func_cache.policies.rr import RrClusterPolicy, RrMultiplePolicy
+from redis_func_cache.typing import is_redis_async_client
 
 if TYPE_CHECKING:
     from redis_func_cache.policies.abstract import AbstractPolicy
@@ -157,8 +158,9 @@ async def close_all_async_resources():
         await close_async_redis_client()
 
         # 关闭所有异步缓存实例中的客户端连接
-        tasks = []
+        tasks: list[Coroutine] = []
         for cache in ASYNC_CACHES.values():
+            assert is_redis_async_client(cache.client)
             try:
                 if aclose := getattr(cache.client, "aclose", None):
                     tasks.append(aclose())
@@ -169,6 +171,7 @@ async def close_all_async_resources():
                 pass
 
         for cache in ASYNC_MULTI_CACHES.values():
+            assert is_redis_async_client(cache.client)
             try:
                 if aclose := getattr(cache.client, "aclose", None):
                     tasks.append(aclose())

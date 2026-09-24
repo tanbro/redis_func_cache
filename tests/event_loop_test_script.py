@@ -7,6 +7,8 @@ import asyncio
 import sys
 from uuid import uuid4
 
+from redis_func_cache.typing import is_redis_async_client
+
 from ._catches import ASYNC_CACHES
 
 
@@ -42,6 +44,7 @@ async def main():
     # 手动清理资源
     tasks = []
     for cache in ASYNC_CACHES.values():
+        assert is_redis_async_client(cache.client)
         if hasattr(cache.client, "aclose"):
             tasks.append(cache.client.aclose())
         elif hasattr(cache.client, "close"):
