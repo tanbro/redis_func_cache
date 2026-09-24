@@ -1,9 +1,17 @@
 exclude .*
+exclude .log
 exclude codecov.yml
 exclude qodana.yaml
 exclude requirements.txt
 exclude AGENTS.md
 exclude CLAUDE.md
+exclude CLAUDE.*.md
+exclude GEMINI.md
+exclude WARP.md
+exclude CRUSH.md
+exclude QWEN.md
+exclude cline.json
+exclude replit.nix
 
 prune .*
 
