@@ -3,8 +3,19 @@
 ## v0.8 → v0.9
 
 v0.9 introduced breaking changes for **custom policies** and for code that
-reached into the policy/cache internals. The everyday decorator API
-(`@cache(policy=LruPolicy())`) is unaffected.
+reached into the policy/cache internals. The everyday decorator API — choose the
+policy at construction, then decorate with a bare `@cache` — is unaffected:
+
+```python
+cache = RedisFuncCache("my-cache", LruPolicy(), factory=factory)
+
+@cache
+def my_func(x): ...
+```
+
+Note that `decorate()`/`@cache(...)` has no `policy=` parameter; `policy`,
+`maxsize`, `ttl`, and `serializer` are all options of the `RedisFuncCache(...)`
+constructor.
 
 ### Summary of Changes
 

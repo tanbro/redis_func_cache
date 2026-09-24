@@ -120,9 +120,11 @@ def read_lua_file(file: str) -> str:
         - This function utilizes the :mod:`pygments` library to remove comments and empty lines from the Lua script.
           If :mod:`pygments` is not installed, the source code will be returned unchanged.
     """
+    if __package__ is None:
+        raise RuntimeError("__package__ is None")
     source = dedent(importlib.resources.files(__package__).joinpath("lua").joinpath(file).read_text("utf-8")).strip()
     if is_module(pygments):  # pragma: no cover
-        lexer = get_lexer_by_name("lua")
+        lexer = get_lexer_by_name("lua")  # pyright: ignore[reportPossiblyUnboundVariable]
         if lexer is None:  # pragma: no cover
             warn("Lua lexer not found in pygments, return source code as is", RuntimeWarning)
             return source

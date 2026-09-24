@@ -133,10 +133,10 @@ if is_module(yaml):  # pragma: no cover
     _yaml = yaml
 
     def _yaml_encode(x: Any) -> bytes:
-        return _yaml.dump(x, Dumper=YamlDumper).encode()
+        return _yaml.dump(x, Dumper=YamlDumper).encode()  # pyright: ignore[reportPossiblyUnboundVariable]
 
     def _yaml_decode(x: EncodedT) -> Any:
-        return _yaml.load(bytes(x) if isinstance(x, memoryview) else x, Loader=YamlLoader)
+        return _yaml.load(bytes(x) if isinstance(x, memoryview) else x, Loader=YamlLoader)  # pyright: ignore[reportPossiblyUnboundVariable]
 
     _serializers["yaml"] = (_yaml_encode, _yaml_decode)
 

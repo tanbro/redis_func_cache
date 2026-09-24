@@ -77,7 +77,7 @@
 
 - 🛠 **Notes:**
   - The change to require policy instances was made to ensure policy objects can be bound to the cache (policies hold cache-specific state). Reuse of the same policy instance across multiple caches is discouraged; create a new policy object per cache if independent state is required.
-  - Please update any code that relied on passing policy classes or that passed a callable as the `client` positional argument. If you want, I can scan the repository for remaining occurrences and update examples/tests accordingly.
+  - Please update any code that relied on passing policy classes or that passed a callable as the `client` positional argument.
 
 ## v0.6.0
 

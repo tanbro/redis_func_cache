@@ -8,7 +8,7 @@ Control cache size and expiration:
 cache = RedisFuncCache(
     "my-cache",
     LruTPolicy(),
-    client=redis_client,
+    redis_client=redis_client,
     maxsize=100,  # Maximum number of cached items
     ttl=300,  # Cache expires after 300 seconds of inactivity
 )
@@ -80,7 +80,7 @@ By default, all decorated functions share the same Redis key pair. To give each 
 ```python
 from redis_func_cache import RedisFuncCache, LruTMultiplePolicy
 
-cache = RedisFuncCache("my-cache", LruTMultiplePolicy(), client=redis_client)
+cache = RedisFuncCache("my-cache", LruTMultiplePolicy(), redis_client=redis_client)
 
 
 @cache
@@ -103,7 +103,7 @@ For Redis Cluster deployments, use a Cluster-aware policy. These policies use ha
 ```python
 from redis_func_cache import RedisFuncCache, LruTClusterPolicy
 
-cache = RedisFuncCache("my-cache", LruTClusterPolicy(), client=redis_client)
+cache = RedisFuncCache("my-cache", LruTClusterPolicy(), redis_client=redis_client)
 
 
 @cache

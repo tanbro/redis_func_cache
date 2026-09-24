@@ -10,19 +10,29 @@ A Python Redis-based function caching library with decorator-based API, supporti
 - **Dual Redis Structure**: ZSET (scoring) + HASH (storage) with atomic Lua operations
 - **Mixin Composition**: HashMixin + ScriptMixin for policy behavior
 
-### Critical API Rules (v0.7+)
+### Critical API Rules (v0.9+)
 ```python
-# ❌ WRONG (deprecated)
+# ❌ WRONG: the decorator has no `policy=` parameter — unknown kwargs are
+#    forwarded to the Lua script (they either crash or are silently ignored)
 @cache(policy=LruTPolicy)
 
-# ✅ CORRECT (instance required)
-@cache(policy=LruTPolicy())
+# ❌ WRONG: `name` and a policy *instance* are required constructor arguments;
+#    policies themselves take no arguments (no maxsize/ttl/serializer here)
+cache = RedisFuncCache("my-cache", LruTPolicy)
+cache = RedisFuncCache(LruTPolicy())
 
-# ❌ NOT thread-safe
-cache = RedisFuncCache(redis_client=redis_client)
+# ✅ CORRECT: choose policy/maxsize/ttl/serializer at construction,
+#    then decorate with a bare @cache
+cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.Redis())
+
+@cache
+def my_func(x): ...
+
+# ❌ NOT thread-safe (a single shared client instance)
+cache = RedisFuncCache("my-cache", LruTPolicy(), redis_client=redis_client)
 
 # ✅ Thread-safe for concurrent use
-cache = RedisFuncCache(factory=lambda: redis.Redis())
+cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.Redis())
 ```
 
 ## 🔍 Key Information Index
@@ -36,10 +46,10 @@ cache = RedisFuncCache(factory=lambda: redis.Redis())
 - **Errors**: `src/redis_func_cache/exceptions.py` - Custom exceptions
 
 ### Common Issues to Flag
-1. **Policy Instantiation**: Must use `LruTPolicy()` not `LruTPolicy`
+1. **Policy Placement**: Policies are argument-less instances passed to the constructor (`RedisFuncCache("my-cache", LruTPolicy())`); `maxsize`/`ttl`/`serializer` are constructor options, and the decorator has no `policy=` parameter
 2. **Bytecode Sensitivity**: Default hash includes function bytecode → cross-version issues
 3. **Client Mismatch**: Async cache requires `aioredis`, sync cache requires `redis.Redis`
-4. **Circular References**: Policies use weakref to cache to prevent cycles
+4. **No Reference Cycles**: Since v0.9 the policy holds no reference to the cache — `prefix`/`name` are copied onto it at construction (the old weakref back-reference was removed)
 
 ### Directory Structure
 ```
@@ -82,18 +92,22 @@ Every cache uses **TWO Redis keys**:
 
 ### API Usage Patterns
 
-#### Correct API Usage (v0.7+)
+#### Correct API Usage (v0.9+)
 ```python
-# ✅ Policy instantiation (required)
-@cache(policy=LruPolicy())
-
-# ✅ Thread-safe cache creation
+# ✅ Policy instance at construction (policies take no arguments)
 import redis
-cache = RedisFuncCache(factory=lambda: redis.Redis())
+
+cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: redis.Redis())
+
+
+@cache
+def my_func(x): ...
+
 
 # ✅ Async cache setup
 import aioredis
-async_cache = RedisFuncCache(factory=lambda: aioredis.from_url("redis://localhost"))
+
+async_cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: aioredis.from_url("redis://localhost"))
 ```
 
 #### Important Rules
@@ -104,7 +118,7 @@ async_cache = RedisFuncCache(factory=lambda: aioredis.from_url("redis://localhos
 ## 🚨 Common Anti-patterns
 
 ### Critical Architecture Issues
-- **Circular References**: Policies use `weakref` to cache to prevent cycles
+- **Reference Cycles**: None by design — since v0.9 the policy never references the cache (namespace copied at construction; the weakref back-reference was removed)
 - **Bytecode Sensitivity**: Default hash includes bytecode → cross-version incompatibility
 - **Cache Stampede**: Multiple threads may execute same function on cache miss
 - **Serialization Failures**: Non-serializable args need `excludes` parameter
@@ -117,15 +131,33 @@ async_cache = RedisFuncCache(factory=lambda: aioredis.from_url("redis://localhos
 ### Usage Pattern Issues
 
 #### Bytecode Sensitivity Problem
+Bytecode enters the hash through the policy's hash mixin `__hash_config__`; there
+is no `exclude_bytecode=` option on the decorator. To disable it, define a custom
+policy (see `docs/usage/considerations.md`):
+
 ```python
-# ❌ Cache version-specific (function bytecode changes between versions)
-@cache(policy=LruPolicy())
+# ❌ Cache version-specific: built-in policies hash the function bytecode
+cache = RedisFuncCache("my-cache", LruPolicy(), factory=factory)
+
+
+@cache
 def expensive_func(x): ...
 
 
-# ✅ Cross-version compatible
-@cache(policy=LruPolicy(), exclude_bytecode=True)
-def expensive_func(x): ...
+# ✅ Cross-version compatible: a JSON hash mixin with use_bytecode=False
+from dataclasses import replace
+
+from redis_func_cache.mixins.hash import JsonMd5HashMixin
+from redis_func_cache.mixins.scripts import LruScriptsMixin
+from redis_func_cache.policies.base import BaseSinglePolicy
+
+
+class MyLruPolicy(LruScriptsMixin, JsonMd5HashMixin, BaseSinglePolicy):
+    __key__ = "my-lru"
+    __hash_config__ = replace(JsonMd5HashMixin.__hash_config__, use_bytecode=False)
+
+
+cache = RedisFuncCache("my-cache", MyLruPolicy(), factory=factory)
 ```
 
 #### Serialization Issues
@@ -136,8 +168,8 @@ class Unserializable:
         self.file_handle = open("file.txt")
 
 
-# ✅ Exclude problematic fields
-@cache(policy=LruPolicy(), excludes=["obj.file_handle"])
+# ✅ Exclude problematic fields (`excludes` is a decorator option)
+@cache(excludes=["obj.file_handle"])
 def process_data(obj: Unserializable): ...
 ```
 
@@ -215,31 +247,38 @@ REDIS_URL=redis://localhost:6379
 
 ### Default: JSON (Recommended for safety)
 ```python
-from redis_func_cache import LruPolicy
+from redis_func_cache import LruPolicy, RedisFuncCache
+
+# JSON is the default `serializer` of RedisFuncCache(...)
+cache = RedisFuncCache(__name__, LruPolicy(), factory=factory)
 
 
 # Standard JSON serialization
-@cache(policy=LruPolicy())
+@cache
 def compute_data(x):
     return {"result": x * 2}
 ```
 
 ### Performance Optimized Serializers
+`serializer` is a `RedisFuncCache(...)` option and can be overridden per function
+on the decorator (`json`, `pickle`, `dill`, `msgpack`, `yaml`, `bson`, `cbor`,
+`cloudpickle`; names other than `json`/`pickle` require the matching extra):
+
 ```python
 # Fastest for binary data (recommended for embeddings)
-@cache(policy=LruPolicy(serializer="msgpack"))
+@cache(serializer="msgpack")
 def compute_data(x):
     return x * 2
 
 
 # Extended pickle support
-@cache(policy=LruPolicy(serializer="dill"))
+@cache(serializer="dill")
 def compute_data(x):
     return x * 2
 
 
 # MongoDB compatibility
-@cache(policy=LruPolicy(serializer="bson"))
+@cache(serializer="bson")
 def compute_data(x):
     return x * 2
 ```
@@ -252,19 +291,23 @@ Cache expensive computations to improve response times and reduce resource usage
 #### API Call Caching
 ```python
 import redis
-from redis_func_cache import LruPolicy
+from redis_func_cache import LruPolicy, RedisFuncCache
+
+# maxsize/ttl belong to the RedisFuncCache(...) constructor, not the policy or decorator
+cache = RedisFuncCache(__name__, LruPolicy(), maxsize=1000, ttl=3600, factory=factory)
 
 
 # Cache expensive external API calls
-@cache(policy=LruPolicy(maxsize=1000, ttl=3600))
+@cache
 def fetch_api_data(endpoint: str, params: dict):
     """Cache API responses to reduce rate limits and costs."""
     response = requests.get(endpoint, params=params)
     return response.json()
 
 
-# Use with cross-version compatibility
-@cache(policy=LruPolicy(maxsize=500), exclude_bytecode=True)
+# Same cache; for cross-version compatibility see the Bytecode Sensitivity
+# Problem section above (custom policy with use_bytecode=False)
+@cache
 def api_call_with_retry(params: dict):
     """API calls with retry logic."""
     return fetch_api_data("/api/endpoint", params)
@@ -272,8 +315,11 @@ def api_call_with_retry(params: dict):
 
 #### Data Processing Caching
 ```python
-# Cache complex computations
-@cache(policy=LruPolicy(maxsize=500))
+# Cache complex computations (maxsize set at construction)
+process_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=500, factory=factory)
+
+
+@process_cache
 def process_large_dataset(data: list, config: dict):
     """Cache expensive data processing operations."""
     processed = []
@@ -283,8 +329,9 @@ def process_large_dataset(data: list, config: dict):
     return processed
 
 
-# Cache text preprocessing
-@cache(policy=LruPolicy(maxsize=1000), exclude_bytecode=True)
+# Cache text preprocessing (for cross-version compatibility, build a separate
+# cache on a custom policy with use_bytecode=False — see Bytecode Sensitivity)
+@cache
 def preprocess_text(text: str, cleaning_rules: dict):
     """Cache text cleaning operations."""
     cleaned = text.lower()
@@ -297,8 +344,12 @@ def preprocess_text(text: str, cleaning_rules: dict):
 
 #### Multi-Parameter Caching
 ```python
-# Cache with multiple parameters for granular control
-@cache(policy=LruMultiplePolicy(maxsize=1000), exclude_bytecode=True)
+# Cache with multiple parameters for granular control — a "multiple" policy
+# gives each decorated function its own key pair
+multi_cache = RedisFuncCache(__name__, LruMultiplePolicy(), maxsize=1000, factory=factory)
+
+
+@multi_cache
 def complex_calculation(input_data: str, algorithm: str, version: int):
     """Cache different algorithm variations separately."""
     return apply_algorithm(input_data, algorithm, version)
@@ -307,10 +358,11 @@ def complex_calculation(input_data: str, algorithm: str, version: int):
 #### Time-Based Invalidation
 ```python
 # Cache with automatic expiration for time-sensitive data
-@cache(
-    policy=LruPolicy(maxsize=1000, ttl=300),  # 5 minutes
-    exclude_bytecode=True,
-)
+# (structure-level ttl is a RedisFuncCache(...) option, sliding expiration)
+market_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=1000, ttl=300, factory=factory)  # ttl: 5 minutes
+
+
+@market_cache
 def get_market_data(symbol: str):
     """Cache market data with automatic refresh."""
     return market_api.get_current_data(symbol)
@@ -318,8 +370,11 @@ def get_market_data(symbol: str):
 
 #### Memory-Constrained Environments
 ```python
-# Limit cache size for memory management
-@cache(policy=LruPolicy(maxsize=200), serializer="msgpack", max_size_mb=10)
+# Limit the number of cached items (there is no byte-size `max_size_mb` option)
+file_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=200, factory=factory)
+
+
+@file_cache(serializer="msgpack")
 def process_large_file(file_path: str, processing_options: dict):
     """Process large files with memory limits."""
     return process_file(file_path, processing_options)
@@ -329,26 +384,29 @@ def process_large_file(file_path: str, processing_options: dict):
 
 #### Performance Tracking
 ```python
-from redis_func_cache import RedisFuncCache
 import time
 
-# Create cache with monitoring
-cache = RedisFuncCache(factory=lambda: redis.Redis(), policy=LruPolicy(maxsize=1000))
+from redis_func_cache import LruPolicy, RedisFuncCache
+
+# Create the cache (maxsize is a constructor option)
+cache = RedisFuncCache(__name__, LruPolicy(), maxsize=1000, factory=lambda: redis.Redis())
 
 
-def monitor_cache_performance():
-    """Track cache hit rates and effectiveness."""
+def monitor_cache_performance(run_traffic):
+    """Track cache hit rates over each monitoring interval."""
     while True:
-        hits = cache.get_cache_hits()
-        misses = cache.get_cache_misses()
-        hit_rate = hits / (hits + misses) if (hits + misses) > 0 else 0
+        with cache.stats_context() as stats:  # collect statistics for this interval
+            run_traffic()
+
+        total = stats.hit + stats.miss
+        hit_rate = stats.hit / total if total else 0.0
 
         print(f"Cache Hit Rate: {hit_rate:.2%}")
-        print(f"Hits: {hits}, Misses: {misses}")
+        print(f"Hits: {stats.hit}, Misses: {stats.miss}, Errors: {stats.err}")
 
-        # Adjust cache size based on performance
-        if hit_rate < 0.5:  # Low hit rate
-            cache.policy.maxsize = min(cache.policy.maxsize * 2, 5000)
+        # Adjust cache size based on performance (maxsize is settable at runtime)
+        if total and hit_rate < 0.5:  # Low hit rate
+            cache.maxsize = min(cache.maxsize * 2, 5000)
 
         time.sleep(60)
 ```
@@ -359,32 +417,37 @@ def monitor_cache_performance():
 2. **Appropriate TTLs**: Use TTL for time-sensitive data, None for static data
 3. **Size Management**: Set reasonable maxsize values based on available memory
 4. **Serialization Choice**: Use msgpack for binary data, JSON for human-readable data
-5. **Cross-Version Compatibility**: Use `exclude_bytecode=True` for shared environments
+5. **Cross-Version Compatibility**: For shared environments, define a custom policy whose hash mixin sets `use_bytecode=False` (see the Bytecode Sensitivity Problem section)
 6. **Error Handling**: Plan for cache failures gracefully
 
 ### Common Anti-patterns
 
 ```python
+# maxsize/ttl are configured once, at construction
+cache = RedisFuncCache(__name__, LruPolicy(), maxsize=100, factory=factory)
+fx_cache = RedisFuncCache(__name__, LruPolicy(), ttl=300, factory=factory)  # 5 minutes
+
+
 # ❌ Cache trivial operations (overhead > benefit)
-@cache(policy=LruPolicy())
+@cache
 def simple_addition(x, y):
     return x + y
 
 
 # ✅ Cache expensive operations
-@cache(policy=LruPolicy(maxsize=100))
+@cache
 def complex_ml_inference(data):
     return model.predict(data)
 
 
 # ❌ No expiration for time-sensitive data
-@cache(policy=LruPolicy())
+@cache
 def get_exchange_rate(from_currency, to_currency):
     return forex_api.get_rate(from_currency, to_currency)
 
 
 # ✅ Appropriate expiration
-@cache(policy=LruPolicy(ttl=300))  # 5 minutes
+@fx_cache
 def get_exchange_rate(from_currency, to_currency):
     return forex_api.get_rate(from_currency, to_currency)
 ```
@@ -429,8 +492,11 @@ uv run python scripts/monitor_cache.py
 
 #### API Response Caching
 ```python
+weather_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=2000, ttl=3600, factory=factory)
+
+
 # Cache external API responses
-@cache(policy=LruPolicy(maxsize=2000, ttl=3600), exclude_bytecode=True)
+@weather_cache
 def fetch_weather_data(city: str, units: str = "metric"):
     """Cache weather API responses to reduce rate limits."""
     return weather_api.get_current_weather(city, units)
@@ -438,8 +504,11 @@ def fetch_weather_data(city: str, units: str = "metric"):
 
 #### Data Processing Pipeline
 ```python
+finance_cache = RedisFuncCache(__name__, LruMultiplePolicy(), maxsize=1000, factory=factory)
+
+
 # Cache complex data transformations
-@cache(policy=LruMultiplePolicy(maxsize=1000), serializer="msgpack")
+@finance_cache(serializer="msgpack")
 def process_financial_data(raw_data: dict, analysis_config: dict):
     """Cache financial analysis results."""
     return analyze_data(raw_data, analysis_config)
@@ -447,8 +516,11 @@ def process_financial_data(raw_data: dict, analysis_config: dict):
 
 #### Batch Processing
 ```python
+batch_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=500, ttl=7200, factory=factory)
+
+
 # Cache batch processing results
-@cache(policy=LruPolicy(maxsize=500, ttl=7200), exclude_bytecode=True)
+@batch_cache
 def process_batch(file_ids: list, processing_options: dict):
     """Cache batch processing to avoid recomputation."""
     results = []
@@ -491,29 +563,34 @@ cloudpickle = ["cloudpickle>=2.0.0"] # Enhanced pickle
 5. **TTL Strategy**: Use structure-level TTL for efficiency
 
 ### Memory Management
+There is no byte-size (`max_size_mb`) limit; constrain the cache by item count
+with `maxsize` on the constructor, and adjust `cache.maxsize` at runtime:
+
 ```python
 # Size-constrained caching
-@cache(
-    policy=LruPolicy(maxsize=1000),
-    max_size_mb=50,  # Limit total cache size
-)
+cache = RedisFuncCache(__name__, LruPolicy(), maxsize=1000, factory=factory)
+
+
+@cache
 def process_large_dataset(dataset: list, config: dict):
-    """Process large datasets with memory constraints."""
+    """Process large datasets with item-count constraints."""
     return complex_processing(dataset, config)
 
 
-# Dynamic sizing based on system memory
-def get_adaptive_policy():
-    """Adjust cache size based available memory."""
+# Dynamic sizing based on system memory (evaluated at construction;
+# cache.maxsize remains settable afterwards)
+def get_initial_maxsize():
+    """Pick a starting cache size based on available memory."""
     import psutil
 
     memory = psutil.virtual_memory()
-    if memory.percent > 80:
-        return LruPolicy(maxsize=500)
-    return LruPolicy(maxsize=2000)
+    return 500 if memory.percent > 80 else 2000
 
 
-@cache(policy=get_adaptive_policy())
+adaptive_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=get_initial_maxsize(), factory=factory)
+
+
+@adaptive_cache
 def memory_intensive_operation(data):
     """Operation with adaptive cache sizing."""
     return process_data(data)
@@ -531,25 +608,25 @@ def memory_intensive_operation(data):
 # ✅ Correct setup
 import aioredis
 
-async_cache = RedisFuncCache(factory=lambda: aioredis.from_url("redis://localhost"))
+async_cache = RedisFuncCache("my-async-cache", LruPolicy(), factory=lambda: aioredis.from_url("redis://localhost"))
 
 # ✅ Alternative sync setup
 import redis
 
-sync_cache = RedisFuncCache(factory=lambda: redis.Redis(host="localhost", port=6379))
+sync_cache = RedisFuncCache("my-sync-cache", LruPolicy(), factory=lambda: redis.Redis(host="localhost", port=6379))
 ```
 
 #### "Circular reference"
-**Issue**: Policy holding direct reference to cache object
-**Solution**: Policies use `weakref` internally - this is handled automatically
+**Issue**: Older versions (≤ v0.8) kept a weakref back-reference from the policy to the cache
+**Solution**: Since v0.9 the policy holds no reference at all — the cache copies `prefix`/`name` onto it at construction; nothing to handle
 
 #### "Serialization failed"
 **Issue**: Non-serializable function arguments
 **Solution**: Use `excludes` parameter or ensure arguments are serializable
 
 ```python
-# Exclude non-serializable fields
-@cache(policy=LruPolicy(), excludes=["obj.file_handle", "obj.connection"])
+# Exclude non-serializable fields (`excludes` is a decorator option)
+@cache(excludes=["obj.file_handle", "obj.connection"])
 def process_file(obj: FileObject):
     return obj.process()
 ```
@@ -568,7 +645,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 # Monitor cache operations
-@cache(policy=LruPolicy())
+@cache
 def debug_function(x):
     print(f"Executing with {x}")  # Visible when cache misses
     return x * 2
@@ -576,15 +653,20 @@ def debug_function(x):
 
 #### Manual Cache Inspection
 ```python
-# Check cache contents
-cache = RedisFuncCache(factory=lambda: redis.Redis())
-print(f"Cache hits: {cache.get_cache_hits()}")
-print(f"Cache misses: {cache.get_cache_misses()}")
+# Check cache statistics (collected via stats_context)
+cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: redis.Redis())
 
 
 # Test specific scenarios
-@cache(policy=LruPolicy())
+@cache
 def test_func(x):
     print(f"Computing result for {x}")
     return x**2
+
+
+with cache.stats_context() as stats:
+    test_func(1)  # miss: executes the function
+    test_func(1)  # hit: served from Redis
+
+print(f"hits={stats.hit}, misses={stats.miss}")
 ```

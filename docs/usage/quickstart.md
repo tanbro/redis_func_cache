@@ -32,7 +32,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
 factory = lambda: Redis.from_url("redis://")
-cache = Cache("quickstart", LruTPolicy(maxsize=128, ttl=300), factory=factory)
+cache = Cache("quickstart", LruTPolicy(), maxsize=128, ttl=300, factory=factory)
 
 
 @cache
@@ -62,7 +62,7 @@ from redis.asyncio import Redis as AsyncRedis
 from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
 factory = lambda: AsyncRedis.from_url("redis://")
-cache = Cache("quickstart-async", LruTPolicy(maxsize=128, ttl=300), factory=factory)
+cache = Cache("quickstart-async", LruTPolicy(), maxsize=128, ttl=300, factory=factory)
 
 
 @cache
@@ -94,16 +94,16 @@ The library supports multiple cache eviction policies. You can specify a policy 
 from redis import Redis
 from redis_func_cache import RedisFuncCache, FifoPolicy, LruTPolicy, LfuPolicy, RrPolicy
 
-redis_client = Redis.from_url("redis://")
+factory = lambda: Redis.from_url("redis://")
 
 # FIFO (First In, First Out)
-fifo_cache = RedisFuncCache("my-fifo-cache", FifoPolicy(), client=redis_client)
+fifo_cache = RedisFuncCache("my-fifo-cache", FifoPolicy(), factory=factory)
 
 # LFU (Least Frequently Used)
-lfu_cache = RedisFuncCache("my-lfu-cache", LfuPolicy(), client=redis_client)
+lfu_cache = RedisFuncCache("my-lfu-cache", LfuPolicy(), factory=factory)
 
 # Random Replacement
-rr_cache = RedisFuncCache("my-rr-cache", RrPolicy(), client=redis_client)
+rr_cache = RedisFuncCache("my-rr-cache", RrPolicy(), factory=factory)
 ```
 
 Available policies:

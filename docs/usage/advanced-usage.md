@@ -388,7 +388,7 @@ class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
     __key__ = "my-lru2"
 
 
-my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2(), client=redis_client)
+my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2(), redis_client=redis_client)
 
 redis_client = Redis.from_url("redis://")
 

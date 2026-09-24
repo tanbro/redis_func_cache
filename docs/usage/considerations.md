@@ -74,7 +74,7 @@ For single-process scenarios, use Python's threading primitive:
 from threading import Semaphore
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
-cache = RedisFuncCache("my-cache", LruTPolicy(), client=redis_client)
+cache = RedisFuncCache("my-cache", LruTPolicy(), redis_client=redis_client)
 
 # Limit concurrent executions to 1
 semaphore = Semaphore(1)
@@ -96,7 +96,7 @@ import random
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
 # Base TTL + random jitter (0-60 seconds)
-cache = RedisFuncCache("my-cache", LruTPolicy(), client=redis_client, ttl=300 + random.randint(0, 60))
+cache = RedisFuncCache("my-cache", LruTPolicy(), redis_client=redis_client, ttl=300 + random.randint(0, 60))
 ```
 
 #### Strategy 4: Stale-While-Revalidate (Advanced)
@@ -179,7 +179,7 @@ Practical guidance for the `factory` argument:
       __hash_config__ = replace(JsonMd5HashMixin.__hash_config__, use_bytecode=False)
 
 
-  cache = Cache(__name__, policy=MyLfuPolicy, client=redis_client_factory)
+  cache = Cache(__name__, MyLfuPolicy(), factory=redis_client_factory)
   ```
 
   As shown above, the `JsonMd5HashMixin` uses [json][], which can be used across different Python versions, rather than [`pickle`][]. `use_bytecode` is set to `False` to avoid version compatible problems caused by bytecode.
