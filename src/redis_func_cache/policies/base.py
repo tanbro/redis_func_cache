@@ -227,7 +227,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         Returns:
             Number of keys deleted.
 
-        .. versionadded:: TODO
+        .. versionadded:: 0.9
             The *batch_size* parameter.
         """
         if not is_redis_sync_client(redis_client):
@@ -256,7 +256,7 @@ class BaseMultiplePolicy(AbstractPolicy):
         Returns:
             Number of keys deleted.
 
-        .. versionadded:: TODO
+        .. versionadded:: 0.9
             The *batch_size* parameter.
         """
         if not is_redis_async_client(redis_client):

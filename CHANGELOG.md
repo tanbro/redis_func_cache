@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.9.0 (unreleased)
 
 - 💔 **Breaking Changes:**
   - Policy methods that talk to Redis now take the client as an explicit first parameter named `redis_client`: `purge(redis_client, batch_size=500)`, `apurge(...)`, `get_size(redis_client)`, `aget_size(...)`, `vacuum(redis_client, batch_size=500)`, `avacuum(...)`, and `calc_key_pairs(redis_client)` / `acalc_key_pairs(redis_client)` (parameter previously named `client`). `RedisFuncCache` obtains the client and passes it down, so the cache-level API (`cache.purge()`, `cache.vacuum()`, ...) is unchanged. This removes the policy's implicit `get_client()` reach-through, which previously cached `Script` objects bound to whichever client was current on first access — under a `factory` every script call was funneled through that stale client, defeating the factory's thread isolation and, with multi-server factories, sending commands to the wrong server. `AbstractPolicy.lua_scripts` and `AbstractPolicy.vacuum_script` are likewise no longer cached properties but methods taking `redis_client`. Custom policies must adapt to the new signatures.
@@ -24,6 +24,7 @@
 - 📚 **Documentation:**
   - New design notes: "Handler System for `redis_func_cache`" (`docs/design/handler.md`), "Vacuuming Expired Per-Field Cache Entries" (`docs/design/field-ttl-vacuum.md`), "Purging Cache Structures Without Blocking Redis" (`docs/design/purge.md`), and "A Factory for Hash Mixin Combinations" (`docs/design/hash-mixin-factory.md`).
   - README: new *Handler* section under Advanced Usage, including the handler-vs-serializer decision guide; the Custom Policy section now covers `make_hash_mixin` / `make_scripts_mixin` for combinations outside the predefined mixin classes.
+  - Restructured the documentation into a usage guide: the monolithic README was split into `docs/usage/quickstart.md`, `configuration.md`, `considerations.md`, `advanced-usage.md`, and `migration.md`, with the README keeping only an overview that highlights distributed caching; all pages are wired into the Sphinx toctree.
 
 ## v0.8.0
 

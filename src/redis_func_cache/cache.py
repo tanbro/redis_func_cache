@@ -269,7 +269,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 - :class:`redis.cluster.RedisCluster`
                 - :class:`redis.asyncio.cluster.RedisCluster`
 
-                .. versionchanged:: TODO
+                .. versionchanged:: 0.9
                     Renamed from ``client``; ``client=`` still works but is deprecated.
 
                 .. versionchanged:: 0.7
@@ -324,7 +324,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
                 Assigned to property :attr:`ignore_redis_errors`.
 
-                .. versionadded:: TODO
+                .. versionadded:: 0.9
 
             prefix: The prefix for cache keys.
 
@@ -379,7 +379,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 See :class:`~redis_func_cache.handler.HandlerProtocol` for the method
                 set, return conventions, and sync/async rules.
 
-                .. versionadded:: TODO
+                .. versionadded:: 0.9
 
         Attributes:
             __call__: Equivalent to the :meth:`decorate` method.
@@ -557,7 +557,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
                         Thus the cache class will call the factory every time it needs a client internally.
 
-        .. versionchanged:: TODO
+        .. versionchanged:: 0.9
             Renamed from ``get_client``; the old name still works but is deprecated.
 
         .. versionadded:: 0.5
@@ -572,7 +572,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
     def get_client(self) -> RedisClientTV:  # pragma: no cover
         """Equivalent to :meth:`get_redis_client`.
 
-        .. deprecated:: TODO
+        .. deprecated:: 0.9
             use :meth:`get_redis_client` instead.
         """
         warn("method ‘get_client’ is deprecated, use ‘get_redis_client()’ instead", DeprecationWarning)
@@ -791,7 +791,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 - When ``False``, the error is re-raised to the caller.
                 - When ``True``, the error is logged and recorded in :attr:`Stats.err`, and the cache degrades gracefully.
 
-                .. versionadded:: TODO
+                .. versionadded:: 0.9
 
             handler: Optional handler overriding the instance-level handler for this call.
 
@@ -1091,7 +1091,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 - When ``False``, the error is re-raised to the caller.
                 - When ``True``, the error is logged and recorded in :attr:`Stats.err`, and the cache degrades gracefully.
 
-                .. versionadded:: TODO
+                .. versionadded:: 0.9
 
             handler: Optional handler for the decorated function, overriding the instance-level handler.
 
@@ -1099,7 +1099,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 - See :class:`~redis_func_cache.handler.HandlerProtocol` for the
                   method set, return conventions, and sync/async rules.
 
-                .. versionadded:: TODO
+                .. versionadded:: 0.9
 
             excludes: Optional sequence of parameter names specifying keyword arguments to exclude from cache key generation.
 
@@ -1397,14 +1397,14 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         Returns:
             The number of keys deleted.
 
-        .. versionadded:: TODO
+        .. versionadded:: 0.9
         """
         return self.policy.purge(self.get_redis_client() if redis_client is None else redis_client, batch_size)
 
     async def apurge(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Async version of :meth:`purge`.
 
-        .. versionadded:: TODO
+        .. versionadded:: 0.9
         """
         return await self.policy.apurge(self.get_redis_client() if redis_client is None else redis_client, batch_size)
 
@@ -1421,13 +1421,13 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         Returns:
             The number of ghost entries removed.
 
-        .. versionadded:: TODO
+        .. versionadded:: 0.9
         """
         return self.policy.vacuum(self.get_redis_client() if redis_client is None else redis_client, batch_size)
 
     async def avacuum(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Async version of :meth:`vacuum`.
 
-        .. versionadded:: TODO
+        .. versionadded:: 0.9
         """
         return await self.policy.avacuum(self.get_redis_client() if redis_client is None else redis_client, batch_size)

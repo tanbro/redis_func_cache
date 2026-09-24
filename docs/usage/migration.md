@@ -1,4 +1,77 @@
-# Migration Guide (v0.6 → v0.7)
+# Migration Guide
+
+## v0.8 → v0.9
+
+v0.9 introduced breaking changes for **custom policies** and for code that
+reached into the policy/cache internals. The everyday decorator API
+(`@cache(policy=LruPolicy())`) is unaffected.
+
+### Summary of Changes
+
+- Policy methods that talk to Redis now take the client as an explicit first
+  parameter named `redis_client`: `purge`, `apurge`, `get_size`, `aget_size`,
+  `vacuum`, `avacuum`, and `calc_key_pairs` / `acalc_key_pairs`.
+- `AbstractPolicy.lua_scripts` and `AbstractPolicy.vacuum_script` changed from
+  cached properties to methods taking `redis_client`.
+- `RedisFuncCache.__init__`: the `client` parameter is renamed `redis_client`.
+  `client=` still works but emits a `DeprecationWarning`.
+- `RedisFuncCache.get_client()` is renamed `get_redis_client()`. The old name
+  still works but emits a `DeprecationWarning`.
+- The `AbstractPolicy.cache` property is removed; the policy no longer holds a
+  weakref back-reference to the cache. Use the copied `policy._prefix` /
+  `policy._name` values instead.
+- The JSON serializer now emits `ensure_ascii=False` with compact separators.
+  Existing cache entries are keyed differently and are invalidated once on
+  upgrade, then repopulated transparently — no code change needed.
+
+### Custom Policy Migration
+
+**Old (v0.8):**
+
+```python
+class MyPolicy(BaseSinglePolicy):
+    def purge(self, batch_size: int = 500) -> int:
+        client = self.get_client()  # implicit reach-through
+        ...
+        return unlinked
+
+    def vacuum(self, batch_size: int = 500) -> int:
+        script = self.vacuum_script  # cached property
+        ...
+```
+
+**New (v0.9+):**
+
+```python
+class MyPolicy(BaseSinglePolicy):
+    def purge(self, redis_client, batch_size: int = 500) -> int:
+        # redis_client supplied by RedisFuncCache
+        ...
+        return unlinked
+
+    def vacuum(self, redis_client, batch_size: int = 500) -> int:
+        script = self.vacuum_script(redis_client)  # method
+        ...
+```
+
+The cache obtains the client from your `redis_client=` / `factory=` and passes
+it down, so the cache-level API (`cache.purge()`, `cache.vacuum()`, ...) is
+unchanged. Passing the client explicitly fixes scripts being cached against
+whatever client was current on first access, which defeated `factory`'s thread
+isolation and could send commands to the wrong server under multi-server
+factories.
+
+### Renamed API Quick Reference
+
+| Old (v0.8)                       | New (v0.9)                        | Compatibility            |
+| -------------------------------- | --------------------------------- | ------------------------ |
+| `RedisFuncCache(client=...)`     | `RedisFuncCache(redis_client=...)`| Deprecated alias kept    |
+| `cache.get_client()`             | `cache.get_redis_client()`        | Deprecated alias kept    |
+| `policy.cache`                   | `policy._prefix` / `policy._name` | Removed                  |
+| `policy.vacuum_script` (property)| `policy.vacuum_script(client)`    | Removed                  |
+| `policy.lua_scripts` (property)  | `policy.lua_scripts(client)`      | Removed                  |
+
+## v0.6 → v0.7
 
 v0.7 introduced breaking changes to the `RedisFuncCache` constructor:
 

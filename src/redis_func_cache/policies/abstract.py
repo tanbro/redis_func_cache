@@ -167,7 +167,7 @@ class AbstractPolicy(ABC):
         Returns:
             Tuple of registered Script or AsyncScript objects (get, put).
 
-        .. versionchanged:: TODO
+        .. versionchanged:: 0.9
             Was a cached property taking no arguments. Caching bound the returned
             Script objects to whichever client was current on first access, so
             with a ``factory`` all script calls were funneled through a stale
@@ -198,7 +198,7 @@ class AbstractPolicy(ABC):
         Returns:
             The registered vacuum Script or AsyncScript object.
 
-        .. versionchanged:: TODO
+        .. versionchanged:: 0.9
             Was a cached property taking no arguments, for the same reason as
             :meth:`lua_scripts`; it now registers against the client passed in.
         """
@@ -255,7 +255,7 @@ class AbstractPolicy(ABC):
         Raises:
             RuntimeError: If the given redis client is asynchronous.
 
-        .. versionadded:: TODO
+        .. versionadded:: 0.9
         """
         if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
@@ -284,7 +284,7 @@ class AbstractPolicy(ABC):
         Raises:
             RuntimeError: If the given redis client is synchronous.
 
-        .. versionadded:: TODO
+        .. versionadded:: 0.9
         """
         if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
