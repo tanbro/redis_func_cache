@@ -1,9 +1,9 @@
 """FIFO eviction policies."""
 
-from .hashing import PICKLE_MD5_HASHER
-from .keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
-from .policy import Policy
-from .scripts import FifoScripts, FifoTScripts
+from ..hashing import PICKLE_MD5_HASHER
+from ..keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
+from ..scripts import FifoScripts, FifoTScripts
+from . import Policy
 
 __all__ = (
     "FifoClusterMultiplePolicy",

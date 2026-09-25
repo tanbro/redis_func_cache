@@ -23,16 +23,16 @@ existing Redis data stays readable (golden tests pin this contract).
 
 - The `mixins/` package (`hash.py`, `scripts.py`) and `policies/abstract.py` /
   `policies/base.py` are removed.
-- New components: `policies/keying.py` (`SingleKeying`, `MultipleKeying`,
-  `ClusterSingleKeying`, `ClusterMultipleKeying`), `policies/hashing.py`
+- New components: `keying.py` (`SingleKeying`, `MultipleKeying`,
+  `ClusterSingleKeying`, `ClusterMultipleKeying`), `hashing.py`
   (`Hasher`, `HashConfig`, presets such as `PickleMd5Hasher`) and
-  `policies/scripts.py` (`LruScripts`, `RrScripts`, ...).
+  `scripts.py` (`LruScripts`, `RrScripts`, ...).
 - `Policy(keying, hasher, scripts)` composes the three dimensions and exposes
   the same facade the cache calls (`calc_keys`, `calc_hash`, `purge`,
   `get_size`, `vacuum`, ...).
 - The hash factory `make_hash_mixin` is replaced by
-  [`make_hasher`][redis_func_cache.policies.hashing.make_hasher]; `make_scripts_mixin`
-  is removed (a :class:`~redis_func_cache.policies.scripts.Scripts` subclass is the way).
+  [`make_hasher`][redis_func_cache.hashing.make_hasher]; `make_scripts_mixin`
+  is removed (a :class:`~redis_func_cache.scripts.Scripts` subclass is the way).
 - `get_size`/`aget_size` report the index-structure cardinality (ZCARD, SCARD
   for RR) instead of HLEN, matching what `maxsize` enforcement uses.
 
@@ -58,10 +58,10 @@ cache = RedisFuncCache("my-cache", MyLruPolicy(), factory=factory)
 ```python
 from dataclasses import replace
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.hashing import JsonMd5Hasher
-from redis_func_cache.policies.keying import SingleKeying
-from redis_func_cache.policies.policy import Policy
-from redis_func_cache.policies.scripts import LruScripts
+from redis_func_cache.hashing import JsonMd5Hasher
+from redis_func_cache.keying import SingleKeying
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import LruScripts
 
 class MyHasher(JsonMd5Hasher):
     __hash_config__ = replace(JsonMd5Hasher.__hash_config__, use_bytecode=False)
@@ -75,13 +75,13 @@ cache = RedisFuncCache("my-cache", my_policy, factory=factory)
 | Old (v0.9)                                   | New (v1.0)                                        |
 | -------------------------------------------- | ------------------------------------------------- |
 | `LruPolicy()` (class instantiation)          | `LruPolicy` (preset instance)                     |
-| `mixins.hash.*Mixin` classes                 | `policies.hashing.*Hasher` classes                |
-| `mixins.scripts.*ScriptsMixin` classes       | `policies.scripts.*Scripts` classes               |
-| `policies.abstract.AbstractPolicy`           | `policies.policy.Policy`                          |
-| `policies.base.BaseSinglePolicy`             | `policies.keying.SingleKeying` (composed)         |
-| `policies.base.BaseMultiplePolicy`           | `policies.keying.MultipleKeying` (composed)       |
-| `policies.base.BaseClusterSinglePolicy`      | `policies.keying.ClusterSingleKeying` (composed)  |
-| `policies.base.BaseClusterMultiplePolicy`    | `policies.keying.ClusterMultipleKeying` (composed)|
+| `mixins.hash.*Mixin` classes                 | `hashing.*Hasher` classes                |
+| `mixins.scripts.*ScriptsMixin` classes       | `scripts.*Scripts` classes               |
+| `policies.abstract.AbstractPolicy`           | `policies.Policy`                                 |
+| `policies.base.BaseSinglePolicy`             | `keying.SingleKeying` (composed)         |
+| `policies.base.BaseMultiplePolicy`           | `keying.MultipleKeying` (composed)       |
+| `policies.base.BaseClusterSinglePolicy`      | `keying.ClusterSingleKeying` (composed)  |
+| `policies.base.BaseClusterMultiplePolicy`    | `keying.ClusterMultipleKeying` (composed)|
 | `make_hash_mixin(name, config)`              | `make_hasher(name, config)` or a `Hasher` subclass |
 | `policy.__key__` / `policy.__scripts__`      | `policy.keying.key` / `policy.scripts.get_script` |
 | `policy.__hash_config__`                     | `policy.hasher.__hash_config__`                   |
@@ -219,9 +219,9 @@ cache = RedisFuncCache("my-cache", LruTPolicy, factory=factory)
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`Policy`]: redis_func_cache.policies.policy.Policy
-[`SingleKeying`]: redis_func_cache.policies.keying.SingleKeying
-[`Hasher`]: redis_func_cache.policies.hashing.Hasher
+[`Policy`]: redis_func_cache.policies.Policy
+[`SingleKeying`]: redis_func_cache.keying.SingleKeying
+[`Hasher`]: redis_func_cache.hashing.Hasher
 
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"

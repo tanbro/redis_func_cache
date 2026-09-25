@@ -55,7 +55,7 @@ else:  # pragma: no cover
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
 from .handler import HandlerContext
-from .policies.policy import Policy
+from .policies import Policy
 from .typing import (
     CallableTV,
     RedisClientTV,
@@ -1400,7 +1400,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         """Delete every Redis key this cache owns.
 
         A convenience delegating to :meth:`Policy.purge
-        <redis_func_cache.policies.policy.Policy.purge>`, which contains
+        <redis_func_cache.policies.Policy.purge>`, which contains
         the full description.
 
         Args:
@@ -1424,7 +1424,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
 
         A convenience delegating to :meth:`Policy.vacuum
-        <redis_func_cache.policies.policy.Policy.vacuum>`, which contains
+        <redis_func_cache.policies.Policy.vacuum>`, which contains
         the full description.
 
         Args:

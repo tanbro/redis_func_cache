@@ -12,16 +12,16 @@ from uuid import uuid4
 import pytest
 
 from redis_func_cache import LruPolicy, RedisFuncCache
-from redis_func_cache.policies.hashing import PICKLE_MD5_HASHER, HashConfig, Hasher, JsonMd5Hasher
-from redis_func_cache.policies.keying import (
+from redis_func_cache.hashing import PICKLE_MD5_HASHER, HashConfig, Hasher, JsonMd5Hasher
+from redis_func_cache.keying import (
     ClusterMultipleKeying,
     ClusterSingleKeying,
     Keying,
     MultipleKeying,
     SingleKeying,
 )
-from redis_func_cache.policies.policy import Policy
-from redis_func_cache.policies.scripts import LruScripts, MruScripts, RrScripts
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import LruScripts, MruScripts, RrScripts
 
 from ._catches import redis_factory
 
@@ -48,7 +48,7 @@ class TestHashers:
     def test_make_hasher_factory(self):
         """The factory yields a fresh Hasher subclass hashing identically to
         the equivalent explicit preset."""
-        from redis_func_cache.policies.hashing import make_hasher
+        from redis_func_cache.hashing import make_hasher
 
         cls = make_hasher("JsonMd5Copy", JsonMd5Hasher.__hash_config__)
         assert issubclass(cls, Hasher)
@@ -123,8 +123,8 @@ class TestPolicy:
 
     def test_get_size_dispatches_by_index_structure(self, mocker):
         """get_size picks SCARD vs ZCARD from scripts.index_structure."""
-        mocker.patch("redis_func_cache.policies.policy.is_redis_sync_client", return_value=True)
-        mocker.patch("redis_func_cache.policies.keying.is_redis_sync_client", return_value=True)
+        mocker.patch("redis_func_cache.policies.is_redis_sync_client", return_value=True)
+        mocker.patch("redis_func_cache.keying.is_redis_sync_client", return_value=True)
         for scripts, command in ((LruScripts(), "zcard"), (RrScripts(), "scard")):
             client = mocker.Mock()
             client.scan_iter.return_value = iter(["k:0"])

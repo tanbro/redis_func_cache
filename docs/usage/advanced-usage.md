@@ -216,10 +216,10 @@ Variables in the format string are defined as follows:
 A policy is composed of three orthogonal components — keying, hasher and scripts:
 
 ```python
-from redis_func_cache.policies.hashing import PICKLE_MD5_HASHER
-from redis_func_cache.policies.keying import SingleKeying
-from redis_func_cache.policies.policy import Policy
-from redis_func_cache.policies.scripts import LruScripts
+from redis_func_cache.hashing import PICKLE_MD5_HASHER
+from redis_func_cache.keying import SingleKeying
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import LruScripts
 
 policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts())
 ```
@@ -233,10 +233,10 @@ The following example demonstrates how to customize the key format for an _LRU_ 
 import redis
 from redis import Redis
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.hashing import PICKLE_MD5_HASHER
-from redis_func_cache.policies.keying import SingleKeying
-from redis_func_cache.policies.policy import Policy
-from redis_func_cache.policies.scripts import LruScripts
+from redis_func_cache.hashing import PICKLE_MD5_HASHER
+from redis_func_cache.keying import SingleKeying
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import LruScripts
 
 def factory():
     return redis.Redis.from_pool(redis.ConnectionPool.from_url("redis://"))
@@ -322,7 +322,7 @@ flowchart TD
     L -->|No| N[Return decoded digest]
 ```
 
-If we want to use a different algorithm, we can select a hasher class defined in `src/redis_func_cache/policies/hashing.py` and compose it into a policy. For example:
+If we want to use a different algorithm, we can select a hasher class defined in `src/redis_func_cache/hashing.py` and compose it into a policy. For example:
 
 - To serialize the function with [JSON][], use the SHA1 hash algorithm, store hex string in redis, you can choose the `JsonSha1HexHasher` class.
 - To serialize the function with [`pickle`][], use the MD5 hash algorithm, store base64 string in redis, you can choose the `PickleMd5Base64Hasher` class.
@@ -332,10 +332,10 @@ These hasher classes provide alternative hash algorithms and serializers, allowi
 ```python
 from redis import Redis
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.hashing import JsonSha1HexHasher
-from redis_func_cache.policies.keying import SingleKeying
-from redis_func_cache.policies.policy import Policy
-from redis_func_cache.policies.scripts import LruScripts
+from redis_func_cache.hashing import JsonSha1HexHasher
+from redis_func_cache.keying import SingleKeying
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import LruScripts
 
 
 my_json_sha1_hex_policy = Policy(SingleKeying("my-lru"), JsonSha1HexHasher(), LruScripts())
@@ -349,7 +349,7 @@ If none of the predefined combinations fits — for example, you want `msgpack` 
 
 ```python
 import msgpack
-from redis_func_cache.policies.hashing import HashConfig, Hasher
+from redis_func_cache.hashing import HashConfig, Hasher
 
 class MsgpackSha3Hasher(Hasher):
     __hash_config__ = HashConfig(algorithm="sha3_256", serializer=msgpack.packb)
@@ -365,10 +365,10 @@ from typing import TYPE_CHECKING, override, Any, Callable, Mapping, Sequence
 import cloudpickle
 from redis import Redis
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.hashing import Hasher
-from redis_func_cache.policies.keying import SingleKeying
-from redis_func_cache.policies.policy import Policy
-from redis_func_cache.policies.scripts import LruScripts
+from redis_func_cache.hashing import Hasher
+from redis_func_cache.keying import SingleKeying
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import LruScripts
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
@@ -412,13 +412,13 @@ def some_func(*args, **kwargs): ...
 [uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`Policy`]: redis_func_cache.policies.policy.Policy
-[`SingleKeying`]: redis_func_cache.policies.keying.SingleKeying
-[`MultipleKeying`]: redis_func_cache.policies.keying.MultipleKeying
-[`ClusterSingleKeying`]: redis_func_cache.policies.keying.ClusterSingleKeying
-[`ClusterMultipleKeying`]: redis_func_cache.policies.keying.ClusterMultipleKeying
-[`Hasher`]: redis_func_cache.policies.hashing.Hasher
-[`HashConfig`]: redis_func_cache.policies.hashing.HashConfig
+[`Policy`]: redis_func_cache.policies.Policy
+[`SingleKeying`]: redis_func_cache.keying.SingleKeying
+[`MultipleKeying`]: redis_func_cache.keying.MultipleKeying
+[`ClusterSingleKeying`]: redis_func_cache.keying.ClusterSingleKeying
+[`ClusterMultipleKeying`]: redis_func_cache.keying.ClusterMultipleKeying
+[`Hasher`]: redis_func_cache.hashing.Hasher
+[`HashConfig`]: redis_func_cache.hashing.HashConfig
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
 [`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"

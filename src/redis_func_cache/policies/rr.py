@@ -1,9 +1,9 @@
 """Random replacement eviction cache policy."""
 
-from .hashing import PICKLE_MD5_HASHER
-from .keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
-from .policy import Policy
-from .scripts import RrScripts
+from ..hashing import PICKLE_MD5_HASHER
+from ..keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
+from ..scripts import RrScripts
+from . import Policy
 
 __all__ = ("RrClusterMultiplePolicy", "RrClusterPolicy", "RrMultiplePolicy", "RrPolicy")
 

@@ -1,9 +1,9 @@
 """Most Recently Used eviction cache policies."""
 
-from .hashing import PICKLE_MD5_HASHER
-from .keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
-from .policy import Policy
-from .scripts import MruScripts
+from ..hashing import PICKLE_MD5_HASHER
+from ..keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
+from ..scripts import MruScripts
+from . import Policy
 
 __all__ = ("MruClusterMultiplePolicy", "MruClusterPolicy", "MruMultiplePolicy", "MruPolicy")
 

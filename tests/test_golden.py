@@ -22,8 +22,8 @@ from typing import Any, cast
 import pytest
 
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.policy import Policy
-from redis_func_cache.policies.scripts import Script
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import Script
 
 from ._golden_fns import fn_a, fn_b
 

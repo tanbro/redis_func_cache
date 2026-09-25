@@ -7,7 +7,7 @@ import pytest
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.lru import LruPolicy
 from redis_func_cache.policies.rr import RrPolicy
-from redis_func_cache.policies.scripts import RrScripts
+from redis_func_cache.scripts import RrScripts
 
 from ._catches import CACHES, redis_factory
 from ._mocks import patch_object

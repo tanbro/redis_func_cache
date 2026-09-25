@@ -10,7 +10,7 @@ import hashlib
 from base64 import b64encode
 
 from redis_func_cache.fingerprint import hash_fingerprint
-from redis_func_cache.policies.hashing import JsonMd5HexHasher
+from redis_func_cache.hashing import JsonMd5HexHasher
 from redis_func_cache.utils import calculate_callable_fullname, get_callable_bytecode
 
 from ._catches import MULTI_CACHES

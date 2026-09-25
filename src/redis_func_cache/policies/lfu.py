@@ -1,9 +1,9 @@
 """LFU eviction policy."""
 
-from .hashing import PICKLE_MD5_HASHER
-from .keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
-from .policy import Policy
-from .scripts import LfuScripts
+from ..hashing import PICKLE_MD5_HASHER
+from ..keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
+from ..scripts import LfuScripts
+from . import Policy
 
 __all__ = ("LfuClusterMultiplePolicy", "LfuClusterPolicy", "LfuMultiplePolicy", "LfuPolicy")
 

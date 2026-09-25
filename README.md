@@ -570,9 +570,9 @@ classDiagram
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`Policy`]: redis_func_cache.policies.policy.Policy
-[`SingleKeying`]: redis_func_cache.policies.keying.SingleKeying
-[`Hasher`]: redis_func_cache.policies.hashing.Hasher
+[`Policy`]: redis_func_cache.policies.Policy
+[`SingleKeying`]: redis_func_cache.keying.SingleKeying
+[`Hasher`]: redis_func_cache.hashing.Hasher
 
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"

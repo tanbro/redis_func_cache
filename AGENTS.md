@@ -42,7 +42,7 @@ cache = RedisFuncCache("my-cache", LruTPolicy, factory=lambda: redis.Redis())
 - **Policies**: `src/redis_func_cache/policies/` - All eviction policy implementations
 - **Redis Structure**: Keys with `:0` suffix = ZSET, `:1` suffix = HASH
 - **Lua Scripts**: `src/redis_func_cache/lua/` - Atomic operations on both structures
-- **Hashers**: `src/redis_func_cache/policies/hashing.py` - JSON/pickle + md5/sha1/sha256/sha512 presets
+- **Hashers**: `src/redis_func_cache/hashing.py` - JSON/pickle + md5/sha1/sha256/sha512 presets
 - **Errors**: `src/redis_func_cache/exceptions.py` - Custom exceptions
 
 ### Common Issues to Flag
@@ -86,10 +86,10 @@ Every cache uses **TWO Redis keys**:
 **Atomic Operations**: Lua scripts ensure both structures are updated simultaneously.
 
 ### Policy Composition Architecture
-- **Keying** (`policies/keying.py`): key naming (Single/Multiple x Cluster), purge and index enumeration; stateless, namespace passed explicitly
-- **Hasher** (`policies/hashing.py`): computes the sub-key from function + args via `HashConfig`
-- **Scripts** (`policies/scripts.py`): owns the get/put Lua files, the index structure (ZCARD vs SCARD for RR), and the ext_args ARGV contract (MRU flag on ARGV[7])
-- **Policy** (`policies/policy.py`): composes the three and exposes the facade the cache calls. Built-in policies are preset `Policy` instances; `RedisFuncCache` snapshot-copies the policy it is given
+- **Keying** (`keying.py`): key naming (Single/Multiple x Cluster), purge and index enumeration; stateless, namespace passed explicitly
+- **Hasher** (`hashing.py`): computes the sub-key from function + args via `HashConfig`
+- **Scripts** (`scripts.py`): owns the get/put Lua files, the index structure (ZCARD vs SCARD for RR), and the ext_args ARGV contract (MRU flag on ARGV[7])
+- **Policy** (`policies/__init__.py`): composes the three and exposes the facade the cache calls. Built-in policies are preset `Policy` instances; `RedisFuncCache` snapshot-copies the policy it is given
 
 ### API Usage Patterns
 
@@ -149,10 +149,10 @@ def expensive_func(x): ...
 from dataclasses import replace
 
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.hashing import JsonMd5Hasher
-from redis_func_cache.policies.keying import SingleKeying
-from redis_func_cache.policies.policy import Policy
-from redis_func_cache.policies.scripts import LruScripts
+from redis_func_cache.hashing import JsonMd5Hasher
+from redis_func_cache.keying import SingleKeying
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import LruScripts
 
 
 class MyHasher(JsonMd5Hasher):

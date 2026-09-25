@@ -34,7 +34,7 @@ from redis_func_cache.policies.rr import RrClusterPolicy, RrMultiplePolicy
 from redis_func_cache.typing import is_redis_async_client
 
 if TYPE_CHECKING:
-    from redis_func_cache.policies.policy import Policy
+    from redis_func_cache.policies import Policy
     from redis_func_cache.typing import RedisClientT
 
 try:

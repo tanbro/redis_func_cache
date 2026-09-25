@@ -3,11 +3,11 @@
 A :class:`Hasher` computes the sub-key under which a call's result is stored —
 the member of the index structure (ZSET/SET) and the field name of the hash
 map. It is one of the three orthogonal components composed into a
-:class:`~redis_func_cache.policies.policy.Policy`:
+:class:`~redis_func_cache.policies.Policy`:
 
-- :class:`~redis_func_cache.policies.keying.Keying` — how Redis keys are named
+- :class:`~redis_func_cache.keying.Keying` — how Redis keys are named
 - :class:`Hasher` — how each call is hashed to a sub-key
-- :class:`~redis_func_cache.policies.scripts.Scripts` — which Lua scripts run
+- :class:`~redis_func_cache.scripts.Scripts` — which Lua scripts run
   and how they talk to Redis
 
 Define a custom hasher by subclassing :class:`Hasher` and setting
@@ -16,7 +16,7 @@ cross-version cache compatibility::
 
     from dataclasses import replace
 
-    from redis_func_cache.policies.hashing import HashConfig, JsonMd5Hasher
+    from redis_func_cache.hashing import HashConfig, JsonMd5Hasher
 
 
     class StableJsonMd5Hasher(JsonMd5Hasher):
@@ -24,7 +24,7 @@ cross-version cache compatibility::
 
 .. versionchanged:: 1.0
     Replaces the ``mixins.hash`` mixin classes. Hashers are plain components
-    composed into a :class:`~redis_func_cache.policies.policy.Policy` instead
+    composed into a :class:`~redis_func_cache.policies.Policy` instead
     of being woven in via multiple inheritance.
 """
 
@@ -37,8 +37,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from ..fingerprint import hash_fingerprint
-from ..utils import b64digest
+from .fingerprint import hash_fingerprint
+from .utils import b64digest
 
 if TYPE_CHECKING:  # pragma: no cover
     from hashlib import _Hash as HashT

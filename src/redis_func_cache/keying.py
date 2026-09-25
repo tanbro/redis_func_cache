@@ -2,11 +2,11 @@
 
 A :class:`Keying` object decides the Redis key pair a cached value lives under,
 and enumerates/purges those keys. It is one of the three orthogonal components
-composed into a :class:`~redis_func_cache.policies.policy.Policy`:
+composed into a :class:`~redis_func_cache.policies.Policy`:
 
 - :class:`Keying` — how Redis keys are named
-- :class:`~redis_func_cache.policies.hashing.Hasher` — how each call is hashed to a sub-key
-- :class:`~redis_func_cache.policies.scripts.Scripts` — which Lua scripts run and how they talk to Redis
+- :class:`~redis_func_cache.hashing.Hasher` — how each call is hashed to a sub-key
+- :class:`~redis_func_cache.scripts.Scripts` — which Lua scripts run and how they talk to Redis
 
 Four built-in variants cover the two orthogonal naming choices:
 
@@ -23,7 +23,7 @@ ClusterMultipleKeying ``...:fn{#h}:0|1``         yes                  yes
 
 Keying instances are stateless and shareable: every method takes the bound
 ``(prefix, name)`` namespace explicitly, supplied by the owning
-:class:`~redis_func_cache.policies.policy.Policy`.
+:class:`~redis_func_cache.policies.Policy`.
 
 .. versionchanged:: 1.0
     Replaces the ``policies.base`` class hierarchy; key naming is now a
@@ -42,14 +42,14 @@ if sys.version_info < (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing import override
 
-from ..fingerprint import hash_fingerprint
-from ..typing import is_redis_async_client, is_redis_sync_client
-from ..utils import b64digest, calculate_callable_fullname
+from .fingerprint import hash_fingerprint
+from .typing import is_redis_async_client, is_redis_sync_client
+from .utils import b64digest, calculate_callable_fullname
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
 
-    from ..typing import RedisClientT
+    from .typing import RedisClientT
 
 __all__ = (
     "ClusterMultipleKeying",

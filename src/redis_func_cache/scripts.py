@@ -5,16 +5,16 @@ not key naming or hashing:
 
 - which Lua script files implement the get/put operations,
 - which Redis structure the index is (sorted set vs set) — a fact
-  :meth:`Policy.get_size <redis_func_cache.policies.policy.Policy.get_size>`
+  :meth:`Policy.get_size <redis_func_cache.policies.Policy.get_size>`
   dispatches on when counting,
 - any extra ARGV entries the scripts expect (e.g. the MRU flag on ARGV[7]),
 - registering the scripts against a client.
 
 It is one of the three orthogonal components composed into a
-:class:`~redis_func_cache.policies.policy.Policy`:
+:class:`~redis_func_cache.policies.Policy`:
 
-- :class:`~redis_func_cache.policies.keying.Keying` — how Redis keys are named
-- :class:`~redis_func_cache.policies.hashing.Hasher` — how each call is hashed to a sub-key
+- :class:`~redis_func_cache.keying.Keying` — how Redis keys are named
+- :class:`~redis_func_cache.hashing.Hasher` — how each call is hashed to a sub-key
 - :class:`Scripts` — which Lua scripts run and how they talk to Redis
 
 .. versionchanged:: 1.0
@@ -29,8 +29,8 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from redis.commands.core import AsyncScript, Script
 
-from ..typing import RedisClientT
-from ..utils import read_lua_file
+from .typing import RedisClientT
+from .utils import read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import EncodableT, ScriptTextT
@@ -64,7 +64,7 @@ class Scripts(ABC):
 
     ``"zset"`` (default) for the sorted-set based policies, ``"set"`` for the
     RR family. :meth:`Policy.get_size
-    <redis_func_cache.policies.policy.Policy.get_size>` uses this to pick
+    <redis_func_cache.policies.Policy.get_size>` uses this to pick
     ``ZCARD`` or ``SCARD`` when counting.
     """
 

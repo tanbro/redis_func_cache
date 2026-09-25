@@ -25,7 +25,7 @@ import redis_func_cache.policies.lfu as lfu_mod
 import redis_func_cache.policies.lru as lru_mod
 import redis_func_cache.policies.mru as mru_mod
 import redis_func_cache.policies.rr as rr_mod
-from redis_func_cache.policies.policy import Policy
+from redis_func_cache.policies import Policy
 
 from ._golden_fns import fn_a, fn_b
 
