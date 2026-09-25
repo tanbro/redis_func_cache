@@ -10,7 +10,7 @@ from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from itertools import chain
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 from warnings import warn
 
 from redis import RedisError
@@ -22,12 +22,11 @@ from .exceptions import CacheMissError
 from .handler import HandlerContext
 from .policies import Policy
 from .serializers import (
-    SERIALIZERS,
     DeserializerT,
-    SerializerName,
     SerializerPairT,
     SerializerSetterValueT,
     SerializerT,
+    _serializers,
     json_encode,
 )
 from .typing import (
@@ -280,7 +279,6 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         Attributes:
             __call__: Equivalent to the :meth:`decorate` method.
-            __serializers__ (Mapping[str, SerializerPairT]): A dictionary of serializers.
         """
         self._logger = getLogger(f"{__name__}.{self.__class__.__name__}")
         self.name = name
@@ -317,8 +315,6 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         self._handler = handler
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=self._DEFAULT_MODE)
         self._stats: ContextVar[RedisFuncCache.Stats | None] = ContextVar("stats", default=None)
-
-    __serializers__: ClassVar[Mapping[SerializerName, SerializerPairT]] = SERIALIZERS
 
     @property
     def name(self) -> str:
@@ -404,7 +400,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
     def serializer(self, value: SerializerSetterValueT):
         if isinstance(value, str):
             try:
-                self._serializer, self._deserializer = self.__serializers__[value]
+                self._serializer, self._deserializer = _serializers[value]
             except KeyError:
                 raise ValueError(f"Unknown serializer: {value}")
         elif (
@@ -1041,7 +1037,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         serialize_func: SerializerT | None = None
         deserialize_func: DeserializerT | None = None
         if isinstance(serializer, str):
-            serialize_func, deserialize_func = self.__serializers__[serializer]
+            serialize_func, deserialize_func = _serializers[serializer]
         elif serializer is not None:
             serialize_func, deserialize_func = serializer
         field_ttl = 0 if ttl is None else int(ttl)

@@ -104,6 +104,7 @@ cache = RedisFuncCache("my-cache", my_policy, factory=factory)
 | `make_hash_mixin(name, config)`              | `make_hasher(name, config)` or a `Hasher` subclass |
 | `policy.__key__` / `policy.__scripts__`      | `policy.keying.key` / `policy.scripts.get_script` |
 | `policy.__hash_config__`                     | `policy.hasher.__hash_config__`                   |
+| `RedisFuncCache.__serializers__`             | `serializers.SERIALIZERS` (module-level registry)  |
 | `RedisFuncCache(client=...)`                 | `RedisFuncCache(redis_client=...)` (alias removed) |
 | `cache.get_client()` / `cache.client`        | `cache.get_redis_client()` (aliases removed)       |
 | `policy.cache`                               | `policy._prefix` / `policy._name`                  |
