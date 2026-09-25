@@ -58,6 +58,7 @@ from .handler import HandlerContext
 from .policies import Policy
 from .typing import (
     CallableTV,
+    HashValueT,
     RedisClientTV,
     SerializerName,
     is_module,
@@ -591,7 +592,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         cls,
         script: Script,
         keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
+        hash_value: HashValueT,
         update_ttl: bool,
         ttl: int,
         options: Mapping[str, Any] | None = None,
@@ -619,7 +620,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         cls,
         script: AsyncScript,
         keys: tuple[KeyT, KeyT],
-        hash_: KeyT,
+        hash_: HashValueT,
         update_ttl: bool,
         ttl: int,
         options: Mapping[str, Any] | None = None,
@@ -635,7 +636,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         cls,
         script: Script,
         keys: tuple[KeyT, KeyT],
-        hash_value: KeyT,
+        hash_value: HashValueT,
         value: EncodableT,
         maxsize: int,
         update_ttl: bool,
@@ -672,7 +673,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         cls,
         script: AsyncScript,
         keys: tuple[KeyT, KeyT],
-        hash_: KeyT,
+        hash_: HashValueT,
         value: EncodableT,
         maxsize: int,
         update_ttl: bool,
@@ -717,7 +718,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         user_args: tuple[Any, ...],
         user_kwds: dict[str, Any],
         bound: BoundArguments | None = None,
-    ) -> tuple[tuple[KeyT, KeyT], KeyT, Iterable[EncodableT]]:
+    ) -> tuple[tuple[KeyT, KeyT], HashValueT, Iterable[EncodableT]]:
         if bound is None:
             args, kwds = user_args, user_kwds
         else:

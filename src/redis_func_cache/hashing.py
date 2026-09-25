@@ -38,12 +38,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from .fingerprint import hash_fingerprint
+from .typing import HashValueT
 from .utils import b64digest
 
 if TYPE_CHECKING:  # pragma: no cover
     from hashlib import _Hash as HashT
-
-    from redis.typing import KeyT
 
 __all__ = (
     "PICKLE_MD5_HASHER",
@@ -88,7 +87,7 @@ class HashConfig:
     """
     serializer: Callable[[Any], bytes]
     """function to serialize function positional and keyword arguments."""
-    decoder: Callable[[HashT], KeyT] | None = None
+    decoder: Callable[[HashT], HashValueT] | None = None
     """function to decode hash digest to member of a sorted/unsorted set and also field name of a hash map in redis.
 
     Default is :data:`None`, means no decoding and to use the raw digest bytes directly.
@@ -117,7 +116,7 @@ class Hasher(ABC):
         fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
-    ) -> KeyT:
+    ) -> HashValueT:
         """Calculate the hash value of the function and its arguments.
 
         Args:

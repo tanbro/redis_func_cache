@@ -82,7 +82,9 @@ class TestGoldenPolicyContract:
 
     def test_hash(self, policy):
         name, policy = policy
-        assert policy.calc_hash(fn_a, ARGS, KWDS).hex() == GOLDEN[name]["hash"]
+        hash_value = policy.calc_hash(fn_a, ARGS, KWDS)
+        assert isinstance(hash_value, bytes)  # every built-in hasher returns raw digest bytes
+        assert hash_value.hex() == GOLDEN[name]["hash"]
 
     def test_ext_args(self, policy):
         name, policy = policy

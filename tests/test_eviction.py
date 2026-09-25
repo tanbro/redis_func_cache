@@ -259,6 +259,7 @@ def test_maxsize_shrink_mass_eviction():
     pipe = client.pipeline(transaction=False)
     for i in range(total):
         h = cache.policy.calc_hash(echo, (i,), {})
+        assert isinstance(h, bytes)  # PickleMd5Hasher yields raw digest bytes
         pipe.zadd(index_key, {h: i + 1})
         pipe.hset(hmap_key, h, f"v{i}")
     pipe.execute()

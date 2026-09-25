@@ -34,6 +34,14 @@ RedisScriptT = redis.commands.core.Script | redis.commands.core.AsyncScript
 
 SerializerName = Literal["json", "pickle", "dill", "bson", "msgpack", "yaml", "cbor", "cloudpickle"]
 
+HashValueT = bytes | str
+"""The sub-key produced by a hasher: the index member and hash-map field name.
+
+Deliberately narrower than ``redis.typing.KeyT``: the library never produces
+``memoryview`` sub-keys, and the narrower union keeps composed code compatible
+with redis-py APIs typed via constrained type variables.
+"""
+
 
 def is_module(val: Any) -> TypeGuard[ModuleType]:
     return ismodule(val)

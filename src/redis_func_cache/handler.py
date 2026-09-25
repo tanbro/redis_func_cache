@@ -18,6 +18,8 @@ from typing import Any, Protocol
 
 from redis.typing import EncodableT, EncodedT, KeyT
 
+from .typing import HashValueT
+
 __all__ = (
     "HandlerContext",
     "HandlerProtocol",
@@ -39,7 +41,7 @@ class HandlerContext:
     """
 
     keys: tuple[KeyT, KeyT]
-    hash_value: KeyT
+    hash_value: HashValueT
     func: Callable | None
     args: tuple = ()
     kwds: dict = field(default_factory=dict)

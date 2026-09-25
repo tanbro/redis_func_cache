@@ -47,7 +47,7 @@ from ..typing import is_redis_async_client, is_redis_sync_client
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT, ScriptTextT
 
-    from ..typing import RedisClientT
+    from ..typing import HashValueT, RedisClientT
 
 __all__ = ("Policy",)
 
@@ -123,7 +123,7 @@ class Policy:
         fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
-    ) -> KeyT:
+    ) -> HashValueT:
         """Calculate the sub-key hash for the function and its arguments.
 
         Delegates to :attr:`hasher`.
