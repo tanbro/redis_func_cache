@@ -1,4 +1,4 @@
-"""Stable fingerprints of callables, shared by hash mixins and multiple policies.
+"""Stable fingerprints of callables, shared by hashers and multiple policies.
 
 The fingerprint of a callable is the pair of its fullname and (optionally) its
 bytecode — the inputs that never change for a given function object. A hash object

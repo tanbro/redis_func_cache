@@ -32,7 +32,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
 factory = lambda: Redis.from_url("redis://")
-cache = Cache("quickstart", LruTPolicy(), maxsize=128, ttl=300, factory=factory)
+cache = Cache("quickstart", LruTPolicy, maxsize=128, ttl=300, factory=factory)
 
 
 @cache
@@ -62,7 +62,7 @@ from redis.asyncio import Redis as AsyncRedis
 from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
 factory = lambda: AsyncRedis.from_url("redis://")
-cache = Cache("quickstart-async", LruTPolicy(), maxsize=128, ttl=300, factory=factory)
+cache = Cache("quickstart-async", LruTPolicy, maxsize=128, ttl=300, factory=factory)
 
 
 @cache
@@ -97,13 +97,13 @@ from redis_func_cache import RedisFuncCache, FifoPolicy, LruTPolicy, LfuPolicy, 
 factory = lambda: Redis.from_url("redis://")
 
 # FIFO (First In, First Out)
-fifo_cache = RedisFuncCache("my-fifo-cache", FifoPolicy(), factory=factory)
+fifo_cache = RedisFuncCache("my-fifo-cache", FifoPolicy, factory=factory)
 
 # LFU (Least Frequently Used)
-lfu_cache = RedisFuncCache("my-lfu-cache", LfuPolicy(), factory=factory)
+lfu_cache = RedisFuncCache("my-lfu-cache", LfuPolicy, factory=factory)
 
 # Random Replacement
-rr_cache = RedisFuncCache("my-rr-cache", RrPolicy(), factory=factory)
+rr_cache = RedisFuncCache("my-rr-cache", RrPolicy, factory=factory)
 ```
 
 Available policies:
@@ -133,12 +133,9 @@ Available policies:
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy
-
-[`BaseSinglePolicy`]: redis_func_cache.policies.base.BaseSinglePolicy
-[`BaseMultiplePolicy`]: redis_func_cache.policies.base.BaseMultiplePolicy
-[`BaseClusterSinglePolicy`]: redis_func_cache.policies.base.BaseClusterSinglePolicy
-[`BaseClusterMultiplePolicy`]: redis_func_cache.policies.base.BaseClusterMultiplePolicy
+[`Policy`]: redis_func_cache.policies.policy.Policy
+[`SingleKeying`]: redis_func_cache.policies.keying.SingleKeying
+[`Hasher`]: redis_func_cache.policies.hashing.Hasher
 
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"

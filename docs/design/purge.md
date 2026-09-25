@@ -13,7 +13,7 @@ policy shapes differ structurally:
   decoration time. There is no static key list, so the purge has to enumerate:
 
 ```python
-# src/redis_func_cache/policies/base.py — BaseMultiplePolicy.purge (previous implementation)
+# Pre-v1.0 implementation (policies/base.py, removed)
 pat = f"{self.cache.prefix}{self.cache.name}:{self.__key__}:*"
 if keys := client.keys(pat):
     return client.delete(*keys)
@@ -90,7 +90,7 @@ workflow is symmetric:
 from redis import Redis
 from redis_func_cache import LruMultiplePolicy, RedisFuncCache
 
-cache = RedisFuncCache("my-cache", LruMultiplePolicy(), factory=lambda: Redis.from_url("redis://"))
+cache = RedisFuncCache("my-cache", LruMultiplePolicy, factory=lambda: Redis.from_url("redis://"))
 
 
 @cache

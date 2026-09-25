@@ -47,7 +47,7 @@ Here is a simple example:
     factory = lambda: aioredis.Redis.from_pool(pool)
 
     # Create an LRU cache. Note: policy must be an instance and we prefer a factory.
-    cache = Cache(__name__, LruTPolicy(), factory=factory)
+    cache = Cache(__name__, LruTPolicy, factory=factory)
 
     # Decorate a function to cache its result
     @cache
@@ -182,7 +182,7 @@ The library guarantees thread safety and concurrency security through the follow
    redis_pool = redis.ConnectionPool(...)  # Use a pool, not a single client
    factory = lambda: redis.from_pool(redis_pool)  # Use factory, not a static client
 
-   cache = RedisFuncCache(__name__, LruPolicy(), factory=factory)
+   cache = RedisFuncCache(__name__, LruPolicy, factory=factory)
 
    @cache
    def your_concurrent_func(...):
@@ -373,49 +373,27 @@ pre-commit install
 
 ```mermaid
 graph LR
-    RedisFuncCache --> AbstractPolicy
+    RedisFuncCache --> Policy
     RedisFuncCache --> Serializer
     RedisFuncCache --> ScriptExecution
-    AbstractPolicy --> BaseSinglePolicy
-    AbstractPolicy --> BaseMultiplePolicy
-    AbstractPolicy --> BaseClusterSinglePolicy
-    AbstractPolicy --> BaseClusterMultiplePolicy
-    BaseSinglePolicy --> FifoPolicy
-    BaseSinglePolicy --> LfuPolicy
-    BaseSinglePolicy --> LruPolicy
-    BaseSinglePolicy --> MruPolicy
-    BaseSinglePolicy --> RrPolicy
-    BaseSinglePolicy --> LruTPolicy
-    BaseMultiplePolicy --> FifoMultiplePolicy
-    BaseMultiplePolicy --> LfuMultiplePolicy
-    BaseMultiplePolicy --> LruMultiplePolicy
-    BaseMultiplePolicy --> MruMultiplePolicy
-    BaseMultiplePolicy --> RrMultiplePolicy
-    BaseMultiplePolicy --> LruTMultiplePolicy
-    BaseClusterSinglePolicy --> FifoClusterPolicy
-    BaseClusterSinglePolicy --> LfuClusterPolicy
-    BaseClusterSinglePolicy --> LruClusterPolicy
-    BaseClusterSinglePolicy --> MruClusterPolicy
-    BaseClusterSinglePolicy --> RrClusterPolicy
-    BaseClusterSinglePolicy --> LruTClusterPolicy
-    BaseClusterMultiplePolicy --> FifoClusterMultiplePolicy
-    BaseClusterMultiplePolicy --> LfuClusterMultiplePolicy
-    BaseClusterMultiplePolicy --> LruClusterMultiplePolicy
-    BaseClusterMultiplePolicy --> MruClusterMultiplePolicy
-    BaseClusterMultiplePolicy --> RrClusterMultiplePolicy
-    BaseClusterMultiplePolicy --> LruTClusterMultiplePolicy
-    FifoPolicy --> FifoScriptsMixin
-    LfuPolicy --> LfuScriptsMixin
-    LruPolicy --> LruScriptsMixin
-    MruPolicy --> MruScriptsMixin
-    RrPolicy --> RrScriptsMixin
-    LruTPolicy --> LruTScriptsMixin
-    FifoScriptsMixin --> fifo_get.lua
-    FifoScriptsMixin --> fifo_put.lua
-    LruScriptsMixin --> lru_get.lua
-    LruScriptsMixin --> lru_put.lua
-    LruTScriptsMixin --> lru_t_get.lua
-    LruTScriptsMixin --> lru_t_put.lua
+    Policy --> Keying
+    Policy --> Hasher
+    Policy --> Scripts
+    Keying --> SingleKeying
+    Keying --> MultipleKeying
+    SingleKeying --> ClusterSingleKeying
+    MultipleKeying --> ClusterMultipleKeying
+    Scripts --> LruScripts
+    Scripts --> LruTScripts
+    Scripts --> FifoScripts
+    Scripts --> FifoTScripts
+    Scripts --> LfuScripts
+    Scripts --> MruScripts
+    Scripts --> RrScripts
+    LruScripts --> lru_get.lua
+    LruScripts --> lru_put.lua
+    LruTScripts --> lru_t_get.lua
+    LruTScripts --> lru_t_put.lua
     Serializer --> json
     Serializer --> pickle
     Serializer --> dill
@@ -448,87 +426,100 @@ classDiagram
         +aexec(user_function, user_args, user_kwds)
     }
 
-    class AbstractPolicy {
-        <<abstract>>
-        __key__: str
-        __scripts__: Tuple[str, str]
-        +__init__(cache)
+    class Policy {
+        +keying: Keying
+        +hasher: Hasher
+        +scripts: Scripts
         +calc_keys(f, args, kwds) -> Tuple[str, str]
         +calc_hash(f, args, kwds) -> KeyT
         +purge() -> int
         +apurge() -> int
+        +get_size() -> int
+        +vacuum() -> int
     }
 
-    class BaseSinglePolicy {
-        _keys: Optional[Tuple[str, str]]
-        +__init__(cache)
-        +calc_keys(f, args, kwds) -> Tuple[str, str]
-        +purge()
-        +apurge()
+    class Keying {
+        <<interface>>
+        key: str
+        +calc_keys(prefix, name, f) -> Tuple[str, str]
     }
 
-    class BaseMultiplePolicy {
-        +calc_keys(f, args, kwds) -> Tuple[str, str]
+    class Hasher {
+        <<interface>>
+        __hash_config__: HashConfig
+        +calc_hash(f, args, kwds) -> KeyT
     }
 
-    RedisFuncCache --> AbstractPolicy : uses
-    AbstractPolicy <|-- BaseSinglePolicy
-    AbstractPolicy <|-- BaseMultiplePolicy
+    class Scripts {
+        <<interface>>
+        get_script: str
+        put_script: str
+        +index_cardinality(client, key) -> int
+    }
+
+    RedisFuncCache --> Policy : uses
+    Policy --> Keying
+    Policy --> Hasher
+    Policy --> Scripts
 ```
 
-Strategy pattern and mixins:
+Composition of the three orthogonal dimensions (keying / hasher / scripts):
 
 ```mermaid
 classDiagram
     class LruPolicy {
-        __key__ = "lru"
+        Policy preset
     }
 
-    class LruScriptsMixin {
-        __scripts__ = "lru_get.lua", "lru_put.lua"
+    class SingleKeying {
+        key = "lru"
     }
 
-    class PickleMd5HashMixin {
+    class LruScripts {
+        get_script = "lru_get.lua"
+        put_script = "lru_put.lua"
+    }
+
+    class PickleMd5Hasher {
         __hash_config__ = ...
     }
 
-    BaseSinglePolicy <|-- LruPolicy
-    LruScriptsMixin -- LruPolicy
-    PickleMd5HashMixin -- LruPolicy
+    LruPolicy --> SingleKeying
+    LruPolicy --> LruScripts
+    LruPolicy --> PickleMd5Hasher
 
     class FifoPolicy {
-        __key__ = "fifo"
+        Policy preset
     }
 
-    class FifoScriptsMixin {
-        __scripts__ = "fifo_get.lua", "fifo_put.lua"
+    class FifoScripts {
+        get_script = "fifo_get.lua"
+        put_script = "fifo_put.lua"
     }
 
-    BaseSinglePolicy <|-- FifoPolicy
-    FifoScriptsMixin -- FifoPolicy
-    PickleMd5HashMixin -- FifoPolicy
+    FifoPolicy --> SingleKeying
+    FifoPolicy --> FifoScripts
+    FifoPolicy --> PickleMd5Hasher
 ```
 
-Cluster and multiple-keys support
+The four built-in keying variants:
 
 ```mermaid
 classDiagram
-    class BaseClusterSinglePolicy {
-        +calc_keys(f, args, kwds) -> Tuple[str, str]
+    class Keying {
+        <<abstract>>
+        key: str
     }
 
-    class BaseClusterMultiplePolicy {
-        +calc_keys(f, args, kwds) -> Tuple[str, str]
-    }
+    class SingleKeying
+    class MultipleKeying
+    class ClusterSingleKeying
+    class ClusterMultipleKeying
 
-    BaseSinglePolicy <|-- BaseClusterSinglePolicy
-    BaseMultiplePolicy <|-- BaseClusterMultiplePolicy
-
-    class LruClusterPolicy {
-        __key__ = "lru-cluster"
-    }
-
-    BaseClusterSinglePolicy <|-- LruClusterPolicy
+    Keying <|-- SingleKeying
+    Keying <|-- MultipleKeying
+    SingleKeying <|-- ClusterSingleKeying
+    MultipleKeying <|-- ClusterMultipleKeying
 ```
 
 Decorator and proxy:
@@ -579,12 +570,9 @@ classDiagram
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy
-
-[`BaseSinglePolicy`]: redis_func_cache.policies.base.BaseSinglePolicy
-[`BaseMultiplePolicy`]: redis_func_cache.policies.base.BaseMultiplePolicy
-[`BaseClusterSinglePolicy`]: redis_func_cache.policies.base.BaseClusterSinglePolicy
-[`BaseClusterMultiplePolicy`]: redis_func_cache.policies.base.BaseClusterMultiplePolicy
+[`Policy`]: redis_func_cache.policies.policy.Policy
+[`SingleKeying`]: redis_func_cache.policies.keying.SingleKeying
+[`Hasher`]: redis_func_cache.policies.hashing.Hasher
 
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"

@@ -41,7 +41,7 @@ from redis import Redis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
 factory = lambda: Redis.from_url("redis://")
-cache = RedisFuncCache("my-cache", LruTPolicy(), factory=factory)
+cache = RedisFuncCache("my-cache", LruTPolicy, factory=factory)
 
 
 @cache
@@ -74,7 +74,7 @@ For single-process scenarios, use Python's threading primitive:
 from threading import Semaphore
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
-cache = RedisFuncCache("my-cache", LruTPolicy(), redis_client=redis_client)
+cache = RedisFuncCache("my-cache", LruTPolicy, redis_client=redis_client)
 
 # Limit concurrent executions to 1
 semaphore = Semaphore(1)
@@ -96,7 +96,7 @@ import random
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
 # Base TTL + random jitter (0-60 seconds)
-cache = RedisFuncCache("my-cache", LruTPolicy(), redis_client=redis_client, ttl=300 + random.randint(0, 60))
+cache = RedisFuncCache("my-cache", LruTPolicy, redis_client=redis_client, ttl=300 + random.randint(0, 60))
 ```
 
 #### Strategy 4: Stale-While-Revalidate (Advanced)
@@ -139,7 +139,7 @@ Practical guidance for the `factory` argument:
 ## Known Issues
 
 
-- Arguments passed to a cached function — including `self`/`cls` when decorating methods inside a class body — must be serializable by the args serializer of the policy's hash mixin (pickle for the built-in policies, JSON for the `Json*` mixins), or excluded from the key and hash calculations with `excludes` and/or `excludes_positional`.
+- Arguments passed to a cached function — including `self`/`cls` when decorating methods inside a class body — must be serializable by the args serializer of the policy's hasher (pickle for the built-in policies, JSON for the `Json*` hashers), or excluded from the key and hash calculations with `excludes` and/or `excludes_positional`.
 
   - Instance methods: the instance is hashed **by value**. If the result does not depend on instance state, use `excludes_positional=[0]` — cache entries are then shared across instances; otherwise the instance must be serializable.
   - Class methods: classes pickle **by reference**, so importable classes work out of the box. Place `@classmethod` outside the cache decorator to preserve descriptor binding. If the result does not depend on the declaring class or subclass, use `excludes_positional=[0]` to keep `cls` out of the cache key:
@@ -160,29 +160,29 @@ Practical guidance for the `factory` argument:
 
     [`pickle`][] is chosen because only the hash bytes are stored in Redis, not the serialized data itself, making this approach safe. However, [`pickle`][] causes **incompatibility between different Python versions**.
 
-  - The key calculation defined in `mixins.hash.AbstractHashMixin.calc_hash()` uses the function's bytecode as part of the hash computation by default. So it cannot hit cache across different Python versions.
+  - The key calculation defined in `policies.hashing.Hasher.calc_hash()` uses the function's bytecode as part of the hash computation by default. So it cannot hit cache across different Python versions.
 
-  If your application needs to be compatible across Python versions, you should disable `use_bytecode` attribute of the mixin's `__hash_config__`, and use a [json][] based hash mixer. Or define your own hash policy using a version-compatible serialization method. For example:
+  If your application needs to be compatible across Python versions, compose a policy with a hasher that disables `use_bytecode` in its `__hash_config__` and uses a [json][] based serializer. Or define your own hasher using a version-compatible serialization method. For example:
 
   ```python
   from dataclasses import replace
   from redis_func_cache import RedisFuncCache as Cache
-  from redis_func_cache.policies.abstract import BaseSinglePolicy
-  from redis_func_cache.mixins.hash import JsonMd5HashMixin
-  from redis_func_cache.mixins.scripts import LfuScriptsMixin
+  from redis_func_cache.policies.hashing import JsonMd5Hasher
+  from redis_func_cache.policies.keying import SingleKeying
+  from redis_func_cache.policies.policy import Policy
+  from redis_func_cache.policies.scripts import LfuScripts
 
 
-  class MyLfuPolicy(LfuScriptsMixin, JsonMd5HashMixin, BaseSinglePolicy):
-      __key__ = "my-lfu"
-
+  class MyLfuHasher(JsonMd5Hasher):
       # Override hash config here !!!
-      __hash_config__ = replace(JsonMd5HashMixin.__hash_config__, use_bytecode=False)
+      __hash_config__ = replace(JsonMd5Hasher.__hash_config__, use_bytecode=False)
 
 
-  cache = Cache(__name__, MyLfuPolicy(), factory=redis_client_factory)
+  my_lfu_policy = Policy(SingleKeying("my-lfu"), MyLfuHasher(), LfuScripts())
+  cache = Cache(__name__, my_lfu_policy, factory=redis_client_factory)
   ```
 
-  As shown above, the `JsonMd5HashMixin` uses [json][], which can be used across different Python versions, rather than [`pickle`][]. `use_bytecode` is set to `False` to avoid version compatible problems caused by bytecode.
+  As shown above, the `JsonMd5Hasher` uses [json][], which can be used across different Python versions, rather than [`pickle`][]. `use_bytecode` is set to `False` to avoid version compatible problems caused by bytecode.
 
 - The cache eviction policies are mainly based on [Redis][] sorted set's score ordering. For most policies, the score is a positive integer. Its maximum value is `2^32-1` in [Redis][], which limits the number of times of eviction replacement. [Redis][] will return an `overflow` error when the score overflows.
 
@@ -195,7 +195,7 @@ Practical guidance for the `factory` argument:
 
 - The Redis keys generated by *Multiple* policies include a hash derived from Python bytecode, making them **incompatible across Python versions**.
 
-  However, you can define a custom mixin that inherits from `AbstractHashMixin`, in which you can implement your own hash function to support compatibility across Python versions.
+  However, you can define a custom hasher that subclasses `policies.hashing.Hasher`, in which you can implement your own hash function to support compatibility across Python versions.
 
   Additionally, the decorator **cannot be used with native or built-in functions**: they carry no stable cross-process function identity for key calculation, so they are rejected with a `TypeError` — regardless of the `use_bytecode` setting.
 
@@ -213,12 +213,9 @@ Practical guidance for the `factory` argument:
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy
-
-[`BaseSinglePolicy`]: redis_func_cache.policies.base.BaseSinglePolicy
-[`BaseMultiplePolicy`]: redis_func_cache.policies.base.BaseMultiplePolicy
-[`BaseClusterSinglePolicy`]: redis_func_cache.policies.base.BaseClusterSinglePolicy
-[`BaseClusterMultiplePolicy`]: redis_func_cache.policies.base.BaseClusterMultiplePolicy
+[`Policy`]: redis_func_cache.policies.policy.Policy
+[`SingleKeying`]: redis_func_cache.policies.keying.SingleKeying
+[`Hasher`]: redis_func_cache.policies.hashing.Hasher
 
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"

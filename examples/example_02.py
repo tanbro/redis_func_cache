@@ -9,7 +9,7 @@ from redis_func_cache import LruTPolicy, RedisFuncCache
 factory = lambda: aioredis.Redis.from_pool(aioredis.ConnectionPool.from_url("redis://"))
 
 # Create an lru cache, it connects Redis by previous created redis client
-lru_cache = RedisFuncCache(__name__, LruTPolicy(), factory=factory)
+lru_cache = RedisFuncCache(__name__, LruTPolicy, factory=factory)
 
 
 @lru_cache  # Decorate a function to cache its result

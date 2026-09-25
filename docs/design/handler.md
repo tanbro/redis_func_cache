@@ -199,7 +199,7 @@ The library performs **no** runtime validation of handler behavior — no shape 
 The instance-level handler is provided at construction time via the optional `handler` argument. A per-function override is available on `decorate`:
 
 ```python
-cache = RedisFuncCache("name", LruPolicy(), factory=factory, handler=my_handler)  # instance-level
+cache = RedisFuncCache("name", LruPolicy, factory=factory, handler=my_handler)  # instance-level
 
 @cache.decorate(handler=offload_handler)  # per-function override
 def big_payload_function(...): ...

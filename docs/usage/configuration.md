@@ -7,7 +7,7 @@ Control cache size and expiration:
 ```python
 cache = RedisFuncCache(
     "my-cache",
-    LruTPolicy(),
+    LruTPolicy,
     redis_client=redis_client,
     maxsize=100,  # Maximum number of cached items
     ttl=300,  # Cache expires after 300 seconds of inactivity
@@ -55,7 +55,7 @@ from redis_func_cache import RedisFuncCache, LruTPolicy
 # Method 1: Set at cache instance level
 cache = RedisFuncCache(
     __name__,
-    LruTPolicy(),
+    LruTPolicy,
     factory=lambda: Redis.from_url("redis://"),
     serializer="pickle",  # or (pickle.dumps, pickle.loads)
 )
@@ -94,7 +94,7 @@ By default, all decorated functions share the same Redis key pair. To give each 
 ```python
 from redis_func_cache import RedisFuncCache, LruTMultiplePolicy
 
-cache = RedisFuncCache("my-cache", LruTMultiplePolicy(), redis_client=redis_client)
+cache = RedisFuncCache("my-cache", LruTMultiplePolicy, redis_client=redis_client)
 
 
 @cache
@@ -117,7 +117,7 @@ For Redis Cluster deployments, use a Cluster-aware policy. These policies use ha
 ```python
 from redis_func_cache import RedisFuncCache, LruTClusterPolicy
 
-cache = RedisFuncCache("my-cache", LruTClusterPolicy(), redis_client=redis_client)
+cache = RedisFuncCache("my-cache", LruTClusterPolicy, redis_client=redis_client)
 
 
 @cache
@@ -183,12 +183,9 @@ with cache.disable_rw():
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy
-
-[`BaseSinglePolicy`]: redis_func_cache.policies.base.BaseSinglePolicy
-[`BaseMultiplePolicy`]: redis_func_cache.policies.base.BaseMultiplePolicy
-[`BaseClusterSinglePolicy`]: redis_func_cache.policies.base.BaseClusterSinglePolicy
-[`BaseClusterMultiplePolicy`]: redis_func_cache.policies.base.BaseClusterMultiplePolicy
+[`Policy`]: redis_func_cache.policies.policy.Policy
+[`SingleKeying`]: redis_func_cache.policies.keying.SingleKeying
+[`Hasher`]: redis_func_cache.policies.hashing.Hasher
 
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"

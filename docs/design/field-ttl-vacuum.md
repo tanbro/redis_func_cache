@@ -86,13 +86,13 @@ limit — memory is bounded by the same envelope as live entries. The actual cos
 ## Chosen design: `vacuum` on the policy
 
 The chosen design is an **explicit, on-demand maintenance operation**, placed on
-`AbstractPolicy` and delegated by `RedisFuncCache`:
+`Policy` and delegated by `RedisFuncCache`:
 
 ```python
 from redis import Redis
 from redis_func_cache import LruPolicy, RedisFuncCache
 
-cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: Redis.from_url("redis://"))
+cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: Redis.from_url("redis://"))
 
 
 @cache.decorate(ttl=600)  # per-item TTL (Redis >= 7.4)
@@ -106,7 +106,7 @@ print(f"removed {removed} expired entries")
 
 - `cache.vacuum(batch_size=500)` removes every ZSET member whose hash field has
   expired and returns the number removed. `cache.avacuum()` is the async mirror.
-- It is also available directly on the policy: `cache.policy.vacuum(redis_client)`, taking the client explicitly (see the client lifecycle contract in `AbstractPolicy`).
+- It is also available directly on the policy: `cache.policy.vacuum(redis_client)`, taking the client explicitly (see the client lifecycle contract in `Policy`).
 - It raises `RuntimeError` when called against a client whose sync/async nature does
   not match the call, mirroring `purge` / `apurge`.
 
@@ -172,7 +172,7 @@ keys; pairs created mid-run are picked up by the next vacuum.
 
 The key-pair enumeration is exposed as a small **abstract** hook pair,
 `calc_key_pairs` / `acalc_key_pairs`. Being mandatory override points, they are
-`@abstractmethod` on `AbstractPolicy`, so a policy missing them fails at instantiation
+abstract on `Policy`/its components, so a policy missing them fails fast
 rather than mid-vacuum. The rule of thumb: **hooks that subclasses must implement are
 abstract and public; machinery that subclasses must not touch carries a leading
 underscore** — consistent with `calc_keys` / `purge` / `get_size` conventions in the

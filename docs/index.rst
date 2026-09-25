@@ -57,7 +57,6 @@ Contents
    design/handler
    design/field-ttl-vacuum
    design/purge
-   design/hash-mixin-factory
 
 .. toctree::
    :caption: Project

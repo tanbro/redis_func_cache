@@ -8,7 +8,7 @@ A Python Redis-based function caching library with decorator-based API, supporti
 ### Essential Architecture Concepts
 - **Strategy Pattern**: Pluggable eviction policies (LRU, LFU, FIFO, MRU, RR)
 - **Dual Redis Structure**: ZSET (scoring) + HASH (storage) with atomic Lua operations
-- **Mixin Composition**: HashMixin + ScriptMixin for policy behavior
+- **Composition**: `Policy(keying, hasher, scripts)` — three orthogonal components
 
 ### Critical API Rules (v0.9+)
 ```python
@@ -19,20 +19,20 @@ A Python Redis-based function caching library with decorator-based API, supporti
 # ❌ WRONG: `name` and a policy *instance* are required constructor arguments;
 #    policies themselves take no arguments (no maxsize/ttl/serializer here)
 cache = RedisFuncCache("my-cache", LruTPolicy)
-cache = RedisFuncCache(LruTPolicy())
+cache = RedisFuncCache(LruTPolicy)
 
 # ✅ CORRECT: choose policy/maxsize/ttl/serializer at construction,
 #    then decorate with a bare @cache
-cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.Redis())
+cache = RedisFuncCache("my-cache", LruTPolicy, factory=lambda: redis.Redis())
 
 @cache
 def my_func(x): ...
 
 # ❌ NOT thread-safe (a single shared client instance)
-cache = RedisFuncCache("my-cache", LruTPolicy(), redis_client=redis_client)
+cache = RedisFuncCache("my-cache", LruTPolicy, redis_client=redis_client)
 
 # ✅ Thread-safe for concurrent use
-cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.Redis())
+cache = RedisFuncCache("my-cache", LruTPolicy, factory=lambda: redis.Redis())
 ```
 
 ## 🔍 Key Information Index
@@ -42,11 +42,11 @@ cache = RedisFuncCache("my-cache", LruTPolicy(), factory=lambda: redis.Redis())
 - **Policies**: `src/redis_func_cache/policies/` - All eviction policy implementations
 - **Redis Structure**: Keys with `:0` suffix = ZSET, `:1` suffix = HASH
 - **Lua Scripts**: `src/redis_func_cache/lua/` - Atomic operations on both structures
-- **Serialization**: `src/redis_func_cache/mixins/hash.py` - JSON/pickle/msgpack options
+- **Hashers**: `src/redis_func_cache/policies/hashing.py` - JSON/pickle + md5/sha1/sha256/sha512 presets
 - **Errors**: `src/redis_func_cache/exceptions.py` - Custom exceptions
 
 ### Common Issues to Flag
-1. **Policy Placement**: Policies are argument-less instances passed to the constructor (`RedisFuncCache("my-cache", LruTPolicy())`); `maxsize`/`ttl`/`serializer` are constructor options, and the decorator has no `policy=` parameter
+1. **Policy Placement**: Policies are argument-less instances passed to the constructor (`RedisFuncCache("my-cache", LruTPolicy)`); `maxsize`/`ttl`/`serializer` are constructor options, and the decorator has no `policy=` parameter
 2. **Bytecode Sensitivity**: Default hash includes function bytecode → cross-version issues
 3. **Client Mismatch**: Async cache requires `aioredis`, sync cache requires `redis.Redis`
 4. **No Reference Cycles**: Since v0.9 the policy holds no reference to the cache — `prefix`/`name` are copied onto it at construction (the old weakref back-reference was removed)
@@ -57,7 +57,7 @@ Core Components:
 ├── src/redis_func_cache/cache.py          # RedisFuncCache class
 ├── src/redis_func_cache/__init__.py       # Public API exports
 ├── src/redis_func_cache/policies/         # Policy implementations
-├── src/redis_func_cache/mixins/           # HashMixin + ScriptMixin
+├── src/redis_func_cache/policies/         # keying.py / hashing.py / scripts.py / policy.py
 └── src/redis_func_cache/lua/*.lua         # Atomic Lua scripts
 
 Configuration:
@@ -85,10 +85,11 @@ Every cache uses **TWO Redis keys**:
 
 **Atomic Operations**: Lua scripts ensure both structures are updated simultaneously.
 
-### Mixin Architecture
-- **HashMixin**: Handles serialization (JSON/pickle/msgpack) and key hashing
-- **ScriptMixin**: Manages Lua script loading and execution
-- **Policy Implementation**: Uses multiple inheritance from both mixins
+### Policy Composition Architecture
+- **Keying** (`policies/keying.py`): key naming (Single/Multiple x Cluster), purge and index enumeration; stateless, namespace passed explicitly
+- **Hasher** (`policies/hashing.py`): computes the sub-key from function + args via `HashConfig`
+- **Scripts** (`policies/scripts.py`): owns the get/put Lua files, the index structure (ZCARD vs SCARD for RR), and the ext_args ARGV contract (MRU flag on ARGV[7])
+- **Policy** (`policies/policy.py`): composes the three and exposes the facade the cache calls. Built-in policies are preset `Policy` instances; `RedisFuncCache` snapshot-copies the policy it is given
 
 ### API Usage Patterns
 
@@ -97,7 +98,7 @@ Every cache uses **TWO Redis keys**:
 # ✅ Policy instance at construction (policies take no arguments)
 import redis
 
-cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: redis.Redis())
+cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: redis.Redis())
 
 
 @cache
@@ -107,7 +108,7 @@ def my_func(x): ...
 # ✅ Async cache setup
 import aioredis
 
-async_cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: aioredis.from_url("redis://localhost"))
+async_cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: aioredis.from_url("redis://localhost"))
 ```
 
 #### Important Rules
@@ -131,33 +132,35 @@ async_cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: aioredis.f
 ### Usage Pattern Issues
 
 #### Bytecode Sensitivity Problem
-Bytecode enters the hash through the policy's hash mixin `__hash_config__`; there
+Bytecode enters the hash through the policy's hasher `__hash_config__`; there
 is no `exclude_bytecode=` option on the decorator. To disable it, define a custom
 policy (see `docs/usage/considerations.md`):
 
 ```python
 # ❌ Cache version-specific: built-in policies hash the function bytecode
-cache = RedisFuncCache("my-cache", LruPolicy(), factory=factory)
+cache = RedisFuncCache("my-cache", LruPolicy, factory=factory)
 
 
 @cache
 def expensive_func(x): ...
 
 
-# ✅ Cross-version compatible: a JSON hash mixin with use_bytecode=False
+# ✅ Cross-version compatible: a JSON hasher with use_bytecode=False
 from dataclasses import replace
 
-from redis_func_cache.mixins.hash import JsonMd5HashMixin
-from redis_func_cache.mixins.scripts import LruScriptsMixin
-from redis_func_cache.policies.base import BaseSinglePolicy
+from redis_func_cache import RedisFuncCache
+from redis_func_cache.policies.hashing import JsonMd5Hasher
+from redis_func_cache.policies.keying import SingleKeying
+from redis_func_cache.policies.policy import Policy
+from redis_func_cache.policies.scripts import LruScripts
 
 
-class MyLruPolicy(LruScriptsMixin, JsonMd5HashMixin, BaseSinglePolicy):
-    __key__ = "my-lru"
-    __hash_config__ = replace(JsonMd5HashMixin.__hash_config__, use_bytecode=False)
+class MyHasher(JsonMd5Hasher):
+    __hash_config__ = replace(JsonMd5Hasher.__hash_config__, use_bytecode=False)
 
 
-cache = RedisFuncCache("my-cache", MyLruPolicy(), factory=factory)
+my_policy = Policy(SingleKeying("my-lru"), MyHasher(), LruScripts())
+cache = RedisFuncCache("my-cache", my_policy, factory=factory)
 ```
 
 #### Serialization Issues
@@ -250,7 +253,7 @@ REDIS_URL=redis://localhost:6379
 from redis_func_cache import LruPolicy, RedisFuncCache
 
 # JSON is the default `serializer` of RedisFuncCache(...)
-cache = RedisFuncCache(__name__, LruPolicy(), factory=factory)
+cache = RedisFuncCache(__name__, LruPolicy, factory=factory)
 
 
 # Standard JSON serialization
@@ -294,7 +297,7 @@ import redis
 from redis_func_cache import LruPolicy, RedisFuncCache
 
 # maxsize/ttl belong to the RedisFuncCache(...) constructor, not the policy or decorator
-cache = RedisFuncCache(__name__, LruPolicy(), maxsize=1000, ttl=3600, factory=factory)
+cache = RedisFuncCache(__name__, LruPolicy, maxsize=1000, ttl=3600, factory=factory)
 
 
 # Cache expensive external API calls
@@ -316,7 +319,7 @@ def api_call_with_retry(params: dict):
 #### Data Processing Caching
 ```python
 # Cache complex computations (maxsize set at construction)
-process_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=500, factory=factory)
+process_cache = RedisFuncCache(__name__, LruPolicy, maxsize=500, factory=factory)
 
 
 @process_cache
@@ -346,7 +349,7 @@ def preprocess_text(text: str, cleaning_rules: dict):
 ```python
 # Cache with multiple parameters for granular control — a "multiple" policy
 # gives each decorated function its own key pair
-multi_cache = RedisFuncCache(__name__, LruMultiplePolicy(), maxsize=1000, factory=factory)
+multi_cache = RedisFuncCache(__name__, LruMultiplePolicy, maxsize=1000, factory=factory)
 
 
 @multi_cache
@@ -359,7 +362,7 @@ def complex_calculation(input_data: str, algorithm: str, version: int):
 ```python
 # Cache with automatic expiration for time-sensitive data
 # (structure-level ttl is a RedisFuncCache(...) option, sliding expiration)
-market_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=1000, ttl=300, factory=factory)  # ttl: 5 minutes
+market_cache = RedisFuncCache(__name__, LruPolicy, maxsize=1000, ttl=300, factory=factory)  # ttl: 5 minutes
 
 
 @market_cache
@@ -371,7 +374,7 @@ def get_market_data(symbol: str):
 #### Memory-Constrained Environments
 ```python
 # Limit the number of cached items (there is no byte-size `max_size_mb` option)
-file_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=200, factory=factory)
+file_cache = RedisFuncCache(__name__, LruPolicy, maxsize=200, factory=factory)
 
 
 @file_cache(serializer="msgpack")
@@ -389,7 +392,7 @@ import time
 from redis_func_cache import LruPolicy, RedisFuncCache
 
 # Create the cache (maxsize is a constructor option)
-cache = RedisFuncCache(__name__, LruPolicy(), maxsize=1000, factory=lambda: redis.Redis())
+cache = RedisFuncCache(__name__, LruPolicy, maxsize=1000, factory=lambda: redis.Redis())
 
 
 def monitor_cache_performance(run_traffic):
@@ -417,15 +420,15 @@ def monitor_cache_performance(run_traffic):
 2. **Appropriate TTLs**: Use TTL for time-sensitive data, None for static data
 3. **Size Management**: Set reasonable maxsize values based on available memory
 4. **Serialization Choice**: Use msgpack for binary data, JSON for human-readable data
-5. **Cross-Version Compatibility**: For shared environments, define a custom policy whose hash mixin sets `use_bytecode=False` (see the Bytecode Sensitivity Problem section)
+5. **Cross-Version Compatibility**: For shared environments, compose a policy whose hasher sets `use_bytecode=False` (see the Bytecode Sensitivity Problem section)
 6. **Error Handling**: Plan for cache failures gracefully
 
 ### Common Anti-patterns
 
 ```python
 # maxsize/ttl are configured once, at construction
-cache = RedisFuncCache(__name__, LruPolicy(), maxsize=100, factory=factory)
-fx_cache = RedisFuncCache(__name__, LruPolicy(), ttl=300, factory=factory)  # 5 minutes
+cache = RedisFuncCache(__name__, LruPolicy, maxsize=100, factory=factory)
+fx_cache = RedisFuncCache(__name__, LruPolicy, ttl=300, factory=factory)  # 5 minutes
 
 
 # ❌ Cache trivial operations (overhead > benefit)
@@ -492,7 +495,7 @@ uv run python scripts/monitor_cache.py
 
 #### API Response Caching
 ```python
-weather_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=2000, ttl=3600, factory=factory)
+weather_cache = RedisFuncCache(__name__, LruPolicy, maxsize=2000, ttl=3600, factory=factory)
 
 
 # Cache external API responses
@@ -504,7 +507,7 @@ def fetch_weather_data(city: str, units: str = "metric"):
 
 #### Data Processing Pipeline
 ```python
-finance_cache = RedisFuncCache(__name__, LruMultiplePolicy(), maxsize=1000, factory=factory)
+finance_cache = RedisFuncCache(__name__, LruMultiplePolicy, maxsize=1000, factory=factory)
 
 
 # Cache complex data transformations
@@ -516,7 +519,7 @@ def process_financial_data(raw_data: dict, analysis_config: dict):
 
 #### Batch Processing
 ```python
-batch_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=500, ttl=7200, factory=factory)
+batch_cache = RedisFuncCache(__name__, LruPolicy, maxsize=500, ttl=7200, factory=factory)
 
 
 # Cache batch processing results
@@ -568,7 +571,7 @@ with `maxsize` on the constructor, and adjust `cache.maxsize` at runtime:
 
 ```python
 # Size-constrained caching
-cache = RedisFuncCache(__name__, LruPolicy(), maxsize=1000, factory=factory)
+cache = RedisFuncCache(__name__, LruPolicy, maxsize=1000, factory=factory)
 
 
 @cache
@@ -587,7 +590,7 @@ def get_initial_maxsize():
     return 500 if memory.percent > 80 else 2000
 
 
-adaptive_cache = RedisFuncCache(__name__, LruPolicy(), maxsize=get_initial_maxsize(), factory=factory)
+adaptive_cache = RedisFuncCache(__name__, LruPolicy, maxsize=get_initial_maxsize(), factory=factory)
 
 
 @adaptive_cache
@@ -608,12 +611,12 @@ def memory_intensive_operation(data):
 # ✅ Correct setup
 import aioredis
 
-async_cache = RedisFuncCache("my-async-cache", LruPolicy(), factory=lambda: aioredis.from_url("redis://localhost"))
+async_cache = RedisFuncCache("my-async-cache", LruPolicy, factory=lambda: aioredis.from_url("redis://localhost"))
 
 # ✅ Alternative sync setup
 import redis
 
-sync_cache = RedisFuncCache("my-sync-cache", LruPolicy(), factory=lambda: redis.Redis(host="localhost", port=6379))
+sync_cache = RedisFuncCache("my-sync-cache", LruPolicy, factory=lambda: redis.Redis(host="localhost", port=6379))
 ```
 
 #### "Circular reference"
@@ -654,7 +657,7 @@ def debug_function(x):
 #### Manual Cache Inspection
 ```python
 # Check cache statistics (collected via stats_context)
-cache = RedisFuncCache("my-cache", LruPolicy(), factory=lambda: redis.Redis())
+cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: redis.Redis())
 
 
 # Test specific scenarios

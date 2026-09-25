@@ -27,7 +27,7 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
 
 
    cache = RedisFuncCache(
-       __name__, LruTPolicy(), factory=lambda: Redis.from_url("redis://"), serializer=(serialize, deserialize)
+       __name__, LruTPolicy, factory=lambda: Redis.from_url("redis://"), serializer=(serialize, deserialize)
    )
 
 
@@ -49,7 +49,7 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
    from redis import Redis
    from redis_func_cache import RedisFuncCache, LruTPolicy
 
-   cache = RedisFuncCache(__name__, LruTPolicy(), factory=lambda: Redis.from_url("redis://"))
+   cache = RedisFuncCache(__name__, LruTPolicy, factory=lambda: Redis.from_url("redis://"))
 
 
    @cache(serializer=(msgpack.packb, msgpack.unpackb))
@@ -165,7 +165,7 @@ pool = redis.ConnectionPool.from_url("redis://")
 
 cache = RedisFuncCache(
     __name__,
-    LruTPolicy(),
+    LruTPolicy,
     factory=lambda: redis.Redis.from_pool(pool),
     handler=ObjectStorageOffload(),
 )
@@ -179,74 +179,76 @@ The library never learns about object storage: it sees a small value on write an
 
 ## Custom key format
 
-An instance of [`RedisFuncCache`][] calculates key pair names by calling the `calc_keys` method of its policy.
-There are four basic policies that implement respective kinds of key formats:
+An instance of [`RedisFuncCache`][] calculates key pair names through its policy's *keying* component.
+There are four built-in keying variants covering the two orthogonal naming choices:
 
-- [`BaseSinglePolicy`][]: All functions share the same key pair, [Redis][] cluster is NOT supported.
+- [`SingleKeying`][]: All functions share the same key pair, [Redis][] cluster is NOT supported.
 
-  The format is: `<prefix><name>:<__key__>:<0|1>`
+  The format is: `<prefix><name>:<key>:<0|1>`
 
-- [`BaseMultiplePolicy`][]: Each function has its own key pair, [Redis][] cluster is NOT supported.
+- [`MultipleKeying`][]: Each function has its own key pair, [Redis][] cluster is NOT supported.
 
-  The format is: `<prefix><name>:<__key__>:<function_name>#<function_hash>:<0|1>`
+  The format is: `<prefix><name>:<key>:<function_name>#<function_hash>:<0|1>`
 
-- [`BaseClusterSinglePolicy`][]: All functions share the same key pair, [Redis][] cluster is supported.
+- [`ClusterSingleKeying`][]: All functions share the same key pair, [Redis][] cluster is supported.
 
-  The format is: `<prefix>{<name>:<__key__>}:<0|1>`
+  The format is: `<prefix>{<name>:<key>}:<0|1>`
 
-- [`BaseClusterMultiplePolicy`][]: Each function has its own key pair, and [Redis][] cluster is supported.
+- [`ClusterMultipleKeying`][]: Each function has its own key pair, and [Redis][] cluster is supported.
 
-  The format is: `<prefix><name>:<__key__>:<function_name>#{<function_hash>}:<0|1>`
+  The format is: `<prefix><name>:<key>:<function_name>#{<function_hash>}:<0|1>`
 
 Variables in the format string are defined as follows:
 
-|                 |                                                                      |
-| --------------- | -------------------------------------------------------------------- |
-| `prefix`        | `prefix` argument of [`RedisFuncCache`][]                            |
-| `name`          | `name` argument of [`RedisFuncCache`][]                              |
-| `__key__`       | `__key__` attribute of the policy class used in [`RedisFuncCache`][] |
-| `function_name` | full name of the decorated function                                  |
-| `function_hash` | hash value of the decorated function                                 |
+|                 |                                                                        |
+| --------------- | ---------------------------------------------------------------------- |
+| `prefix`        | `prefix` argument of [`RedisFuncCache`][]                              |
+| `name`          | `name` argument of [`RedisFuncCache`][]                                |
+| `key`           | `key` attribute of the keying component of the policy                  |
+| `function_name` | full name of the decorated function                                    |
+| `function_hash` | hash value of the decorated function                                   |
 
 `0` and `1` at the end of the keys are used to distinguish between the two data structures:
 
 - `0`: a sorted or unsorted set, used to store the hash value and sorting score of function invocations
 - `1`: a hash table, used to store the return value of the function invocation
 
-If you want to use a different format, you can subclass [`AbstractPolicy`][] or any of the above policy classes, and implement the `calc_keys` method, then pass the custom policy class to [`RedisFuncCache`][].
+A policy is composed of three orthogonal components — keying, hasher and scripts:
 
+```python
+from redis_func_cache.policies.hashing import PICKLE_MD5_HASHER
+from redis_func_cache.policies.keying import SingleKeying
+from redis_func_cache.policies.policy import Policy
+from redis_func_cache.policies.scripts import LruScripts
+
+policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts())
+```
+
+The built-in policies (e.g. `LruPolicy`) are preset `Policy` instances using exactly this composition.
+If you want a different key format, subclass one of the keying classes, override `_key_base`,
+compose a `Policy`, and pass that instance to [`RedisFuncCache`][].
 The following example demonstrates how to customize the key format for an _LRU_ policy:
 
 ```python
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, Tuple, override
-
 import redis
+from redis import Redis
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.abstract import AbstractPolicy
-from redis_func_cache.mixins.hash import PickleMd5HashMixin
-from redis_func_cache.mixins.scripts import LruScriptsMixin
-
-if TYPE_CHECKING:
-    from redis.typing import KeyT
+from redis_func_cache.policies.hashing import PICKLE_MD5_HASHER
+from redis_func_cache.policies.keying import SingleKeying
+from redis_func_cache.policies.policy import Policy
+from redis_func_cache.policies.scripts import LruScripts
 
 def factory():
     return redis.Redis.from_pool(redis.ConnectionPool.from_url("redis://"))
 
 MY_PREFIX = "my_prefix"
 
-class MyPolicy(LruScriptsMixin, PickleMd5HashMixin, AbstractPolicy):
-    __key__ = "my_key"
+class MyKeying(SingleKeying):
+    def _key_base(self, prefix: str, name: str, fn=None) -> str:
+        return f"{prefix}-{name}-{fn.__name__}-{self.key}"
 
-    @override
-    def calc_keys(
-        self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
-    ) -> Tuple[KeyT, KeyT]:
-        k = f"{self.cache.prefix}-{self.cache.name}-{fn.__name__}-{self.__key__}"
-        return f"{k}-set", f"{k}-map"
-
-my_cache = RedisFuncCache(name="my_cache", policy=MyPolicy(), factory=factory, prefix=MY_PREFIX)
+my_policy = Policy(MyKeying("my_key"), PICKLE_MD5_HASHER, LruScripts())
+my_cache = RedisFuncCache(name="my_cache", policy=my_policy, factory=factory, prefix=MY_PREFIX)
 
 @my_cache
 def my_func(*args, **kwargs): ...
@@ -254,13 +256,13 @@ def my_func(*args, **kwargs): ...
 
 In the example, we'll get a cache that generates [Redis][] keys separated by `-`, instead of `:`, prefixed by `"my-prefix"`, and suffixed by `"set"` and `"map"`, rather than `"0"` and `"1"`. The key pair names could be like `my_prefix-my_cache_func-my_key-set` and `my_prefix-my_cache_func-my_key-map`.
 
-`LruScriptsMixin` tells the policy which Lua script to use, and `PickleMd5HashMixin` tells the policy to use [`pickle`][] to serialize and `md5` to calculate the hash value of the function.
+`LruScripts` tells the policy which Lua scripts to use, and `PICKLE_MD5_HASHER` tells the policy to use [`pickle`][] to serialize and `md5` to calculate the hash value of the function.
 
 > ❗ **Important:**\
 > The calculated key name **SHOULD** be unique for each [`RedisFuncCache`][] instance.
 >
-> [`BaseSinglePolicy`][], [`BaseMultiplePolicy`][], [`BaseClusterSinglePolicy`][], and [`BaseClusterMultiplePolicy`][] calculate their key names by calling the `calc_keys` method, which uses their `__key__` attribute and the `name` property of the [`RedisFuncCache`][] instance.
-> If you subclass any of these classes, you should override the `__key__` attribute to ensure that the key names remain unique.
+> The built-in keying classes build their key names in `_key_base`, which uses their `key` attribute and the `name` property of the [`RedisFuncCache`][] instance.
+> If you subclass any of these classes, you should pass a distinct `key` value to ensure that the key names remain unique.
 
 ## Custom Hash Algorithm
 
@@ -268,13 +270,13 @@ When the library performs a get or put action with [Redis][], the hash value of 
 
 For the sorted set data structures, the hash value will be used as the member. For the hash map data structure, the hash value will be used as the hash field.
 
-The algorithm used to calculate the hash value is defined in `AbstractHashMixin`, and can be described as below:
+The algorithm used to calculate the hash value is defined in [`Hasher`][], and can be described as below:
 
 ```python
 import hashlib
 
 
-class AbstractHashMixin:
+class Hasher:
     __hash_config__ = ...
 
     ...
@@ -320,51 +322,40 @@ flowchart TD
     L -->|No| N[Return decoded digest]
 ```
 
-If we want to use a different algorithm, we can select a mixin hash class defined in `src/redis_func_cache/mixins/hash.py`. For example:
+If we want to use a different algorithm, we can select a hasher class defined in `src/redis_func_cache/policies/hashing.py` and compose it into a policy. For example:
 
-- To serialize the function with [JSON][], use the SHA1 hash algorithm, store hex string in redis, you can choose the `JsonSha1HexHashMixin` class.
-- To serialize the function with [`pickle`][], use the MD5 hash algorithm, store base64 string in redis, you can choose the `PickleMd5Base64HashMixin` class.
+- To serialize the function with [JSON][], use the SHA1 hash algorithm, store hex string in redis, you can choose the `JsonSha1HexHasher` class.
+- To serialize the function with [`pickle`][], use the MD5 hash algorithm, store base64 string in redis, you can choose the `PickleMd5Base64Hasher` class.
 
-These mixin classes provide alternative hash algorithms and serializers, allowing for flexible customization of the hashing behavior. The following example shows how to use the `JsonSha1HexHashMixin` class:
+These hasher classes provide alternative hash algorithms and serializers, allowing for flexible customization of the hashing behavior. The following example shows how to use the `JsonSha1HexHasher` class:
 
 ```python
 from redis import Redis
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.abstract import AbstractPolicy
-from redis_func_cache.mixins.hash import JsonSha1HexHashMixin
-from redis_func_cache.mixins.scripts import LruScriptsMixin
+from redis_func_cache.policies.hashing import JsonSha1HexHasher
+from redis_func_cache.policies.keying import SingleKeying
+from redis_func_cache.policies.policy import Policy
+from redis_func_cache.policies.scripts import LruScripts
 
 
-class MyLruPolicy(LruScriptsMixin, JsonSha1HexHashMixin, AbstractPolicy):
-    __key__ = "my-lru"
-
+my_json_sha1_hex_policy = Policy(SingleKeying("my-lru"), JsonSha1HexHasher(), LruScripts())
 
 my_json_sha1_hex_cache = RedisFuncCache(
-    name="json_sha1_hex", policy=MyLruPolicy(), factory=lambda: Redis.from_url("redis://")
+    name="json_sha1_hex", policy=my_json_sha1_hex_policy, factory=lambda: Redis.from_url("redis://")
 )
 ```
 
-If none of the predefined combinations fits — for example, you want `msgpack` serialization with `sha3_256` — you can generate a mixin class with the [`make_hash_mixin`][redis_func_cache.mixins.hash.make_hash_mixin] factory instead of hand-writing one:
+If none of the predefined combinations fits — for example, you want `msgpack` serialization with `sha3_256` — subclass [`Hasher`][] with a custom [`HashConfig`][]:
 
 ```python
 import msgpack
-from redis_func_cache.mixins.hash import HashConfig, make_hash_mixin
+from redis_func_cache.policies.hashing import HashConfig, Hasher
 
-MsgpackSha3HashMixin = make_hash_mixin(
-    "MsgpackSha3HashMixin",
-    HashConfig(algorithm="sha3_256", serializer=msgpack.packb),
-)
+class MsgpackSha3Hasher(Hasher):
+    __hash_config__ = HashConfig(algorithm="sha3_256", serializer=msgpack.packb)
 ```
 
-Note that each call to the factory returns a fresh class, so type checks should target `AbstractHashMixin` rather than a particular factory call's result. The same pattern exists for scripts mixins via [`make_scripts_mixin`][redis_func_cache.mixins.scripts.make_scripts_mixin].
-
-```python
-from redis_func_cache.mixins.scripts import make_scripts_mixin
-
-MyScriptsMixin = make_scripts_mixin("MyScriptsMixin", ("my_get.lua", "my_put.lua"))
-```
-
-Or even write an entire new algorithm. For that, we subclass `AbstractHashMixin` and override the `calc_hash` method. For example:
+Or even write an entire new algorithm. For that, we subclass `Hasher` and override the `calc_hash` method. For example:
 
 ```python
 from __future__ import annotations
@@ -374,15 +365,16 @@ from typing import TYPE_CHECKING, override, Any, Callable, Mapping, Sequence
 import cloudpickle
 from redis import Redis
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.abstract import AbstractPolicy
-from redis_func_cache.mixins.hash import AbstractHashMixin
-from redis_func_cache.mixins.scripts import LruScriptsMixin
+from redis_func_cache.policies.hashing import Hasher
+from redis_func_cache.policies.keying import SingleKeying
+from redis_func_cache.policies.policy import Policy
+from redis_func_cache.policies.scripts import LruScripts
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT
 
 
-class MyHashMixin(AbstractHashMixin):
+class MyHasher(Hasher):
     @override
     def calc_hash(
         self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
@@ -395,11 +387,9 @@ class MyHashMixin(AbstractHashMixin):
         return dig.hexdigest()
 
 
-class MyLruPolicy2(LruScriptsMixin, MyHashMixin, AbstractPolicy):
-    __key__ = "my-lru2"
+my_custom_hash_policy = Policy(SingleKeying("my-lru2"), MyHasher(), LruScripts())
 
-
-my_custom_hash_cache = RedisFuncCache(name=__name__, policy=MyLruPolicy2(), redis_client=redis_client)
+my_custom_hash_cache = RedisFuncCache(name=__name__, policy=my_custom_hash_policy, redis_client=redis_client)
 
 redis_client = Redis.from_url("redis://")
 
@@ -422,11 +412,13 @@ def some_func(*args, **kwargs): ...
 [uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`AbstractPolicy`]: redis_func_cache.policies.abstract.AbstractPolicy
-[`BaseSinglePolicy`]: redis_func_cache.policies.base.BaseSinglePolicy
-[`BaseMultiplePolicy`]: redis_func_cache.policies.base.BaseMultiplePolicy
-[`BaseClusterSinglePolicy`]: redis_func_cache.policies.base.BaseClusterSinglePolicy
-[`BaseClusterMultiplePolicy`]: redis_func_cache.policies.base.BaseClusterMultiplePolicy
+[`Policy`]: redis_func_cache.policies.policy.Policy
+[`SingleKeying`]: redis_func_cache.policies.keying.SingleKeying
+[`MultipleKeying`]: redis_func_cache.policies.keying.MultipleKeying
+[`ClusterSingleKeying`]: redis_func_cache.policies.keying.ClusterSingleKeying
+[`ClusterMultipleKeying`]: redis_func_cache.policies.keying.ClusterMultipleKeying
+[`Hasher`]: redis_func_cache.policies.hashing.Hasher
+[`HashConfig`]: redis_func_cache.policies.hashing.HashConfig
 [`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
 [`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
 [`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"
