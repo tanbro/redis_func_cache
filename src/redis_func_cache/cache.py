@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import pickle
 from collections import OrderedDict
 from collections.abc import Callable, Coroutine, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
@@ -19,49 +17,23 @@ from redis import RedisError
 from redis.commands.core import AsyncScript, Script
 from redis.typing import EncodableT, EncodedT
 
-try:  # pragma: no cover
-    import dill  # type: ignore[import-not-found]
-except ImportError:  # pragma: no cover
-    dill = None  # type: ignore[assignment]
-try:  # pragma: no cover
-    import bson  # type: ignore[import-not-found]
-except ImportError:  # pragma: no cover
-    bson = None  # type: ignore[assignment]
-try:  # pragma: no cover
-    import cloudpickle  # type: ignore[import-not-found]
-except ImportError:  # pragma: no cover
-    cloudpickle = None  # type: ignore[assignment]
-try:  # pragma: no cover
-    import msgpack  # type: ignore[import-not-found]
-except ImportError:  # pragma: no cover
-    msgpack = None  # type: ignore[assignment]
-try:
-    import cbor2  # type: ignore[import-not-found]
-except ImportError:  # pragma: no cover
-    cbor2 = None  # type: ignore[assignment]
-try:  # pragma: no cover
-    import yaml  # type: ignore[import-not-found]
-except ImportError:  # pragma: no cover
-    yaml = None  # type: ignore[assignment]
-else:  # pragma: no cover
-    if yaml.__with_libyaml__:  # pragma: no cover
-        from yaml import CSafeDumper as YamlDumper  # type: ignore[import-not-found]
-        from yaml import CSafeLoader as YamlLoader  # type: ignore[import-not-found]
-    else:  # pragma: no cover
-        from yaml import SafeDumper as YamlDumper  # type: ignore[assignment, import-not-found]
-        from yaml import SafeLoader as YamlLoader  # type: ignore[assignment, import-not-found]
-
-
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
 from .handler import HandlerContext
 from .policies import Policy
+from .serializers import (
+    SERIALIZERS,
+    DeserializerT,
+    SerializerName,
+    SerializerPairT,
+    SerializerSetterValueT,
+    SerializerT,
+    json_encode,
+)
 from .typing import (
     CallableTV,
     HashValueT,
     RedisClientTV,
-    SerializerName,
-    is_module,
     is_redis_async_script,
     is_redis_sync_script,
 )
@@ -71,86 +43,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from .handler import HandlerProtocol
 
-    SerializerT = Callable[[Any], bytes]
-    DeserializerT = Callable[[EncodedT], Any]
-    SerializerPairT = tuple[SerializerT, DeserializerT]
-    SerializerSetterValueT = SerializerName | SerializerPairT
-
 
 __all__ = ("RedisFuncCache",)
-
-
-_json_encode = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode()
-_json_decode = lambda x: json.loads(bytes(x) if isinstance(x, memoryview) else x)
-
-_serializers: dict[SerializerName, SerializerPairT] = {
-    "json": (_json_encode, _json_decode),
-    "pickle": (lambda x: pickle.dumps(x), lambda x: pickle.loads(x)),
-}
-if is_module(dill):  # pragma: no cover
-    _dill = dill
-
-    def _dill_encode(x: Any) -> bytes:
-        return _dill.dumps(x)
-
-    def _dill_decode(x: EncodedT) -> Any:
-        return _dill.loads(x)
-
-    _serializers["dill"] = (_dill_encode, _dill_decode)
-
-if is_module(bson):  # pragma: no cover
-    _bson = bson
-
-    def _bson_encode(x: Any) -> bytes:
-        return _bson.encode({"": x})
-
-    def _bson_decode(x: EncodedT) -> Any:
-        return _bson.decode(x)[""]
-
-    _serializers["bson"] = (_bson_encode, _bson_decode)
-
-if is_module(msgpack):  # pragma: no cover
-    _msgpack = msgpack
-
-    def _msgpack_encode(x: Any) -> bytes:
-        # use_bin_type=True: bytes -> msgpack bin, str -> msgpack str (msgpack spec 2.0)
-        return _msgpack.packb(x, use_bin_type=True)
-
-    def _msgpack_decode(x: EncodedT) -> Any:
-        # raw=False: msgpack str -> python str, msgpack bin -> python bytes
-        return _msgpack.unpackb(x, raw=False)
-
-    _serializers["msgpack"] = (_msgpack_encode, _msgpack_decode)
-
-if is_module(cbor2):  # pragma: no cover
-    _cbor2 = cbor2
-
-    def _cbor2_encode(x: Any) -> bytes:
-        return _cbor2.dumps(x)
-
-    def _cbor2_decode(x: EncodedT) -> Any:
-        return _cbor2.loads(x)
-
-    _serializers["cbor"] = (_cbor2_encode, _cbor2_decode)
-
-if is_module(yaml):  # pragma: no cover
-    _yaml = yaml
-
-    def _yaml_encode(x: Any) -> bytes:
-        return _yaml.dump(x, Dumper=YamlDumper).encode()  # pyright: ignore[reportPossiblyUnboundVariable]
-
-    def _yaml_decode(x: EncodedT) -> Any:
-        return _yaml.load(bytes(x) if isinstance(x, memoryview) else x, Loader=YamlLoader)  # pyright: ignore[reportPossiblyUnboundVariable]
-
-    _serializers["yaml"] = (_yaml_encode, _yaml_decode)
-
-if is_module(cloudpickle):  # pragma: no cover
-    _cloudpickle = cloudpickle
-
-    def _cloudpickle_encode(x: Any) -> bytes:
-        return _cloudpickle.dumps(x)
-
-    _serializers["cloudpickle"] = (_cloudpickle_encode, lambda x: pickle.loads(x))
 
 
 PolicyTV = TypeVar("PolicyTV", bound=Policy)
@@ -424,7 +318,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         self._mode: ContextVar[RedisFuncCache.Mode] = ContextVar("mode", default=self._DEFAULT_MODE)
         self._stats: ContextVar[RedisFuncCache.Stats | None] = ContextVar("stats", default=None)
 
-    __serializers__: ClassVar[Mapping[SerializerName, SerializerPairT]] = _serializers
+    __serializers__: ClassVar[Mapping[SerializerName, SerializerPairT]] = SERIALIZERS
 
     @property
     def name(self) -> str:
@@ -611,7 +505,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         Returns:
             The hit return value, or :data:`None` if the value is missing.
         """
-        encoded_options = _json_encode(options) if options is not None else b"{}"
+        encoded_options = json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         return script(keys=keys, args=chain((int(update_ttl), ttl, hash_value, encoded_options), ext_args))
 
@@ -627,7 +521,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         ext_args: Iterable[EncodableT] | None = None,
     ) -> EncodedT | None:
         """Async version of :meth:`get`"""
-        encoded_options = _json_encode(options) if options is not None else b"{}"
+        encoded_options = json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         return await script(keys=keys, args=chain((int(update_ttl), ttl, hash_, encoded_options), ext_args))
 
@@ -659,7 +553,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         If the cache reaches its :attr:`maxsize`, it will remove one item according to its :attr:`policy` before inserting the new item.
         """
-        encoded_options = _json_encode(options) if options is not None else b"{}"
+        encoded_options = json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         script(
             keys=keys,
@@ -683,7 +577,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         ext_args: Iterable[EncodableT] | None = None,
     ):
         """Async version of :meth:`put`"""
-        encoded_options = _json_encode(options) if options is not None else b"{}"
+        encoded_options = json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         await script(
             keys=keys,
