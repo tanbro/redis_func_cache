@@ -45,7 +45,7 @@ from ..scripts import Scripts
 from ..typing import is_redis_async_client, is_redis_sync_client
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.typing import KeyT, ScriptTextT
+    from redis.typing import ScriptTextT
 
     from ..typing import HashValueT, KeyNameT, RedisClientT
 

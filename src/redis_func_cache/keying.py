@@ -86,18 +86,14 @@ class Keying(ABC):
         Args:
             prefix: The cache's key prefix.
             name: The cache's name.
-            fn: The function being cached; only meaningful for the multiple
-                variants (raises ``TypeError`` if required and missing).
+            fn: The function being cached. Ignored by the single variants,
+                whose key pair is static; required by the multiple variants,
+                which derive the pair from the function's identity.
 
         Returns:
             The key base without suffix.
         """
         raise NotImplementedError
-
-    def _require_fn(self, fn: Callable | None) -> Callable:
-        if fn is None:
-            raise TypeError("Can not calculate keys for None")
-        return fn
 
     def calc_keys(
         self,
@@ -196,7 +192,8 @@ class MultipleKeying(Keying):
 
     @override
     def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
-        fn = self._require_fn(fn)
+        if fn is None:
+            raise TypeError("The multiple keying variants require the decorated function to derive the key pair")
         fullname = calculate_callable_fullname(fn)
         checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
         return f"{prefix}{name}:{self.key}:{fullname}#{checksum}"
@@ -259,7 +256,8 @@ class ClusterMultipleKeying(MultipleKeying):
 
     @override
     def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
-        fn = self._require_fn(fn)
+        if fn is None:
+            raise TypeError("The multiple keying variants require the decorated function to derive the key pair")
         fullname = calculate_callable_fullname(fn)
         checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
         return f"{prefix}{name}:{self.key}:{fullname}#{{{checksum}}}"
