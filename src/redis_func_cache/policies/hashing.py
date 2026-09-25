@@ -73,6 +73,7 @@ __all__ = (
     "PickleSha512Base64Hasher",
     "PickleSha512Hasher",
     "PickleSha512HexHasher",
+    "make_hasher",
 )
 
 
@@ -143,8 +144,23 @@ class Hasher(ABC):
         return conf.decoder(h)
 
 
+JSON_SERIALIZER = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode()
+HEX_DIGEST_DECODER = lambda x: x.hexdigest()
+
+
 def make_hasher(name: str, hash_config: HashConfig) -> type[Hasher]:
-    """Create a :class:`Hasher` class from a :class:`HashConfig`.
+    """Create a :class:`Hasher` subclass from a :class:`HashConfig`.
+
+    A convenience for one-off combinations that are not worth a hand-written
+    class. The built-in presets are explicit classes instead.
+
+    Args:
+        name: Name of the generated class.
+        hash_config: Configuration for the generated class's :attr:`__hash_config__`.
+
+    Returns:
+        A new :class:`Hasher` subclass; each call returns a fresh class. Type
+        checks should target :class:`Hasher` rather than a particular call's result.
 
     Note:
         Hash values are stable only within a single library version. Changing the
@@ -153,65 +169,152 @@ def make_hasher(name: str, hash_config: HashConfig) -> type[Hasher]:
     return type(name, (Hasher,), {"__hash_config__": hash_config})
 
 
-JSON_SERIALIZER = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode()
-HEX_DIGEST_DECODER = lambda x: x.hexdigest()
+class JsonMd5Hasher(Hasher):
+    """Serialize with :mod:`json`, hash with MD5, return the raw digest bytes."""
 
-JsonMd5Hasher = make_hasher("JsonMd5Hasher", HashConfig(algorithm="md5", serializer=JSON_SERIALIZER))
-JsonMd5HexHasher = make_hasher(
-    "JsonMd5HexHasher", HashConfig(algorithm="md5", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
-)
-JsonMd5Base64Hasher = make_hasher(
-    "JsonMd5Base64Hasher", HashConfig(algorithm="md5", serializer=JSON_SERIALIZER, decoder=b64digest)
-)
-JsonSha1Hasher = make_hasher("JsonSha1Hasher", HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER))
-JsonSha1HexHasher = make_hasher(
-    "JsonSha1HexHasher", HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
-)
-JsonSha1Base64Hasher = make_hasher(
-    "JsonSha1Base64Hasher", HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER, decoder=b64digest)
-)
-JsonSha256Hasher = make_hasher("JsonSha256Hasher", HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER))
-JsonSha256HexHasher = make_hasher(
-    "JsonSha256HexHasher", HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
-)
-JsonSha256Base64Hasher = make_hasher(
-    "JsonSha256Base64Hasher", HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER, decoder=b64digest)
-)
-JsonSha512Hasher = make_hasher("JsonSha512Hasher", HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER))
-JsonSha512HexHasher = make_hasher(
-    "JsonSha512HexHasher", HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
-)
-JsonSha512Base64Hasher = make_hasher(
-    "JsonSha512Base64Hasher", HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER, decoder=b64digest)
-)
-PickleMd5Hasher = make_hasher("PickleMd5Hasher", HashConfig(algorithm="md5", serializer=pickle.dumps))
-PickleMd5HexHasher = make_hasher(
-    "PickleMd5HexHasher", HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
-)
-PickleMd5Base64Hasher = make_hasher(
-    "PickleMd5Base64Hasher", HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=b64digest)
-)
-PickleSha1Hasher = make_hasher("PickleSha1Hasher", HashConfig(algorithm="sha1", serializer=pickle.dumps))
-PickleSha1HexHasher = make_hasher(
-    "PickleSha1HexHasher", HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
-)
-PickleSha1Base64Hasher = make_hasher(
-    "PickleSha1Base64Hasher", HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=b64digest)
-)
-PickleSha256Hasher = make_hasher("PickleSha256Hasher", HashConfig(algorithm="sha256", serializer=pickle.dumps))
-PickleSha256HexHasher = make_hasher(
-    "PickleSha256HexHasher", HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
-)
-PickleSha256Base64Hasher = make_hasher(
-    "PickleSha256Base64Hasher", HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=b64digest)
-)
-PickleSha512Hasher = make_hasher("PickleSha512Hasher", HashConfig(algorithm="sha512", serializer=pickle.dumps))
-PickleSha512HexHasher = make_hasher(
-    "PickleSha512HexHasher", HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
-)
-PickleSha512Base64Hasher = make_hasher(
-    "PickleSha512Base64Hasher", HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=b64digest)
-)
+    __hash_config__ = HashConfig(algorithm="md5", serializer=JSON_SERIALIZER)
+
+
+class JsonMd5HexHasher(Hasher):
+    """Serialize with :mod:`json`, hash with MD5, return the hex digest."""
+
+    __hash_config__ = HashConfig(algorithm="md5", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
+
+
+class JsonMd5Base64Hasher(Hasher):
+    """Serialize with :mod:`json`, hash with MD5, return the base64 digest."""
+
+    __hash_config__ = HashConfig(algorithm="md5", serializer=JSON_SERIALIZER, decoder=b64digest)
+
+
+class JsonSha1Hasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA1, return the raw digest bytes."""
+
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER)
+
+
+class JsonSha1HexHasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA1, return the hex digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
+
+
+class JsonSha1Base64Hasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA1, return the base64 digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER, decoder=b64digest)
+
+
+class JsonSha256Hasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA256, return the raw digest bytes."""
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER)
+
+
+class JsonSha256HexHasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA256, return the hex digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
+
+
+class JsonSha256Base64Hasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA256, return the base64 digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER, decoder=b64digest)
+
+
+class JsonSha512Hasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA512, return the raw digest bytes."""
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER)
+
+
+class JsonSha512HexHasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA512, return the hex digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
+
+
+class JsonSha512Base64Hasher(Hasher):
+    """Serialize with :mod:`json`, hash with SHA512, return the base64 digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER, decoder=b64digest)
+
+
+class PickleMd5Hasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with MD5, return the raw digest bytes.
+
+    This is the hasher every built-in policy uses.
+    """
+
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps)
+
+
+class PickleMd5HexHasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with MD5, return the hex digest."""
+
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
+
+
+class PickleMd5Base64Hasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with MD5, return the base64 digest."""
+
+    __hash_config__ = HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=b64digest)
+
+
+class PickleSha1Hasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA1, return the raw digest bytes."""
+
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps)
+
+
+class PickleSha1HexHasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA1, return the hex digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
+
+
+class PickleSha1Base64Hasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA1, return the base64 digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=b64digest)
+
+
+class PickleSha256Hasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA256, return the raw digest bytes."""
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps)
+
+
+class PickleSha256HexHasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA256, return the hex digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
+
+
+class PickleSha256Base64Hasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA256, return the base64 digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=b64digest)
+
+
+class PickleSha512Hasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA512, return the raw digest bytes."""
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps)
+
+
+class PickleSha512HexHasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA512, return the hex digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
+
+
+class PickleSha512Base64Hasher(Hasher):
+    """Serialize with :mod:`pickle`, hash with SHA512, return the base64 digest."""
+
+    __hash_config__ = HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=b64digest)
+
 
 #: The hasher every built-in policy uses: pickle-serialized arguments, MD5 digest.
 PICKLE_MD5_HASHER = PickleMd5Hasher()

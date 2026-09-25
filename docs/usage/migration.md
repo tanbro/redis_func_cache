@@ -30,8 +30,9 @@ existing Redis data stays readable (golden tests pin this contract).
 - `Policy(keying, hasher, scripts)` composes the three dimensions and exposes
   the same facade the cache calls (`calc_keys`, `calc_hash`, `purge`,
   `get_size`, `vacuum`, ...).
-- The hash factories `make_hash_mixin` / `make_scripts_mixin` are removed —
-  defining a `Hasher` subclass is now simpler than calling a factory.
+- The hash factory `make_hash_mixin` is replaced by
+  [`make_hasher`][redis_func_cache.policies.hashing.make_hasher]; `make_scripts_mixin`
+  is removed (a :class:`~redis_func_cache.policies.scripts.Scripts` subclass is the way).
 - `get_size`/`aget_size` report the index-structure cardinality (ZCARD, SCARD
   for RR) instead of HLEN, matching what `maxsize` enforcement uses.
 
@@ -81,7 +82,7 @@ cache = RedisFuncCache("my-cache", my_policy, factory=factory)
 | `policies.base.BaseMultiplePolicy`           | `policies.keying.MultipleKeying` (composed)       |
 | `policies.base.BaseClusterSinglePolicy`      | `policies.keying.ClusterSingleKeying` (composed)  |
 | `policies.base.BaseClusterMultiplePolicy`    | `policies.keying.ClusterMultipleKeying` (composed)|
-| `make_hash_mixin(name, config)`              | `class X(Hasher): __hash_config__ = config`       |
+| `make_hash_mixin(name, config)`              | `make_hasher(name, config)` or a `Hasher` subclass |
 | `policy.__key__` / `policy.__scripts__`      | `policy.keying.key` / `policy.scripts.get_script` |
 | `policy.__hash_config__`                     | `policy.hasher.__hash_config__`                   |
 

@@ -5,13 +5,14 @@ cache snapshot-copies the policy it is given so shared preset instances never
 leak their bound namespace across caches.
 """
 
+import types
 from dataclasses import replace
 from uuid import uuid4
 
 import pytest
 
 from redis_func_cache import LruPolicy, RedisFuncCache
-from redis_func_cache.policies.hashing import PICKLE_MD5_HASHER, HashConfig, JsonMd5Hasher
+from redis_func_cache.policies.hashing import PICKLE_MD5_HASHER, HashConfig, Hasher, JsonMd5Hasher
 from redis_func_cache.policies.keying import (
     ClusterMultipleKeying,
     ClusterSingleKeying,
@@ -40,11 +41,19 @@ class TestHashers:
         hasher = StableJsonMd5Hasher()
         # The decisive property: two distinct functions sharing a name hash equal
         # only when bytecode is excluded from the fingerprint.
-        import types
-
         fn1 = types.FunctionType(_echo.__code__, {}, "same_name")
         fn2 = types.FunctionType(_echo.__code__, {}, "same_name")
         assert hasher.calc_hash(fn1, (1,), None) == hasher.calc_hash(fn2, (1,), None)
+
+    def test_make_hasher_factory(self):
+        """The factory yields a fresh Hasher subclass hashing identically to
+        the equivalent explicit preset."""
+        from redis_func_cache.policies.hashing import make_hasher
+
+        cls = make_hasher("JsonMd5Copy", JsonMd5Hasher.__hash_config__)
+        assert issubclass(cls, Hasher)
+        assert cls.__name__ == "JsonMd5Copy"
+        assert cls().calc_hash(_echo, (1,), {"x": "a"}) == JsonMd5Hasher().calc_hash(_echo, (1,), {"x": "a"})
 
     def test_hash_config_defaults(self):
         conf = HashConfig(algorithm="md5", serializer=lambda x: x)

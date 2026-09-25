@@ -17,12 +17,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.policy import Policy
+from redis_func_cache.policies.scripts import Script
 
 from ._golden_fns import fn_a, fn_b
 
@@ -58,6 +59,8 @@ class _RecordScript:
         self._calls = calls
 
     def __call__(self, keys=None, args=None, client=None):
+        assert keys is not None
+        assert args is not None
         self._calls.append({"keys": list(keys), "args": list(args)})
 
 
@@ -95,9 +98,9 @@ class TestGoldenArgvLayout:
     the reserved options JSON goes last."""
 
     def test_put_argv(self):
-        calls: list[dict[str, Any]] = []
+        calls: list[dict[str, Any]] = []  # type: ignore[annotation-unchecked]
         RedisFuncCache.put(
-            _RecordScript(calls),
+            cast(Script, _RecordScript(calls)),
             keys=("z", "h"),
             hash_value=b"deadbeef",
             value="v",
@@ -115,9 +118,9 @@ class TestGoldenArgvLayout:
         ]
 
     def test_put_argv_no_ext_args_options_last(self):
-        calls: list[dict[str, Any]] = []
+        calls: list[dict[str, Any]] = []  # type: ignore[annotation-unchecked]
         RedisFuncCache.put(
-            _RecordScript(calls),
+            cast(Script, _RecordScript(calls)),
             keys=("z", "h"),
             hash_value=b"deadbeef",
             value="v",
@@ -128,9 +131,9 @@ class TestGoldenArgvLayout:
         assert calls[0]["args"] == [10, 0, 0, b"deadbeef", "v", 0, b"{}"]
 
     def test_get_argv(self):
-        calls: list[dict[str, Any]] = []
+        calls: list[dict[str, Any]] = []  # type: ignore[annotation-unchecked]
         RedisFuncCache.get(
-            _RecordScript(calls),
+            cast(Script, _RecordScript(calls)),
             keys=("z", "h"),
             hash_value=b"deadbeef",
             update_ttl=True,
@@ -143,7 +146,7 @@ class TestGoldenArgvLayout:
 
     def test_policy_ext_args_land_on_argv7(self):
         """End-to-end: a policy's ext_args flow into put's ARGV[7]."""
-        calls: list[dict[str, Any]] = []
+        calls: list[dict[str, Any]] = []  # type: ignore[annotation-unchecked]
         client = _RecordingClient(calls)
         scripts = tuple(client.register_script(t) for t in ("get", "put"))
         name, policy = _policies()[0]
