@@ -143,7 +143,7 @@ class Hasher(ABC):
         return conf.decoder(h)
 
 
-def _make_hasher(name: str, hash_config: HashConfig) -> type[Hasher]:
+def make_hasher(name: str, hash_config: HashConfig) -> type[Hasher]:
     """Create a :class:`Hasher` class from a :class:`HashConfig`.
 
     Note:
@@ -156,60 +156,60 @@ def _make_hasher(name: str, hash_config: HashConfig) -> type[Hasher]:
 JSON_SERIALIZER = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":")).encode()
 HEX_DIGEST_DECODER = lambda x: x.hexdigest()
 
-JsonMd5Hasher = _make_hasher("JsonMd5Hasher", HashConfig(algorithm="md5", serializer=JSON_SERIALIZER))
-JsonMd5HexHasher = _make_hasher(
+JsonMd5Hasher = make_hasher("JsonMd5Hasher", HashConfig(algorithm="md5", serializer=JSON_SERIALIZER))
+JsonMd5HexHasher = make_hasher(
     "JsonMd5HexHasher", HashConfig(algorithm="md5", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
 )
-JsonMd5Base64Hasher = _make_hasher(
+JsonMd5Base64Hasher = make_hasher(
     "JsonMd5Base64Hasher", HashConfig(algorithm="md5", serializer=JSON_SERIALIZER, decoder=b64digest)
 )
-JsonSha1Hasher = _make_hasher("JsonSha1Hasher", HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER))
-JsonSha1HexHasher = _make_hasher(
+JsonSha1Hasher = make_hasher("JsonSha1Hasher", HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER))
+JsonSha1HexHasher = make_hasher(
     "JsonSha1HexHasher", HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
 )
-JsonSha1Base64Hasher = _make_hasher(
+JsonSha1Base64Hasher = make_hasher(
     "JsonSha1Base64Hasher", HashConfig(algorithm="sha1", serializer=JSON_SERIALIZER, decoder=b64digest)
 )
-JsonSha256Hasher = _make_hasher("JsonSha256Hasher", HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER))
-JsonSha256HexHasher = _make_hasher(
+JsonSha256Hasher = make_hasher("JsonSha256Hasher", HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER))
+JsonSha256HexHasher = make_hasher(
     "JsonSha256HexHasher", HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
 )
-JsonSha256Base64Hasher = _make_hasher(
+JsonSha256Base64Hasher = make_hasher(
     "JsonSha256Base64Hasher", HashConfig(algorithm="sha256", serializer=JSON_SERIALIZER, decoder=b64digest)
 )
-JsonSha512Hasher = _make_hasher("JsonSha512Hasher", HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER))
-JsonSha512HexHasher = _make_hasher(
+JsonSha512Hasher = make_hasher("JsonSha512Hasher", HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER))
+JsonSha512HexHasher = make_hasher(
     "JsonSha512HexHasher", HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER, decoder=HEX_DIGEST_DECODER)
 )
-JsonSha512Base64Hasher = _make_hasher(
+JsonSha512Base64Hasher = make_hasher(
     "JsonSha512Base64Hasher", HashConfig(algorithm="sha512", serializer=JSON_SERIALIZER, decoder=b64digest)
 )
-PickleMd5Hasher = _make_hasher("PickleMd5Hasher", HashConfig(algorithm="md5", serializer=pickle.dumps))
-PickleMd5HexHasher = _make_hasher(
+PickleMd5Hasher = make_hasher("PickleMd5Hasher", HashConfig(algorithm="md5", serializer=pickle.dumps))
+PickleMd5HexHasher = make_hasher(
     "PickleMd5HexHasher", HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
 )
-PickleMd5Base64Hasher = _make_hasher(
+PickleMd5Base64Hasher = make_hasher(
     "PickleMd5Base64Hasher", HashConfig(algorithm="md5", serializer=pickle.dumps, decoder=b64digest)
 )
-PickleSha1Hasher = _make_hasher("PickleSha1Hasher", HashConfig(algorithm="sha1", serializer=pickle.dumps))
-PickleSha1HexHasher = _make_hasher(
+PickleSha1Hasher = make_hasher("PickleSha1Hasher", HashConfig(algorithm="sha1", serializer=pickle.dumps))
+PickleSha1HexHasher = make_hasher(
     "PickleSha1HexHasher", HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
 )
-PickleSha1Base64Hasher = _make_hasher(
+PickleSha1Base64Hasher = make_hasher(
     "PickleSha1Base64Hasher", HashConfig(algorithm="sha1", serializer=pickle.dumps, decoder=b64digest)
 )
-PickleSha256Hasher = _make_hasher("PickleSha256Hasher", HashConfig(algorithm="sha256", serializer=pickle.dumps))
-PickleSha256HexHasher = _make_hasher(
+PickleSha256Hasher = make_hasher("PickleSha256Hasher", HashConfig(algorithm="sha256", serializer=pickle.dumps))
+PickleSha256HexHasher = make_hasher(
     "PickleSha256HexHasher", HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
 )
-PickleSha256Base64Hasher = _make_hasher(
+PickleSha256Base64Hasher = make_hasher(
     "PickleSha256Base64Hasher", HashConfig(algorithm="sha256", serializer=pickle.dumps, decoder=b64digest)
 )
-PickleSha512Hasher = _make_hasher("PickleSha512Hasher", HashConfig(algorithm="sha512", serializer=pickle.dumps))
-PickleSha512HexHasher = _make_hasher(
+PickleSha512Hasher = make_hasher("PickleSha512Hasher", HashConfig(algorithm="sha512", serializer=pickle.dumps))
+PickleSha512HexHasher = make_hasher(
     "PickleSha512HexHasher", HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=HEX_DIGEST_DECODER)
 )
-PickleSha512Base64Hasher = _make_hasher(
+PickleSha512Base64Hasher = make_hasher(
     "PickleSha512Base64Hasher", HashConfig(algorithm="sha512", serializer=pickle.dumps, decoder=b64digest)
 )
 

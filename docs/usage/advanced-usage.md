@@ -225,7 +225,7 @@ policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts())
 ```
 
 The built-in policies (e.g. `LruPolicy`) are preset `Policy` instances using exactly this composition.
-If you want a different key format, subclass one of the keying classes, override `_key_base`,
+If you want a different key format, subclass one of the keying classes, override `base_key`,
 compose a `Policy`, and pass that instance to [`RedisFuncCache`][].
 The following example demonstrates how to customize the key format for an _LRU_ policy:
 
@@ -244,7 +244,7 @@ def factory():
 MY_PREFIX = "my_prefix"
 
 class MyKeying(SingleKeying):
-    def _key_base(self, prefix: str, name: str, fn=None) -> str:
+    def base_key(self, prefix: str, name: str, fn=None) -> str:
         return f"{prefix}-{name}-{fn.__name__}-{self.key}"
 
 my_policy = Policy(MyKeying("my_key"), PICKLE_MD5_HASHER, LruScripts())
@@ -261,7 +261,7 @@ In the example, we'll get a cache that generates [Redis][] keys separated by `-`
 > ❗ **Important:**\
 > The calculated key name **SHOULD** be unique for each [`RedisFuncCache`][] instance.
 >
-> The built-in keying classes build their key names in `_key_base`, which uses their `key` attribute and the `name` property of the [`RedisFuncCache`][] instance.
+> The built-in keying classes build their key names in `base_key`, which uses their `key` attribute and the `name` property of the [`RedisFuncCache`][] instance.
 > If you subclass any of these classes, you should pass a distinct `key` value to ensure that the key names remain unique.
 
 ## Custom Hash Algorithm

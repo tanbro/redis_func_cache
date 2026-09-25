@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import sys
 from abc import ABC
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if sys.version_info < (3, 12):  # pragma: no cover
@@ -47,8 +47,6 @@ from ..typing import is_redis_async_client, is_redis_sync_client
 from ..utils import b64digest, calculate_callable_fullname
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import AsyncIterator
-
     from redis.typing import KeyT
 
     from ..typing import RedisClientT
@@ -72,14 +70,30 @@ def _hash_key_of(index_key: str | bytes) -> str | bytes:
 class Keying(ABC):
     """Decide the Redis key pair a cached value lives under, and manage those keys.
 
-    Subclasses set :attr:`key` and implement :meth:`_key_base`.
+    This class is designed for subclassing: :meth:`calc_keys` is the public API
+    (kept final here) and :meth:`base_key` is the single override point. The
+    ``:0``/``:1`` suffixes applied by :meth:`calc_keys` are an invariant every
+    variant shares.
     """
 
     key: str
     """The policy's key-name component, embedded in every Redis key."""
 
-    def _key_base(self, prefix: str, name: str, fn: Callable | None = None) -> str:
-        """Build the key base (everything before the ``:0``/``:1`` suffix)."""
+    def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
+        """Build the key base — everything before the ``:0``/``:1`` suffix.
+
+        The single override point for key-naming variants. Callers should use
+        :meth:`calc_keys`, which applies the shared ``:0``/``:1`` suffixes.
+
+        Args:
+            prefix: The cache's key prefix.
+            name: The cache's name.
+            fn: The function being cached; only meaningful for the multiple
+                variants (raises ``TypeError`` if required and missing).
+
+        Returns:
+            The key base without suffix.
+        """
         raise NotImplementedError
 
     def _require_fn(self, fn: Callable | None) -> Callable:
@@ -97,6 +111,9 @@ class Keying(ABC):
     ) -> tuple[str, str]:
         """Return the ``(index key, value key)`` pair for the given function.
 
+        Final template method: delegates the naming to :meth:`base_key` and
+        applies the ``:0``/``:1`` suffixes shared by every variant.
+
         Args:
             prefix: The cache's key prefix.
             name: The cache's name.
@@ -107,7 +124,7 @@ class Keying(ABC):
         Returns:
             Tuple of (index key, value key), suffixed ``:0`` and ``:1``.
         """
-        k = self._key_base(prefix, name, fn)
+        k = self.base_key(prefix, name, fn)
         return f"{k}:0", f"{k}:1"
 
     def calc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyT, KeyT]]:
@@ -124,21 +141,6 @@ class Keying(ABC):
         if not is_redis_async_client(redis_client):
             raise TypeError("`redis_client` must be an asynchronous Redis client")
         return [self.calc_keys(prefix, name)]
-
-    def index_keys(self, redis_client: RedisClientT, prefix: str, name: str) -> Iterator[KeyT]:
-        """Enumerate the index keys (``...:0``) owned by this policy (sync).
-
-        Used by :meth:`Policy.get_size`; the caller has already guarded the client.
-        """
-        if not is_redis_sync_client(redis_client):
-            raise TypeError("`redis_client` must be a synchronous Redis client")
-        yield self.calc_keys(prefix, name)[0]
-
-    async def aindex_keys(self, redis_client: RedisClientT, prefix: str, name: str) -> AsyncIterator[KeyT]:
-        """Async version of :meth:`index_keys`."""
-        if not is_redis_async_client(redis_client):
-            raise TypeError("`redis_client` must be an asynchronous Redis client")
-        yield self.calc_keys(prefix, name)[0]
 
     def purge(self, redis_client: RedisClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Delete all Redis keys owned by this policy (sync).
@@ -172,7 +174,7 @@ class SingleKeying(Keying):
         self.key = key
 
     @override
-    def _key_base(self, prefix: str, name: str, fn: Callable | None = None) -> str:
+    def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
         return f"{prefix}{name}:{self.key}"
 
 
@@ -180,7 +182,7 @@ class ClusterSingleKeying(SingleKeying):
     """One static key pair shared by every decorated function, with a cluster hash tag."""
 
     @override
-    def _key_base(self, prefix: str, name: str, fn: Callable | None = None) -> str:
+    def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
         return f"{prefix}{{{name}:{self.key}}}"
 
 
@@ -193,7 +195,7 @@ class MultipleKeying(Keying):
         self.key = key
 
     @override
-    def _key_base(self, prefix: str, name: str, fn: Callable | None = None) -> str:
+    def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
         fn = self._require_fn(fn)
         fullname = calculate_callable_fullname(fn)
         checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
@@ -212,20 +214,6 @@ class MultipleKeying(Keying):
             raise TypeError("`redis_client` must be an asynchronous Redis client")
         pat = self._index_pattern(prefix, name)
         return [(k, _hash_key_of(k)) async for k in redis_client.scan_iter(match=pat)]  # type: ignore[union-attr]
-
-    @override
-    def index_keys(self, redis_client: RedisClientT, prefix: str, name: str) -> Iterator[KeyT]:
-        if not is_redis_sync_client(redis_client):
-            raise TypeError("`redis_client` must be a synchronous Redis client")
-        return redis_client.scan_iter(match=self._index_pattern(prefix, name))  # type: ignore[union-attr]
-
-    @override
-    async def aindex_keys(self, redis_client: RedisClientT, prefix: str, name: str) -> AsyncIterator[KeyT]:
-        if not is_redis_async_client(redis_client):
-            raise TypeError("`redis_client` must be an asynchronous Redis client")
-        pat = self._index_pattern(prefix, name)
-        async for k in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
-            yield k
 
     @override
     def purge(self, redis_client: RedisClientT, prefix: str, name: str, batch_size: int = 500) -> int:
@@ -268,7 +256,7 @@ class ClusterMultipleKeying(MultipleKeying):
     """One key pair per decorated function, with a cluster hash tag around the checksum."""
 
     @override
-    def _key_base(self, prefix: str, name: str, fn: Callable | None = None) -> str:
+    def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
         fn = self._require_fn(fn)
         fullname = calculate_callable_fullname(fn)
         checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()

@@ -12,7 +12,13 @@ import pytest
 
 from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.policies.hashing import PICKLE_MD5_HASHER, HashConfig, JsonMd5Hasher
-from redis_func_cache.policies.keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
+from redis_func_cache.policies.keying import (
+    ClusterMultipleKeying,
+    ClusterSingleKeying,
+    Keying,
+    MultipleKeying,
+    SingleKeying,
+)
 from redis_func_cache.policies.policy import Policy
 from redis_func_cache.policies.scripts import LruScripts, MruScripts, RrScripts
 
@@ -53,12 +59,10 @@ class TestScripts:
         assert s.calc_ext_args(_echo, (), {}) == ("mru",)
         assert LruScripts().calc_ext_args(_echo, (), {}) is None
 
-    def test_rr_scripts_count_with_scard(self, mocker):
-        client = mocker.Mock()
-        RrScripts().index_cardinality(client, "k")
-        client.scard.assert_called_once_with("k")
-        LruScripts().index_cardinality(client, "k")
-        client.zcard.assert_called_once_with("k")
+    def test_index_structure_fact(self):
+        """The index structure is a fact on Scripts; get_size dispatches on it."""
+        assert LruScripts().index_structure == "zset"
+        assert RrScripts().index_structure == "set"
 
 
 class TestKeying:
@@ -93,9 +97,34 @@ class TestPolicy:
         policy._bind("p:", "n")
         assert policy.calc_ext_args(_echo) == ("mru",)
         assert policy.calc_keys(_echo) == ("p:n:lru:0", "p:n:lru:1")
-        client = mocker.Mock()
-        policy.index_cardinality(client, "k")
-        client.zcard.assert_called_once_with("k")
+        assert policy.scripts.index_structure == "zset"
+
+    def test_base_key_is_the_public_override_point(self):
+        class MyKeying(SingleKeying):
+            def base_key(self, prefix: str, name: str, fn=None) -> str:
+                return f"{prefix}-{name}-{self.key}"
+
+        assert MyKeying("x").calc_keys("p:", "n") == ("p:-n-x:0", "p:-n-x:1")
+
+        class Incomplete(Keying):
+            pass
+
+        with pytest.raises(NotImplementedError):
+            Incomplete().calc_keys("p:", "n")
+
+    def test_get_size_dispatches_by_index_structure(self, mocker):
+        """get_size picks SCARD vs ZCARD from scripts.index_structure."""
+        mocker.patch("redis_func_cache.policies.policy.is_redis_sync_client", return_value=True)
+        mocker.patch("redis_func_cache.policies.keying.is_redis_sync_client", return_value=True)
+        for scripts, command in ((LruScripts(), "zcard"), (RrScripts(), "scard")):
+            client = mocker.Mock()
+            client.scan_iter.return_value = iter(["k:0"])
+            client.zcard.return_value = 1
+            client.scard.return_value = 1
+            policy = Policy(MultipleKeying("x"), PICKLE_MD5_HASHER, scripts)
+            policy._bind("p:", "n")
+            policy.get_size(client)
+            getattr(client, command).assert_called_once_with("k:0")
 
 
 class TestCachePolicySnapshot:

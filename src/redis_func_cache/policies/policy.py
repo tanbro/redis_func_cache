@@ -206,7 +206,8 @@ class Policy:
         """Get the number of items in the cache synchronously.
 
         Reports the sum of the index structure cardinalities (``ZCARD``, or
-        ``SCARD`` for set-based policies), which is the same number the eviction
+        ``SCARD`` for the set-based RR family, selected via
+        :attr:`Scripts.index_structure`), which is the same number the eviction
         script enforces ``maxsize`` against. With per-item TTL, expired-but-not-
         yet-vacuumed entries ("ghosts") keep this number elevated; the count of
         live values is the HASH length (``HLEN``) of the second key.
@@ -219,7 +220,11 @@ class Policy:
         """
         if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        return self._size(redis_client)
+        count = redis_client.scard if self.scripts.index_structure == "set" else redis_client.zcard
+        return sum(
+            count(index_key)  # type: ignore[union-attr, return-value]
+            for index_key, _ in self.keying.calc_key_pairs(redis_client, *self._require_bound())
+        )
 
     async def aget_size(self, redis_client: RedisClientT) -> int:
         """Async version of :meth:`get_size`; see it for the size semantics.
@@ -232,25 +237,11 @@ class Policy:
         """
         if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
+        count = redis_client.scard if self.scripts.index_structure == "set" else redis_client.zcard
         total = 0
-        async for index_key in self.keying.aindex_keys(redis_client, *self._require_bound()):
-            total += await self.scripts.aindex_cardinality(redis_client, index_key)  # type: ignore[union-attr, return-value]
+        for index_key, _ in await self.keying.acalc_key_pairs(redis_client, *self._require_bound()):
+            total += await count(index_key)  # type: ignore[misc, union-attr, return-value]
         return total
-
-    def _size(self, redis_client: RedisClientT) -> int:
-        prefix, name = self._require_bound()
-        return sum(
-            self.scripts.index_cardinality(redis_client, index_key)  # type: ignore[union-attr, return-value]
-            for index_key in self.keying.index_keys(redis_client, prefix, name)
-        )
-
-    def index_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
-        """Count the members of the given index structure. Delegates to :attr:`scripts`."""
-        return self.scripts.index_cardinality(redis_client, index_key)
-
-    async def aindex_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
-        """Async version of :meth:`index_cardinality`."""
-        return await self.scripts.aindex_cardinality(redis_client, index_key)
 
     # --- scripts dimension ------------------------------------------------
 

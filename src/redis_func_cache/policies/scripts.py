@@ -4,8 +4,9 @@ A :class:`Scripts` object owns everything a policy does against Redis that is
 not key naming or hashing:
 
 - which Lua script files implement the get/put operations,
-- the structure of the index (sorted set vs set) and therefore how its
-  cardinality is counted,
+- which Redis structure the index is (sorted set vs set) — a fact
+  :meth:`Policy.get_size <redis_func_cache.policies.policy.Policy.get_size>`
+  dispatches on when counting,
 - any extra ARGV entries the scripts expect (e.g. the MRU flag on ARGV[7]),
 - registering the scripts against a client.
 
@@ -24,7 +25,7 @@ from __future__ import annotations
 
 from abc import ABC
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from redis.commands.core import AsyncScript, Script
 
@@ -32,7 +33,7 @@ from ..typing import RedisClientT
 from ..utils import read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.typing import EncodableT, KeyT, ScriptTextT
+    from redis.typing import EncodableT, ScriptTextT
 
 __all__ = (
     "FifoScripts",
@@ -49,15 +50,23 @@ __all__ = (
 class Scripts(ABC):
     """Own the Lua scripts and Redis-structure facts of a policy.
 
-    Subclasses set :attr:`get_script` / :attr:`put_script` and may override
-    :meth:`calc_ext_args` (extra ARGV entries) and :meth:`index_cardinality`
-    (how the index structure is counted).
+    Subclasses set :attr:`get_script` / :attr:`put_script` /
+    :attr:`index_structure` and may override :meth:`calc_ext_args`
+    (extra ARGV entries).
     """
 
     get_script: str
     """File name of the Lua script implementing the cache read."""
     put_script: str
     """File name of the Lua script implementing the cache write."""
+    index_structure: Literal["zset", "set"] = "zset"
+    """The Redis structure of the index (``KEYS[1]`` of the scripts).
+
+    ``"zset"`` (default) for the sorted-set based policies, ``"set"`` for the
+    RR family. :meth:`Policy.get_size
+    <redis_func_cache.policies.policy.Policy.get_size>` uses this to pick
+    ``ZCARD`` or ``SCARD`` when counting.
+    """
 
     def calc_ext_args(
         self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
@@ -76,26 +85,6 @@ class Scripts(ABC):
             Iterable of extra encodable arguments, or None.
         """
         return None
-
-    def index_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
-        """Count the members of the index structure (``KEYS[1]`` of the scripts).
-
-        The default implementation assumes a sorted set index (``ZCARD``), which
-        every built-in policy uses except the RR family; set-based scripts override
-        this (see :class:`RrScripts`).
-
-        Args:
-            redis_client: A synchronous redis client.
-            index_key: The index structure key (first key of the key pair).
-
-        Returns:
-            Number of members in the index structure.
-        """
-        return redis_client.zcard(index_key)  # type: ignore[union-attr, return-value]
-
-    async def aindex_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
-        """Async version of :meth:`index_cardinality`."""
-        return await redis_client.zcard(index_key)  # type: ignore[misc, union-attr, return-value]
 
     def read_lua_scripts(self) -> tuple[ScriptTextT, ScriptTextT]:
         """Read and clean the get/put Lua scripts from package resources."""
@@ -200,17 +189,9 @@ class MruScripts(Scripts):
 class RrScripts(Scripts):
     """Scripts for the RR policies.
 
-    The RR family indexes cache entries in a Redis SET instead of a sorted set,
-    so the index cardinality is counted with ``SCARD``.
+    The RR family indexes cache entries in a Redis SET instead of a sorted set.
     """
 
     get_script = "rr_get.lua"
     put_script = "rr_put.lua"
-
-    def index_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
-        """Count the members of the set-based index structure."""
-        return redis_client.scard(index_key)  # type: ignore[union-attr, return-value]
-
-    async def aindex_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
-        """Async version of :meth:`index_cardinality`."""
-        return await redis_client.scard(index_key)  # type: ignore[misc, union-attr, return-value]
+    index_structure = "set"

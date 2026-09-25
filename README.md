@@ -454,7 +454,7 @@ classDiagram
         <<interface>>
         get_script: str
         put_script: str
-        +index_cardinality(client, key) -> int
+        +index_structure: str
     }
 
     RedisFuncCache --> Policy : uses
