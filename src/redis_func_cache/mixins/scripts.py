@@ -2,6 +2,10 @@
 
 from abc import ABC
 
+from redis.typing import KeyT
+
+from ..typing import RedisClientT
+
 __all__ = (
     "AbstractScriptsMixin",
     "FifoScriptsMixin",
@@ -22,7 +26,7 @@ class AbstractScriptsMixin(ABC):
         :parts: 1
 
     Attributes:
-        __scripts__ (tuple[str, str]): A pair of file name for ‘get’ and ‘put’ Lua scripts to be used by the policy.
+        __scripts__ (tuple[str, str]): A pair of file name for 'get' and 'put' Lua scripts to be used by the policy.
     """
 
     __scripts__: tuple[str, str]
@@ -107,6 +111,17 @@ class RrScriptsMixin(AbstractScriptsMixin):
 
     .. inheritance-diagram:: RrScriptsMixin
         :parts: 1
+
+    The RR family indexes cache entries in a Redis SET instead of a sorted set,
+    so the index cardinality is counted with ``SCARD``.
     """
 
     __scripts__ = "rr_get.lua", "rr_put.lua"
+
+    def index_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
+        """Count the members of the set-based index structure."""
+        return redis_client.scard(index_key)  # type: ignore[union-attr, return-value]
+
+    async def aindex_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
+        """Async version of :meth:`index_cardinality`."""
+        return await redis_client.scard(index_key)  # type: ignore[misc, union-attr, return-value]

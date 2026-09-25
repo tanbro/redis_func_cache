@@ -50,6 +50,27 @@ class AbstractPolicy(ABC):
     __key__: str
     __scripts__: tuple[str, str]
 
+    def index_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
+        """Count the members of the index structure (``KEYS[1]`` of the scripts).
+
+        The default implementation assumes a sorted set index (``ZCARD``), which
+        every built-in policy uses except the RR family. Set-based policies override
+        this on their scripts mixin (see :class:`RrScriptsMixin
+        <redis_func_cache.mixins.scripts.RrScriptsMixin>`).
+
+        Args:
+            redis_client: A synchronous redis client.
+            index_key: The index structure key (first key of the key pair).
+
+        Returns:
+            Number of members in the index structure.
+        """
+        return redis_client.zcard(index_key)  # type: ignore[union-attr, return-value]
+
+    async def aindex_cardinality(self, redis_client: RedisClientT, index_key: KeyT) -> int:
+        """Async version of :meth:`index_cardinality`."""
+        return await redis_client.zcard(index_key)  # type: ignore[misc, union-attr, return-value]
+
     def __init__(self) -> None:
         """Initialize the policy with no bound cache identity yet.
 

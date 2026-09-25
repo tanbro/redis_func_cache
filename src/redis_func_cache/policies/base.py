@@ -109,6 +109,11 @@ class BaseSinglePolicy(AbstractPolicy):
         """
         Get the number of items in the cache synchronously.
 
+        Reports the index structure cardinality (ZCARD, or SCARD for set-based policies),
+        which is the same number the eviction script enforces ``maxsize`` against. With
+        per-item TTL, expired-but-not-yet-vacuumed entries ("ghosts") keep this number
+        elevated; the count of live values is the HASH length (``HLEN``) of the second key.
+
         Args:
             redis_client: A synchronous redis client obtained from the bound cache.
 
@@ -117,12 +122,14 @@ class BaseSinglePolicy(AbstractPolicy):
         """
         if not is_redis_sync_client(redis_client):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
-        return redis_client.hlen(self.calc_keys()[1])
+        return self.index_cardinality(redis_client, self.calc_keys()[0])
 
     @override
     async def aget_size(self, redis_client: RedisClientT) -> int:
         """
         Get the number of items in the cache asynchronously.
+
+        Async version of :meth:`get_size`; see it for the size semantics.
 
         Args:
             redis_client: An asynchronous redis client obtained from the bound cache.
@@ -132,8 +139,7 @@ class BaseSinglePolicy(AbstractPolicy):
         """
         if not is_redis_async_client(redis_client):
             raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
-        keys = self.calc_keys()
-        return await redis_client.hlen(keys[1])  # type: ignore[union-attr, return-value]
+        return await self.aindex_cardinality(redis_client, self.calc_keys()[0])  # type: ignore[union-attr, return-value]
 
     @override
     def calc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
@@ -293,10 +299,13 @@ class BaseMultiplePolicy(AbstractPolicy):
     @override
     def get_size(self, redis_client: RedisClientT) -> int:
         """
-        Get the total number of cached items across all decorated functions.
+        Get the total number of items across all decorated functions.
 
         Multiple policies hold one key pair per decorated function; the reported
-        size is the sum of the hash lengths of every key pair.
+        size is the sum of the index structure cardinalities (ZCARD, or SCARD for
+        set-based policies) of every key pair, matching the number the eviction
+        script enforces ``maxsize`` against. See :meth:`BaseSinglePolicy.get_size`
+        for the size semantics under per-item TTL.
 
         Args:
             redis_client: A synchronous redis client obtained from the bound cache.
@@ -307,8 +316,8 @@ class BaseMultiplePolicy(AbstractPolicy):
         if not is_redis_sync_client(redis_client):
             raise TypeError("`redis_client` must be a synchronous Redis client")
         prefix, name = self._require_bound()
-        pat = f"{prefix}{name}:{self.__key__}:*:1"
-        return sum(redis_client.hlen(hmap_key) for hmap_key in redis_client.scan_iter(match=pat))  # type: ignore[union-attr]
+        pat = f"{prefix}{name}:{self.__key__}:*:0"
+        return sum(self.index_cardinality(redis_client, index_key) for index_key in redis_client.scan_iter(match=pat))  # type: ignore[union-attr]
 
     @override
     async def aget_size(self, redis_client: RedisClientT) -> int:
@@ -316,10 +325,10 @@ class BaseMultiplePolicy(AbstractPolicy):
         if not is_redis_async_client(redis_client):
             raise TypeError("`redis_client` must be an asynchronous Redis client")
         prefix, name = self._require_bound()
-        pat = f"{prefix}{name}:{self.__key__}:*:1"
+        pat = f"{prefix}{name}:{self.__key__}:*:0"
         total = 0
-        async for hmap_key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
-            total += await redis_client.hlen(hmap_key)  # type: ignore[union-attr]
+        async for index_key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
+            total += await self.aindex_cardinality(redis_client, index_key)  # type: ignore[union-attr, return-value]
         return total
 
 
