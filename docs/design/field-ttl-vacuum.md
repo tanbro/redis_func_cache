@@ -63,8 +63,11 @@ key, or until eviction reclaims the slot.
 limit — memory is bounded by the same envelope as live entries. The actual costs are
 **accuracy and efficiency**:
 
-- `get_size` reports `HLEN` (live entries), while eviction decisions and the eviction
-  script use `ZCARD` (live + ghosts). The two numbers diverge as ghosts accumulate.
+- `get_size` reports the index cardinality (`ZCARD`, or `SCARD` for the RR policy) —
+  the same number the eviction script enforces `maxsize` against — so ghosts keep the
+  reported size elevated and the backlog is directly observable as `get_size` minus the
+  HASH length (`HLEN`, live entries). Previously `get_size` reported `HLEN`, which hid
+  the divergence between live entries and occupied eviction slots.
 - Every ghost wastes one eviction slot: reclaiming it costs a full
   `ZPOPMIN`/`ZPOPMAX` + `HDEL` cycle that evicts no real entry.
 
@@ -177,6 +180,8 @@ same hierarchy.
 
 ### Relationship to `get_size`
 
-A natural companion refinement is `get_size(accurate: bool = False)`: when `True`,
-vacuum first and then report `HLEN` (== `ZCARD` at that moment). This is a possible
-follow-up, not part of the initial change.
+`get_size` now reports the index cardinality (`ZCARD` / `SCARD`), matching the eviction
+accounting; ghosts therefore keep the reported size elevated until reclaimed. Users who
+want the live-entry count can read the HASH length (`HLEN`) of the second key from
+`calc_keys()`. A `get_size(accurate=True)` convenience (vacuum first, then report — the
+two numbers coincide afterwards) remains a possible follow-up, not part of the initial change.

@@ -19,6 +19,20 @@ cache = RedisFuncCache(
 
 For "multiple" policies, each decorated function has its own independent data structure, so `maxsize` and `ttl` apply to each function's cache individually.
 
+### Runtime Size Adjustment
+
+`maxsize` is settable at runtime, which is handy for adaptive sizing based on observed hit rates:
+
+```python
+cache.maxsize = cache.maxsize * 2
+```
+
+The change is **lazy**: growing takes effect immediately on subsequent writes, while shrinking takes effect on the **next write**, which then evicts all excess items in one batch. Size a shrink burst accordingly when a large cache is downsized.
+
+### Sliding Expiration Semantics
+
+When `ttl` is set, the structure TTL is refreshed on every **hit** and every **write** (if `update_ttl` is enabled). A **miss** never slides the expiration — instead, a miss cleans up the stale entry it probed (one-item lazy vacuum; see also `vacuum` in the *Cache Maintenance* section below).
+
 ### Per-Item TTL (Experimental)
 
 You can also set TTL on individual cached items:
@@ -113,6 +127,18 @@ def my_func(x): ...
 Available cluster policies: [`FifoClusterPolicy`][], [`LfuClusterPolicy`][], [`LruClusterPolicy`][], [`LruTClusterPolicy`][], [`MruClusterPolicy`][], [`RrClusterPolicy`][].
 
 For per-function keys in cluster mode, use `*ClusterMultiplePolicy` variants: [`LruTClusterMultiplePolicy`][], etc.
+
+## Cache Maintenance
+
+Per-item TTL expiry (see *Per-Item TTL* above) removes the HASH field but leaves the corresponding member in the index structure (ZSET or SET). Such "ghost" entries can be reclaimed on demand:
+
+```python
+removed = cache.vacuum(batch_size=500)  # Returns the number of ghosts removed
+```
+
+For async caches, use `await cache.avacuum()`. Each invocation scans incrementally (in `batch_size` chunks) and is atomic per step, so it is safe to run while the cache is serving traffic.
+
+Note on size reporting: `cache.policy.get_size()` returns the index structure cardinality — the same number the eviction script enforces `maxsize` against. Ghost entries keep it elevated until reclaimed; the count of live values is the HASH length (`HLEN`) of the second key from `cache.policy.calc_keys(fn)`.
 
 ## Cache Mode Control
 
