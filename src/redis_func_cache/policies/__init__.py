@@ -47,7 +47,7 @@ from ..typing import is_redis_async_client, is_redis_sync_client
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import KeyT, ScriptTextT
 
-    from ..typing import HashValueT, RedisClientT
+    from ..typing import HashValueT, KeyNameT, RedisClientT
 
 __all__ = ("Policy",)
 
@@ -165,12 +165,12 @@ class Policy:
         prefix, name = self._require_bound()
         return self.keying.calc_keys(prefix, name, fn, args, kwds)
 
-    def calc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyNameT, KeyNameT]]:
         """Return the (index key, value key) pairs to vacuum."""
         prefix, name = self._require_bound()
         return self.keying.calc_key_pairs(redis_client, prefix, name)
 
-    async def acalc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyNameT, KeyNameT]]:
         """Async version of :meth:`calc_key_pairs`."""
         prefix, name = self._require_bound()
         return await self.keying.acalc_key_pairs(redis_client, prefix, name)

@@ -71,7 +71,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from .handler import HandlerProtocol
 
-    SerializerT = Callable[[Any], EncodableT]
+    SerializerT = Callable[[Any], bytes]
     DeserializerT = Callable[[EncodedT], Any]
     SerializerPairT = tuple[SerializerT, DeserializerT]
     SerializerSetterValueT = SerializerName | SerializerPairT
@@ -557,7 +557,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             return self._redis_client_instance
         raise RuntimeError("No redis client or factory provided.")
 
-    def serialize(self, value: Any, serializer: SerializerT | None = None) -> EncodableT:
+    def serialize(self, value: Any, serializer: SerializerT | None = None) -> bytes:
         """Serialize the return value of the decorated function.
 
         The decorated function's return value is serialized to string or bytes and then stored in Redis when cached, and deserialized back to a Python object when retrieved.

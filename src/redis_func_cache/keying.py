@@ -47,9 +47,7 @@ from .typing import is_redis_async_client, is_redis_sync_client
 from .utils import b64digest, calculate_callable_fullname
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.typing import KeyT
-
-    from .typing import RedisClientT
+    from .typing import KeyNameT, RedisClientT
 
 __all__ = (
     "ClusterMultipleKeying",
@@ -127,7 +125,7 @@ class Keying(ABC):
         k = self.base_key(prefix, name, fn)
         return f"{k}:0", f"{k}:1"
 
-    def calc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyNameT, KeyNameT]]:
         """Return the ``(index key, value key)`` pairs owned by this policy (sync).
 
         Used by :meth:`Policy.vacuum`; the caller has already guarded the client.
@@ -136,7 +134,9 @@ class Keying(ABC):
             raise TypeError("`redis_client` must be a synchronous Redis client")
         return [self.calc_keys(prefix, name)]
 
-    async def acalc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(
+        self, redis_client: RedisClientT, prefix: str, name: str
+    ) -> list[tuple[KeyNameT, KeyNameT]]:
         """Async version of :meth:`calc_key_pairs`."""
         if not is_redis_async_client(redis_client):
             raise TypeError("`redis_client` must be an asynchronous Redis client")
@@ -202,14 +202,16 @@ class MultipleKeying(Keying):
         return f"{prefix}{name}:{self.key}:{fullname}#{checksum}"
 
     @override
-    def calc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyT, KeyT]]:
+    def calc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyNameT, KeyNameT]]:
         if not is_redis_sync_client(redis_client):
             raise TypeError("`redis_client` must be a synchronous Redis client")
         pat = self._index_pattern(prefix, name)
         return [(k, _hash_key_of(k)) for k in redis_client.scan_iter(match=pat)]  # type: ignore[union-attr]
 
     @override
-    async def acalc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyT, KeyT]]:
+    async def acalc_key_pairs(
+        self, redis_client: RedisClientT, prefix: str, name: str
+    ) -> list[tuple[KeyNameT, KeyNameT]]:
         if not is_redis_async_client(redis_client):
             raise TypeError("`redis_client` must be an asynchronous Redis client")
         pat = self._index_pattern(prefix, name)
@@ -222,7 +224,7 @@ class MultipleKeying(Keying):
             raise TypeError("`redis_client` must be a synchronous Redis client")
         pat = f"{prefix}{name}:{self.key}:*"
         removed = 0
-        batch: list[KeyT] = []
+        batch: list[KeyNameT] = []
         for key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
             batch.append(key)
             if len(batch) >= batch_size:
@@ -238,7 +240,7 @@ class MultipleKeying(Keying):
             raise TypeError("`redis_client` must be an asynchronous Redis client")
         pat = f"{prefix}{name}:{self.key}:*"
         removed = 0
-        batch: list[KeyT] = []
+        batch: list[KeyNameT] = []
         async for key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
             batch.append(key)
             if len(batch) >= batch_size:

@@ -34,6 +34,14 @@ RedisScriptT = redis.commands.core.Script | redis.commands.core.AsyncScript
 
 SerializerName = Literal["json", "pickle", "dill", "bson", "msgpack", "yaml", "cbor", "cloudpickle"]
 
+KeyNameT = str | bytes
+"""A Redis key name the library produces or enumerates.
+
+Deliberately narrower than ``redis.typing.KeyT``: key names built from the
+namespace are always ``str``; pattern scans return ``bytes`` or ``str``
+(following the client's ``decode_responses``), never ``memoryview``.
+"""
+
 HashValueT = bytes | str
 """The sub-key produced by a hasher: the index member and hash-map field name.
 
