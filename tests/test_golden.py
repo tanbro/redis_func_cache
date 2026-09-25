@@ -155,7 +155,9 @@ class TestGoldenArgvLayout:
             policy.calc_hash(fn_a, ARGS, KWDS),
             policy.calc_ext_args(fn_a, ARGS, KWDS) or (),
         )
-        RedisFuncCache.put(scripts[1], keys, hash_value, "v", maxsize=10, update_ttl=True, ttl=60, ext_args=ext_args)
+        RedisFuncCache.put(
+            cast(Script, scripts[1]), keys, hash_value, "v", maxsize=10, update_ttl=True, ttl=60, ext_args=ext_args
+        )
         expected_ext = GOLDEN[name]["ext_args"]
         args = calls[0]["args"]
         assert list(args[6 : 6 + len(expected_ext)]) == expected_ext

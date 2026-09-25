@@ -44,11 +44,12 @@ async def main():
     # 手动清理资源
     tasks = []
     for cache in ASYNC_CACHES.values():
-        assert is_redis_async_client(cache.client)
-        if hasattr(cache.client, "aclose"):
-            tasks.append(cache.client.aclose())
-        elif hasattr(cache.client, "close"):
-            tasks.append(cache.client.close())
+        client = cache.get_redis_client()
+        assert is_redis_async_client(client)
+        if hasattr(client, "aclose"):
+            tasks.append(client.aclose())
+        elif hasattr(client, "close"):
+            tasks.append(client.close())
 
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)

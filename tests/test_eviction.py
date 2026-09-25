@@ -259,7 +259,8 @@ def test_maxsize_shrink_mass_eviction():
     pipe = client.pipeline(transaction=False)
     for i in range(total):
         h = cache.policy.calc_hash(echo, (i,), {})
-        pipe.zadd(index_key, {h: i + 1}).hset(hmap_key, h, f"v{i}")
+        pipe.zadd(index_key, {h: i + 1})
+        pipe.hset(hmap_key, h, f"v{i}")
     pipe.execute()
     assert client.zcard(index_key) == total
 

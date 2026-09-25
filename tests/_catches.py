@@ -160,23 +160,25 @@ async def close_all_async_resources():
         # 关闭所有异步缓存实例中的客户端连接
         tasks: list[Coroutine] = []  # type:ignore[annotation-unchecked]
         for cache in ASYNC_CACHES.values():
-            assert is_redis_async_client(cache.client)
+            client = cache.get_redis_client()
+            assert is_redis_async_client(client)
             try:
-                if aclose := getattr(cache.client, "aclose", None):
+                if aclose := getattr(client, "aclose", None):
                     tasks.append(aclose())
-                elif hasattr(cache.client, "close"):
-                    tasks.append(cache.client.close())
+                elif hasattr(client, "close"):
+                    tasks.append(client.close())
             except Exception:  # noqa: BLE001, S110
                 # 忽略单个客户端关闭过程中可能出现的异常
                 pass
 
         for cache in ASYNC_MULTI_CACHES.values():
-            assert is_redis_async_client(cache.client)
+            client = cache.get_redis_client()
+            assert is_redis_async_client(client)
             try:
-                if aclose := getattr(cache.client, "aclose", None):
+                if aclose := getattr(client, "aclose", None):
                     tasks.append(aclose())
-                elif hasattr(cache.client, "close"):
-                    tasks.append(cache.client.close())
+                elif hasattr(client, "close"):
+                    tasks.append(client.close())
             except Exception:  # noqa: BLE001, S110
                 # 忽略单个客户端关闭过程中可能出现的异常
                 pass
