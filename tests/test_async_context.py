@@ -6,13 +6,14 @@ from redis.asyncio import Redis as AsyncRedis
 
 from redis_func_cache import LruTPolicy, RedisFuncCache
 
+from ._catches import REDIS_URL
 from ._mocks import patch_object
 
 
 @pytest.fixture
 def async_redis_client():
     """创建独立的异步Redis客户端"""
-    client = AsyncRedis.from_url("redis://localhost")
+    client = AsyncRedis.from_url(REDIS_URL)
     yield client
     # 清理客户端
     try:

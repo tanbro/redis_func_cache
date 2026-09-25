@@ -6,6 +6,7 @@
   ARGV[2]: TTL for both keys (number, seconds)
   ARGV[3]: hash key to retrieve
   Returns: value if found, otherwise nil. Updates access time, cleans up stale entries.
+  The structure TTL is only refreshed on a hit; misses clean up stale entries instead.
 ]]
 local zset_key = KEYS[1]
 local hmap_key = KEYS[2]
@@ -14,17 +15,17 @@ local update_ttl_flag = ARGV[1]
 local ttl = ARGV[2]
 local hash = ARGV[3]
 
--- Set TTL if specified and update_ttl_flag is set
-if tonumber(ttl) > 0 and update_ttl_flag == "1" then
-    redis.call('EXPIRE', zset_key, ttl)
-    redis.call('EXPIRE', hmap_key, ttl)
-end
-
 local rnk = redis.call('ZRANK', zset_key, hash)
 local val = redis.call('HGET', hmap_key, hash)
 
 -- If found, update timestamp; else clean up stale entries
 if rnk and val then
+    -- Refresh TTL on hit only (sliding expiration)
+    if tonumber(ttl) > 0 and update_ttl_flag == "1" then
+        redis.call('EXPIRE', zset_key, ttl)
+        redis.call('EXPIRE', hmap_key, ttl)
+    end
+
     -- Update timestamp (always update timestamp regardless of update_ttl_flag)
     local time = redis.call('TIME')
     redis.call('ZADD', zset_key, time[1] * 1000000 + time[2], hash)

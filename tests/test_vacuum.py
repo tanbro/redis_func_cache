@@ -13,10 +13,31 @@ from redis.asyncio import Redis as AsyncRedis
 
 from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.policies.lru import LruMultiplePolicy
+from redis_func_cache.policies.rr import RrPolicy
 
 from ._catches import REDIS_URL
 
-POLICY_FACTORIES = [(LruPolicy,), (LruMultiplePolicy,)]
+# 回归说明：vacuum 脚本曾对 RR 策略的 SET 索引执行 ZSCAN 而报 WRONGTYPE，
+# RrPolicy 参数化覆盖该修复。
+POLICY_FACTORIES = [(LruPolicy,), (LruMultiplePolicy,), (RrPolicy,)]
+
+
+def _index_size(client, index_key) -> int:
+    """索引结构（zset 或 set）的成员数（键缺失时为 0）。"""
+    index_type = client.type(index_key)
+    if isinstance(index_type, bytes):
+        index_type = index_type.decode()
+    return client.scard(index_key) if index_type == "set" else client.zcard(index_key)
+
+
+async def _aindex_size(client, index_key) -> int:
+    """``_index_size`` 的异步版本。"""
+    index_type = await client.type(index_key)
+    if isinstance(index_type, bytes):
+        index_type = index_type.decode()
+    if index_type == "set":
+        return await client.scard(index_key)
+    return await client.zcard(index_key)
 
 
 def make_sync_cache(policy) -> RedisFuncCache:
@@ -27,7 +48,7 @@ def make_async_cache(policy) -> RedisFuncCache:
     return RedisFuncCache(uuid4().hex, policy, factory=lambda: AsyncRedis.from_url(REDIS_URL))
 
 
-@pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple"])
+@pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple", "rr"])
 def test_vacuum_removes_ghosts(policy_factory):
     """字段全部过期后，vacuum 清除全部幽灵成员。"""
     cache = make_sync_cache(policy_factory[0]())
@@ -41,12 +62,12 @@ def test_vacuum_removes_ghosts(policy_factory):
     for v in values:
         assert decorated(v) == v
 
-    zset_key, hmap_key = cache.policy.calc_keys(echo)
-    assert client.zcard(zset_key) == 3
+    index_key, hmap_key = cache.policy.calc_keys(echo)
+    assert _index_size(client, index_key) == 3
 
     client.delete(hmap_key)  # 所有字段瞬间"过期"，全部成为幽灵
     assert cache.vacuum() == 3
-    assert client.zcard(zset_key) == 0
+    assert _index_size(client, index_key) == 0
 
 
 def test_vacuum_keeps_live_entries():
@@ -109,7 +130,7 @@ def test_vacuum_guard_against_async_client():
 
 
 @pytest.mark.asyncio(loop_scope="function")
-@pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple"])
+@pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple", "rr"])
 async def test_avacuum_removes_ghosts(policy_factory):
     """``avacuum`` 的异步镜像测试。"""
     cache = make_async_cache(policy_factory[0]())
@@ -123,12 +144,12 @@ async def test_avacuum_removes_ghosts(policy_factory):
     for v in values:
         assert await decorated(v) == v
 
-    zset_key, hmap_key = cache.policy.calc_keys(echo)
-    assert await client.zcard(zset_key) == 3
+    index_key, hmap_key = cache.policy.calc_keys(echo)
+    assert await _aindex_size(client, index_key) == 3
 
     await client.delete(hmap_key)
     assert await cache.avacuum() == 3
-    assert await client.zcard(zset_key) == 0
+    assert await _aindex_size(client, index_key) == 0
 
 
 @pytest.mark.asyncio(loop_scope="function")

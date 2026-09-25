@@ -4,6 +4,8 @@ from uuid import uuid4
 import pytest
 
 from redis_func_cache import RedisFuncCache
+from redis_func_cache.policies.lru import LruPolicy
+from redis_func_cache.policies.rr import RrPolicy
 
 from ._catches import CACHES, redis_factory
 from ._mocks import patch_object
@@ -110,3 +112,106 @@ def test_update_ttl_false_behavior():
             mock_put.assert_called_once()
 
         no_update_ttl_cache.policy.purge(redis_client=no_update_ttl_cache.get_redis_client())
+
+
+def test_miss_does_not_slide_ttl():
+    """get miss 不应滑动结构 TTL，只有命中才刷新（行为变更：one-item lazy vacuum 语义）。
+
+    索引键与 hash 键使用较长 TTL（60 秒），通过数值断言而不是等待过期。
+    """
+    for cache in CACHES.values():
+        ttl_cache = RedisFuncCache(
+            __name__,
+            type(cache.policy)(),
+            factory=redis_factory,
+            maxsize=cache.maxsize,
+            ttl=60,
+            update_ttl=True,
+        )
+        ttl_cache.policy.purge(redis_client=ttl_cache.get_redis_client())
+
+        def echo(x):
+            return x
+
+        decorated = ttl_cache.decorate()(echo)
+        client = ttl_cache.get_redis_client()
+        index_key, hmap_key = ttl_cache.policy.calc_keys(echo)
+
+        assert decorated("a") == "a"  # put：两侧 TTL 设为 60
+
+        time.sleep(2)
+
+        assert decorated("b") == "b"  # miss：不应把 TTL 重置回 60
+        ttl_index = client.ttl(index_key)
+        ttl_hash = client.ttl(hmap_key)
+        assert 0 < ttl_index <= 58, f"miss 不应滑动 TTL，实际 {ttl_index}"
+        assert 0 < ttl_hash <= 58, f"miss 不应滑动 TTL，实际 {ttl_hash}"
+
+        time.sleep(1)
+
+        assert decorated("a") == "a"  # hit：TTL 应重置回 ~60
+        assert client.ttl(index_key) >= 58
+        assert client.ttl(hmap_key) >= 58
+
+        ttl_cache.policy.purge(redis_client=ttl_cache.get_redis_client())
+
+
+def _index_size(client, policy, index_key) -> int:
+    """索引结构（zset 或 set）的成员数。"""
+    return client.scard(index_key) if isinstance(policy, RrPolicy) else client.zcard(index_key)
+
+
+@pytest.mark.parametrize("policy", [LruPolicy(), RrPolicy()], ids=["lru", "rr"])
+def test_miss_cleans_index_ghost(policy):
+    """get miss 时做单条惰性清理：hash 字段"过期"后的索引幽灵成员被移除。
+
+    patch 掉 put 以免清理后重新写入，从而能直接观察到清理效果。
+    """
+    cache = RedisFuncCache(__name__, policy, factory=redis_factory, maxsize=8)
+    cache.policy.purge(redis_client=cache.get_redis_client())
+
+    def echo(x):
+        return x
+
+    decorated = cache.decorate()(echo)
+    client = cache.get_redis_client()
+    index_key, hmap_key = cache.policy.calc_keys(echo)
+    hash_a = cache.policy.calc_hash(echo, ("a",), {})
+
+    assert decorated("a") == "a"
+    client.hdel(hmap_key, hash_a)  # 模拟字段过期 → 索引幽灵
+    assert _index_size(client, policy, index_key) == 1
+
+    with patch_object(cache, "put"):  # put 被拦截，不回写
+        assert decorated("a") == "a"  # miss：get 脚本清理幽灵
+
+    assert _index_size(client, policy, index_key) == 0
+    cache.policy.purge(redis_client=client)
+
+
+@pytest.mark.parametrize("policy", [LruPolicy(), RrPolicy()], ids=["lru", "rr"])
+def test_miss_cleans_orphan_hash_field(policy):
+    """get miss 时做单条惰性清理：索引成员丢失后的孤儿 hash 字段被移除。"""
+    cache = RedisFuncCache(__name__, policy, factory=redis_factory, maxsize=8)
+    cache.policy.purge(redis_client=cache.get_redis_client())
+
+    def echo(x):
+        return x
+
+    decorated = cache.decorate()(echo)
+    client = cache.get_redis_client()
+    index_key, hmap_key = cache.policy.calc_keys(echo)
+    hash_a = cache.policy.calc_hash(echo, ("a",), {})
+
+    assert decorated("a") == "a"
+    if isinstance(policy, RrPolicy):
+        client.srem(index_key, hash_a)
+    else:
+        client.zrem(index_key, hash_a)
+    assert client.hlen(hmap_key) == 1
+
+    with patch_object(cache, "put"):  # put 被拦截，不回写
+        assert decorated("a") == "a"  # miss：get 脚本清理孤儿字段
+
+    assert client.hlen(hmap_key) == 0
+    cache.policy.purge(redis_client=client)

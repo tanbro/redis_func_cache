@@ -21,22 +21,16 @@ local return_value = ARGV[5]
 local field_ttl = ARGV[6]
 
 local c = 0
+-- Max members per HDEL chunk: Lua unpack() overflows above ~8000 values
+local UNPACK_CHUNK = 4000
 
--- Check if zset and hash keys exist
-local zset_exists = redis.call('EXISTS', zset_key)
-local hmap_exists = redis.call('EXISTS', hmap_key)
+-- Check if zset and hash keys exist (multi-key EXISTS returns 0..2)
+local both_exists = redis.call('EXISTS', zset_key, hmap_key)
 
--- If either zset or hash doesn't exist, clean up the other one
-if zset_exists == 0 or hmap_exists == 0 then
-    if zset_exists == 1 then
-        redis.call('UNLINK', zset_key)
-    end
-    if hmap_exists == 1 then
-        redis.call('UNLINK', hmap_key)
-    end
-    -- Reset existence flags since we just deleted them
-    zset_exists = 0
-    hmap_exists = 0
+-- If either zset or hash doesn't exist, clean up the other one (UNLINK is a no-op on missing keys)
+if both_exists ~= 2 then
+    redis.call('UNLINK', zset_key, hmap_key)
+    both_exists = 0
 end
 
 -- If hash exists in zset, update the value
@@ -67,7 +61,10 @@ else
                 for i = 1, #evicted_keys_data, 2 do
                     keys_only[#keys_only + 1] = evicted_keys_data[i]
                 end
-                c = redis.call('HDEL', hmap_key, unpack(keys_only))
+                -- Chunked HDEL: unpack has a stack limit
+                for i = 1, #keys_only, UNPACK_CHUNK do
+                    c = c + redis.call('HDEL', hmap_key, unpack(keys_only, i, math.min(i + UNPACK_CHUNK - 1, #keys_only)))
+                end
             end
         end
     end
@@ -79,14 +76,10 @@ else
         redis.call('HEXPIRE', hmap_key, field_ttl, 'FIELDS', 1, hash)
     end
 
-    -- Set initial TTL for new keys (only when zset or hash keys are first created)
-    if tonumber(ttl) > 0 and (zset_exists == 0 or hmap_exists == 0) then
-        if zset_exists == 0 then
-            redis.call('EXPIRE', zset_key, ttl)
-        end
-        if hmap_exists == 0 then
-            redis.call('EXPIRE', hmap_key, ttl)
-        end
+    -- Set initial TTL for new keys (only when zset and hash keys are first created)
+    if tonumber(ttl) > 0 and both_exists == 0 then
+        redis.call('EXPIRE', zset_key, ttl)
+        redis.call('EXPIRE', hmap_key, ttl)
     end
 end
 

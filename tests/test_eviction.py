@@ -13,6 +13,12 @@ def _echo(x):
     return x
 
 
+def _make_cache(policy, maxsize=8, **kwargs):
+    cache = RedisFuncCache(__name__, policy, factory=redis_factory, maxsize=maxsize, **kwargs)
+    cache.policy.purge(redis_client=cache.get_redis_client())
+    return cache
+
+
 @pytest.fixture(autouse=True)
 def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
@@ -200,6 +206,72 @@ def test_mru_eviction():
     assert cache.policy.get_size(redis_client=cache.get_redis_client()) == maxsize
 
     cache.policy.purge(redis_client=cache.get_redis_client())
+
+
+def test_mru_eviction_direction():
+    """MRU 应驱逐"最近写入"的成员，而不是最旧的。
+
+    回归测试：cache.py 曾把 options JSON 放在 ARGV[7]，导致 lru_put.lua 读不到
+    'mru' 标志（它在 ext_args 里，实际位于 ARGV[8]），MRU 静默退化为 LRU。
+    在成员级别断言驱逐方向（现有 test_mru_eviction 因 mock 强制 miss 无法区分）。
+    """
+    cache = _make_cache(MruPolicy(), maxsize=2)
+
+    def echo(x):
+        return _echo(x)
+
+    decorated = cache.decorate()(echo)
+    client = cache.get_redis_client()
+    index_key, _ = cache.policy.calc_keys(echo)
+    hash_0 = cache.policy.calc_hash(echo, (0,), {})
+    hash_1 = cache.policy.calc_hash(echo, (1,), {})
+
+    # 填充缓存：0 先写入（分数 1），1 后写入（分数 2）
+    assert decorated(0) == 0
+    assert decorated(1) == 1
+
+    # 写入第三个元素，MRU 应驱逐分数最高的"最近写入"成员 1，保留 0
+    assert decorated(2) == 2
+
+    assert client.zscore(index_key, hash_0) is not None  # 0（最旧）仍在
+    assert client.zscore(index_key, hash_1) is None  # 1（最近写入）已被驱逐
+
+    cache.policy.purge(redis_client=client)
+
+
+def test_maxsize_shrink_mass_eviction():
+    """运行时调小 maxsize 后，下一次写入一次性批量驱逐，zset 与 hash 保持一致。
+
+    回归测试：单次驱逐超过约 8000 条时 unpack 溢出，且 ZPOPMIN 已写入而 HDEL
+    中途失败，留下永久性的孤儿 hash 字段。
+    """
+    total = 10000
+    cache = _make_cache(LruPolicy(), maxsize=total)
+
+    def echo(x):
+        return _echo(x)
+
+    decorated = cache.decorate()(echo)
+    client = cache.get_redis_client()
+    index_key, hmap_key = cache.policy.calc_keys(echo)
+
+    # 直接用 pipeline 灌入 total 条，绕过装饰器
+    pipe = client.pipeline(transaction=False)
+    for i in range(total):
+        h = cache.policy.calc_hash(echo, (i,), {})
+        pipe.zadd(index_key, {h: i + 1}).hset(hmap_key, h, f"v{i}")
+    pipe.execute()
+    assert client.zcard(index_key) == total
+
+    # 运行时收缩：下一次写入应一次性驱逐 total - 10 + 1 条并保持两侧一致
+    cache.maxsize = 10
+    assert decorated(total) == total
+
+    assert client.zcard(index_key) == 10
+    assert client.hlen(hmap_key) == 10
+    assert cache.policy.get_size(redis_client=client) == 10
+
+    cache.policy.purge(redis_client=client)
 
 
 def test_cache_data_consistency():
