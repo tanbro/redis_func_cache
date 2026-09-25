@@ -2,7 +2,7 @@
 
 These guard the invariants the optimization relies on: incremental seeding of a
 hash object is byte-identical to hashing the whole input at once, the cached
-object is shared but never mutated, and both the hash mixins and the multiple
+object is shared but never mutated, and both the hashers and the multiple
 policies feed from the same cache entries.
 """
 
@@ -10,7 +10,7 @@ import hashlib
 from base64 import b64encode
 
 from redis_func_cache.fingerprint import hash_fingerprint
-from redis_func_cache.mixins.hash import JsonMd5HexHashMixin
+from redis_func_cache.policies.hashing import JsonMd5HexHasher
 from redis_func_cache.utils import calculate_callable_fullname, get_callable_bytecode
 
 from ._catches import MULTI_CACHES
@@ -32,7 +32,7 @@ def _reference_fingerprint(algorithm: str, use_bytecode: bool, fn) -> bytes:
 def test_seeded_copy_matches_full_computation():
     """copy() of the cached fingerprint, extended with args/kwds, must equal a
     from-scratch hash of fingerprint + arguments."""
-    mixin = JsonMd5HexHashMixin()
+    mixin = JsonMd5HexHasher()
     conf = mixin.__hash_config__
     got = mixin.calc_hash(_echo, (1,), {"x": "中文"})
     h = hashlib.new(conf.algorithm)
@@ -72,7 +72,7 @@ def test_fingerprint_shared_between_mixin_and_policy():
     policy = cache.policy
 
     before = hash_fingerprint.cache_info().hits
-    JsonMd5HexHashMixin().calc_hash(_echo, (1,), None)
+    JsonMd5HexHasher().calc_hash(_echo, (1,), None)
     policy.calc_keys(fn=_echo, args=(), kwds={})
     assert hash_fingerprint.cache_info().hits >= before + 1
 

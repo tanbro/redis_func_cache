@@ -1,65 +1,17 @@
 """LFU eviction policy."""
 
-from typing import final
-
-from ..mixins.hash import PickleMd5HashMixin
-from ..mixins.scripts import LfuScriptsMixin
-from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
+from .hashing import PICKLE_MD5_HASHER
+from .keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
+from .policy import Policy
+from .scripts import LfuScripts
 
 __all__ = ("LfuClusterMultiplePolicy", "LfuClusterPolicy", "LfuMultiplePolicy", "LfuPolicy")
 
-
-@final
-class LfuPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
-    """
-    LFU eviction policy, single key pair.
-
-    .. inheritance-diagram:: LfuPolicy
-        :parts: 1
-
-    All decorated functions share the same Redis key pair.
-    """
-
-    __key__ = "lfu"
-
-
-@final
-class LfuMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
-    """
-    LFU eviction policy, multiple key pairs.
-
-    .. inheritance-diagram:: LfuMultiplePolicy
-        :parts: 1
-
-    Each decorated function has its own Redis key pair.
-    """
-
-    __key__ = "lfu-m"
-
-
-@final
-class LfuClusterPolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
-    """
-    LFU eviction policy with Redis cluster support, single key pair.
-
-    .. inheritance-diagram:: LfuClusterPolicy
-        :parts: 1
-
-    All decorated functions share the same Redis key pair.
-    """
-
-    __key__ = "lfu-c"
-
-
-@final
-class LfuClusterMultiplePolicy(LfuScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
-    """
-    LFU eviction policy with Redis cluster support, multiple key pairs.
-
-    .. inheritance-diagram:: LfuClusterMultiplePolicy
-        :parts: 1
-
-    Each decorated function has its own Redis key pair.
-    """
-
-    __key__ = "lfu-cm"
+#: LFU eviction policy, single key pair shared by all decorated functions.
+LfuPolicy = Policy(SingleKeying("lfu"), PICKLE_MD5_HASHER, LfuScripts())
+#: LFU eviction policy, one key pair per decorated function.
+LfuMultiplePolicy = Policy(MultipleKeying("lfu-m"), PICKLE_MD5_HASHER, LfuScripts())
+#: LFU eviction policy with Redis cluster support, single key pair.
+LfuClusterPolicy = Policy(ClusterSingleKeying("lfu-c"), PICKLE_MD5_HASHER, LfuScripts())
+#: LFU eviction policy with Redis cluster support, one key pair per decorated function.
+LfuClusterMultiplePolicy = Policy(ClusterMultipleKeying("lfu-cm"), PICKLE_MD5_HASHER, LfuScripts())

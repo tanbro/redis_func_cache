@@ -51,7 +51,7 @@ def make_async_cache(policy) -> RedisFuncCache:
 @pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple", "rr"])
 def test_vacuum_removes_ghosts(policy_factory):
     """字段全部过期后，vacuum 清除全部幽灵成员。"""
-    cache = make_sync_cache(policy_factory[0]())
+    cache = make_sync_cache(policy_factory[0])
     client = Redis.from_url(REDIS_URL)
 
     def echo(x):
@@ -72,7 +72,7 @@ def test_vacuum_removes_ghosts(policy_factory):
 
 def test_vacuum_keeps_live_entries():
     """只清除过期字段对应的成员，活条目不受影响。"""
-    cache = make_sync_cache(LruPolicy())
+    cache = make_sync_cache(LruPolicy)
     client = Redis.from_url(REDIS_URL)
 
     def echo(x):
@@ -94,7 +94,7 @@ def test_vacuum_keeps_live_entries():
 
 def test_vacuum_on_empty_cache():
     """空缓存上 vacuum 返回 0，且不创建任何键。"""
-    cache = make_sync_cache(LruPolicy())
+    cache = make_sync_cache(LruPolicy)
     client = Redis.from_url(REDIS_URL)
 
     assert cache.vacuum() == 0
@@ -104,7 +104,7 @@ def test_vacuum_on_empty_cache():
 
 def test_vacuum_with_small_batch_size():
     """小 batch_size 时游标循环仍能清除全部幽灵。"""
-    cache = make_sync_cache(LruPolicy())
+    cache = make_sync_cache(LruPolicy)
     client = Redis.from_url(REDIS_URL)
 
     def echo(x):
@@ -124,7 +124,7 @@ def test_vacuum_with_small_batch_size():
 
 def test_vacuum_guard_against_async_client():
     """同步 vacuum 遇到异步客户端时抛出 RuntimeError。"""
-    cache = make_async_cache(LruPolicy())
+    cache = make_async_cache(LruPolicy)
     with pytest.raises(RuntimeError, match="synchronous"):
         cache.vacuum()
 
@@ -133,7 +133,7 @@ def test_vacuum_guard_against_async_client():
 @pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple", "rr"])
 async def test_avacuum_removes_ghosts(policy_factory):
     """``avacuum`` 的异步镜像测试。"""
-    cache = make_async_cache(policy_factory[0]())
+    cache = make_async_cache(policy_factory[0])
     client = AsyncRedis.from_url(REDIS_URL)
 
     async def echo(x):
@@ -155,14 +155,14 @@ async def test_avacuum_removes_ghosts(policy_factory):
 @pytest.mark.asyncio(loop_scope="function")
 async def test_avacuum_guard_against_sync_client():
     """异步 avacuum 遇到同步客户端时抛出 RuntimeError。"""
-    cache = make_sync_cache(LruPolicy())
+    cache = make_sync_cache(LruPolicy)
     with pytest.raises(RuntimeError, match="asynchronous"):
         await cache.avacuum()
 
 
 def test_multiple_policy_get_size():
     """多策略的 get_size 返回跨所有函数键对的条目总数。"""
-    cache = make_sync_cache(LruMultiplePolicy())
+    cache = make_sync_cache(LruMultiplePolicy)
 
     def echo_a(x):
         return x
@@ -180,7 +180,7 @@ def test_multiple_policy_get_size():
 @pytest.mark.asyncio(loop_scope="function")
 async def test_multiple_policy_aget_size():
     """``aget_size`` 的异步镜像测试。"""
-    cache = make_async_cache(LruMultiplePolicy())
+    cache = make_async_cache(LruMultiplePolicy)
 
     async def echo_a(x):
         return x

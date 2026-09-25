@@ -32,11 +32,11 @@ async def _miss_async(*args, **kwargs):
 
 
 def make_sync_cache(**kwargs) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, LruPolicy(), factory=Redis, **kwargs)
+    return RedisFuncCache(uuid4().hex, LruPolicy, factory=Redis, **kwargs)
 
 
 def make_async_cache(**kwargs) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, LruPolicy(), factory=AsyncRedis, **kwargs)
+    return RedisFuncCache(uuid4().hex, LruPolicy, factory=AsyncRedis, **kwargs)
 
 
 class TestSyncExec:

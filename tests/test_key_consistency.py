@@ -12,6 +12,7 @@ import pytest
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.lru import LruPolicy
 from redis_func_cache.policies.rr import RrPolicy
+from redis_func_cache.policies.scripts import RrScripts
 
 from ._catches import redis_factory
 
@@ -25,7 +26,7 @@ def _make_cache(policy, **kwargs):
     return cache, cache.decorate()(echo), echo, cache.get_redis_client()
 
 
-@pytest.mark.parametrize("policy", [LruPolicy(), RrPolicy()], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
 def test_rebuild_when_index_key_missing(policy):
     """索引键单独丢失后，下一次 put 重建两侧。"""
     cache, decorated, echo, client = _make_cache(policy)
@@ -40,7 +41,7 @@ def test_rebuild_when_index_key_missing(policy):
     assert cache.policy.get_size(redis_client=client) == 1
 
 
-@pytest.mark.parametrize("policy", [LruPolicy(), RrPolicy()], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
 def test_rebuild_when_hash_key_missing(policy):
     """hash 键单独丢失后，下一次 put 重建两侧。"""
     cache, decorated, echo, client = _make_cache(policy)
@@ -55,7 +56,7 @@ def test_rebuild_when_hash_key_missing(policy):
     assert cache.policy.get_size(redis_client=client) == 1
 
 
-@pytest.mark.parametrize("policy", [LruPolicy(), RrPolicy()], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
 def test_rebuild_sets_ttl_on_both_keys(policy):
     """重建后，ttl>0 时两侧键都应获得 TTL（而不只是新建的那一侧）。"""
     cache, decorated, echo, client = _make_cache(policy, ttl=60)
@@ -71,7 +72,7 @@ def test_rebuild_sets_ttl_on_both_keys(policy):
 
 def test_both_keys_missing_recreates_cleanly():
     """两侧同时缺失（全新或全部过期）时，put 正常创建且 TTL 只设一次。"""
-    cache, decorated, echo, client = _make_cache(LruPolicy(), ttl=60)
+    cache, decorated, echo, client = _make_cache(LruPolicy, ttl=60)
 
     assert decorated("a") == "a"
     index_key, hmap_key = cache.policy.calc_keys(echo)
@@ -84,7 +85,7 @@ def test_both_keys_missing_recreates_cleanly():
     assert cache.policy.get_size(redis_client=client) == 1
 
 
-@pytest.mark.parametrize("policy", [LruPolicy(), RrPolicy()], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
 def test_get_size_reports_index_cardinality(policy):
     """get_size 报告索引基数（与 maxsize/驱逐口径一致），幽灵成员计入，孤儿字段不计入。
 
@@ -108,7 +109,7 @@ def test_get_size_reports_index_cardinality(policy):
     assert cache.policy.get_size(redis_client=client) == 1
 
     # 索引成员丢失 → 孤儿字段：get_size 下降为 0（孤儿字段不再计入）
-    if isinstance(policy, RrPolicy):
+    if isinstance(policy.scripts, RrScripts):
         client.srem(index_key, hash_b)
     else:
         client.zrem(index_key, hash_b)

@@ -1,4 +1,5 @@
 import time
+from copy import copy
 from uuid import uuid4
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from redis_func_cache import RedisFuncCache
 from redis_func_cache.policies.lru import LruPolicy
 from redis_func_cache.policies.rr import RrPolicy
+from redis_func_cache.policies.scripts import RrScripts
 
 from ._catches import CACHES, redis_factory
 from ._mocks import patch_object
@@ -29,7 +31,7 @@ def test_update_ttl_default_behavior():
         # 创建一个短TTL的缓存实例来测试
         short_ttl_cache = RedisFuncCache(
             __name__,
-            type(cache.policy)(),
+            copy(cache.policy),
             factory=redis_factory,
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL
@@ -74,7 +76,7 @@ def test_update_ttl_false_behavior():
         # 创建一个不更新TTL的缓存实例
         no_update_ttl_cache = RedisFuncCache(
             __name__,
-            type(cache.policy)(),
+            copy(cache.policy),
             factory=redis_factory,
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL
@@ -122,7 +124,7 @@ def test_miss_does_not_slide_ttl():
     for cache in CACHES.values():
         ttl_cache = RedisFuncCache(
             __name__,
-            type(cache.policy)(),
+            copy(cache.policy),
             factory=redis_factory,
             maxsize=cache.maxsize,
             ttl=60,
@@ -158,10 +160,10 @@ def test_miss_does_not_slide_ttl():
 
 def _index_size(client, policy, index_key) -> int:
     """索引结构（zset 或 set）的成员数。"""
-    return client.scard(index_key) if isinstance(policy, RrPolicy) else client.zcard(index_key)
+    return client.scard(index_key) if isinstance(policy.scripts, RrScripts) else client.zcard(index_key)
 
 
-@pytest.mark.parametrize("policy", [LruPolicy(), RrPolicy()], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
 def test_miss_cleans_index_ghost(policy):
     """get miss 时做单条惰性清理：hash 字段"过期"后的索引幽灵成员被移除。
 
@@ -189,7 +191,7 @@ def test_miss_cleans_index_ghost(policy):
     cache.policy.purge(redis_client=client)
 
 
-@pytest.mark.parametrize("policy", [LruPolicy(), RrPolicy()], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
 def test_miss_cleans_orphan_hash_field(policy):
     """get miss 时做单条惰性清理：索引成员丢失后的孤儿 hash 字段被移除。"""
     cache = RedisFuncCache(__name__, policy, factory=redis_factory, maxsize=8)
@@ -204,7 +206,7 @@ def test_miss_cleans_orphan_hash_field(policy):
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
 
     assert decorated("a") == "a"
-    if isinstance(policy, RrPolicy):
+    if isinstance(policy.scripts, RrScripts):
         client.srem(index_key, hash_a)
     else:
         client.zrem(index_key, hash_a)

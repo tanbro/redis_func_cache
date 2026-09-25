@@ -30,7 +30,7 @@ def make_async_cache(policy) -> RedisFuncCache:
 
 def test_single_policy_purge():
     """单策略 purge 删除两个静态键，返回 2，之后重新计算。"""
-    cache = make_sync_cache(LruPolicy())
+    cache = make_sync_cache(LruPolicy)
     client = Redis.from_url(REDIS_URL)
 
     def echo(x):
@@ -47,7 +47,7 @@ def test_single_policy_purge():
 
 def test_multiple_policy_purge():
     """多策略 purge 经 SCAN 枚举删除所有函数的键对，返回键数。"""
-    cache = make_sync_cache(LruMultiplePolicy())
+    cache = make_sync_cache(LruMultiplePolicy)
     client = Redis.from_url(REDIS_URL)
 
     def echo_a(x):
@@ -66,7 +66,7 @@ def test_multiple_policy_purge():
 
 def test_multiple_policy_purge_with_small_batch_size():
     """batch_size=1 时分批 UNLINK 仍删除全部键，计数准确。"""
-    cache = make_sync_cache(LruMultiplePolicy())
+    cache = make_sync_cache(LruMultiplePolicy)
     client = Redis.from_url(REDIS_URL)
 
     def echo_a(x):
@@ -85,13 +85,13 @@ def test_multiple_policy_purge_with_small_batch_size():
 
 def test_purge_on_empty_cache():
     """从未写入的缓存 purge 返回 0。"""
-    cache = make_sync_cache(LruMultiplePolicy())
+    cache = make_sync_cache(LruMultiplePolicy)
     assert cache.purge() == 0
 
 
 def test_purge_guard_against_async_client():
     """同步 purge 遇到异步客户端时抛出 RuntimeError。"""
-    cache = make_async_cache(LruPolicy())
+    cache = make_async_cache(LruPolicy)
     with pytest.raises(TypeError, match="synchronous"):
         cache.purge()
 
@@ -100,7 +100,7 @@ def test_purge_guard_against_async_client():
 @pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple"])
 async def test_apurge(policy_factory):
     """``apurge`` 的异步镜像测试。"""
-    cache = make_async_cache(policy_factory[0]())
+    cache = make_async_cache(policy_factory[0])
     client = AsyncRedis.from_url(REDIS_URL)
 
     async def echo(x):
@@ -117,6 +117,6 @@ async def test_apurge(policy_factory):
 @pytest.mark.asyncio(loop_scope="function")
 async def test_apurge_guard_against_sync_client():
     """异步 apurge 遇到同步客户端时抛出 RuntimeError。"""
-    cache = make_sync_cache(LruPolicy())
+    cache = make_sync_cache(LruPolicy)
     with pytest.raises(TypeError, match="asynchronous"):
         await cache.apurge()

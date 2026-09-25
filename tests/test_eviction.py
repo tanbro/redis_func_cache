@@ -34,7 +34,7 @@ def clean_caches():
 def test_lru_order_correctness():
     """测试LRU缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
     cache.policy.purge(redis_client=cache.get_redis_client())
 
     @cache
@@ -71,7 +71,7 @@ def test_lru_order_correctness():
 def test_fifo_order_correctness():
     """测试FIFO缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, FifoPolicy(), factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, FifoPolicy, factory=redis_factory, maxsize=maxsize)
     cache.policy.purge(redis_client=cache.get_redis_client())
 
     @cache
@@ -108,7 +108,7 @@ def test_fifo_order_correctness():
 def test_lfu_order_correctness():
     """测试LFU缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LfuPolicy(), factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, LfuPolicy, factory=redis_factory, maxsize=maxsize)
     cache.policy.purge(redis_client=cache.get_redis_client())
 
     @cache
@@ -146,7 +146,7 @@ def test_lfu_order_correctness():
 def test_eviction_edge_cases():
     """测试缓存淘汰的边界情况。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
     cache.policy.purge(redis_client=cache.get_redis_client())
 
     @cache
@@ -172,7 +172,7 @@ def test_eviction_edge_cases():
 def test_mru_eviction():
     """测试MRU淘汰策略。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, MruPolicy(), factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, MruPolicy, factory=redis_factory, maxsize=maxsize)
     cache.policy.purge(redis_client=cache.get_redis_client())
 
     @cache
@@ -215,7 +215,7 @@ def test_mru_eviction_direction():
     'mru' 标志（它在 ext_args 里，实际位于 ARGV[8]），MRU 静默退化为 LRU。
     在成员级别断言驱逐方向（现有 test_mru_eviction 因 mock 强制 miss 无法区分）。
     """
-    cache = _make_cache(MruPolicy(), maxsize=2)
+    cache = _make_cache(MruPolicy, maxsize=2)
 
     def echo(x):
         return _echo(x)
@@ -246,7 +246,7 @@ def test_maxsize_shrink_mass_eviction():
     中途失败，留下永久性的孤儿 hash 字段。
     """
     total = 10000
-    cache = _make_cache(LruPolicy(), maxsize=total)
+    cache = _make_cache(LruPolicy, maxsize=total)
 
     def echo(x):
         return _echo(x)
@@ -277,7 +277,7 @@ def test_maxsize_shrink_mass_eviction():
 def test_cache_data_consistency():
     """测试缓存数据的一致性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy(), factory=redis_factory, maxsize=maxsize)
+    cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
     cache.policy.purge(redis_client=cache.get_redis_client())
 
     @cache

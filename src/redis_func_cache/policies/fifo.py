@@ -1,10 +1,9 @@
-"""FIFO eviction policies"""
+"""FIFO eviction policies."""
 
-from typing import final
-
-from ..mixins.hash import PickleMd5HashMixin
-from ..mixins.scripts import FifoScriptsMixin, FifoTScriptsMixin
-from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
+from .hashing import PICKLE_MD5_HASHER
+from .keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
+from .policy import Policy
+from .scripts import FifoScripts, FifoTScripts
 
 __all__ = (
     "FifoClusterMultiplePolicy",
@@ -17,114 +16,20 @@ __all__ = (
     "FifoTPolicy",
 )
 
+#: FIFO eviction policy, single key pair shared by all decorated functions.
+FifoPolicy = Policy(SingleKeying("fifo"), PICKLE_MD5_HASHER, FifoScripts())
+#: FIFO eviction policy, one key pair per decorated function.
+FifoMultiplePolicy = Policy(MultipleKeying("fifo-m"), PICKLE_MD5_HASHER, FifoScripts())
+#: FIFO eviction policy with Redis cluster support, single key pair.
+FifoClusterPolicy = Policy(ClusterSingleKeying("fifo-c"), PICKLE_MD5_HASHER, FifoScripts())
+#: FIFO eviction policy with Redis cluster support, one key pair per decorated function.
+FifoClusterMultiplePolicy = Policy(ClusterMultipleKeying("fifo-cm"), PICKLE_MD5_HASHER, FifoScripts())
 
-@final
-class FifoPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
-    """
-    FIFO eviction policy, single key pair.
-
-    .. inheritance-diagram:: FifoPolicy
-        :parts: 1
-
-    All decorated functions share the same Redis key pair.
-    """
-
-    __key__ = "fifo"
-
-
-@final
-class FifoMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
-    """
-    FIFO eviction policy, multiple key pairs.
-
-    .. inheritance-diagram:: FifoMultiplePolicy
-        :parts: 1
-
-    Each decorated function has its own Redis key pair.
-    """
-
-    __key__ = "fifo-m"
-
-
-@final
-class FifoClusterPolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
-    """
-    FIFO eviction policy with Redis cluster support, single key pair.
-
-    .. inheritance-diagram:: FifoClusterPolicy
-        :parts: 1
-
-    All decorated functions share the same Redis key pair.
-    """
-
-    __key__ = "fifo-c"
-
-
-@final
-class FifoClusterMultiplePolicy(FifoScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
-    """
-    FIFO eviction policy with Redis cluster support, multiple key pairs.
-
-    .. inheritance-diagram:: FifoClusterMultiplePolicy
-        :parts: 1
-
-    Each decorated function has its own Redis key pair.
-    """
-
-    __key__ = "fifo-cm"
-
-
-@final
-class FifoTPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
-    """
-    FIFO eviction policy (timestamp variant), single key pair.
-
-    .. inheritance-diagram:: FifoTPolicy
-        :parts: 1
-
-    All decorated functions share the same Redis key pair.
-    """
-
-    __key__ = "fifo_t"
-
-
-@final
-class FifoTMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
-    """
-    FIFO eviction policy (timestamp variant), multiple key pairs.
-
-    .. inheritance-diagram:: FifoTMultiplePolicy
-        :parts: 1
-
-    Each decorated function has its own Redis key pair.
-    """
-
-    __key__ = "fifo_t-m"
-
-
-@final
-class FifoTClusterPolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
-    """
-    FIFO eviction policy (timestamp variant) with Redis cluster support, single key pair.
-
-    .. inheritance-diagram:: FifoTClusterPolicy
-        :parts: 1
-
-    All decorated functions share the same Redis key pair.
-    """
-
-    __key__ = "fifo_t-c"
-
-
-@final
-class FifoTClusterMultiplePolicy(FifoTScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
-    """
-    FIFO eviction policy (timestamp variant) with Redis cluster support, multiple key pairs.
-
-    .. inheritance-diagram:: FifoTClusterMultiplePolicy
-        :parts: 1
-
-    Each decorated function has its own Redis key pair.
-    """
-
-    __key__ = "fifo_t-cm"
+#: FIFO eviction policy (timestamp variant), single key pair.
+FifoTPolicy = Policy(SingleKeying("fifo_t"), PICKLE_MD5_HASHER, FifoTScripts())
+#: FIFO eviction policy (timestamp variant), one key pair per decorated function.
+FifoTMultiplePolicy = Policy(MultipleKeying("fifo_t-m"), PICKLE_MD5_HASHER, FifoTScripts())
+#: FIFO eviction policy (timestamp variant) with Redis cluster support, single key pair.
+FifoTClusterPolicy = Policy(ClusterSingleKeying("fifo_t-c"), PICKLE_MD5_HASHER, FifoTScripts())
+#: FIFO eviction policy (timestamp variant) with Redis cluster support, one key pair per function.
+FifoTClusterMultiplePolicy = Policy(ClusterMultipleKeying("fifo_t-cm"), PICKLE_MD5_HASHER, FifoTScripts())

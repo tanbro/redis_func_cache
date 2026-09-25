@@ -55,7 +55,7 @@ else:  # pragma: no cover
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
 from .handler import HandlerContext
-from .policies.abstract import AbstractPolicy
+from .policies.policy import Policy
 from .typing import (
     CallableTV,
     RedisClientTV,
@@ -152,7 +152,7 @@ if is_module(cloudpickle):  # pragma: no cover
     _serializers["cloudpickle"] = (_cloudpickle_encode, lambda x: pickle.loads(x))
 
 
-PolicyTV = TypeVar("PolicyTV", bound=AbstractPolicy)
+PolicyTV = TypeVar("PolicyTV", bound=Policy)
 
 
 class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
@@ -250,7 +250,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
                 It is assigned to property :attr:`name`.
 
-            policy: A pre-instantiated :class:`AbstractPolicy` instance to use for
+            policy: A pre-instantiated :class:`Policy` instance to use for
                     eviction and key/hash calculation.
 
                     The provided policy instance will be bound to this cache by
@@ -400,9 +400,11 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         self.ignore_redis_errors = ignore_redis_errors
         # Only accept a policy instance, then copy the key namespace onto it so
         # policy methods can build key names without referencing this cache.
-        if not isinstance(policy, AbstractPolicy):
-            raise TypeError("policy must be an instance of AbstractPolicy")
-        self._policy = policy
+        # Built-in policies are shared module-level presets; snapshot-copy the
+        # instance so caches never mutate each other's bound namespace.
+        if not isinstance(policy, Policy):
+            raise TypeError("policy must be an instance of Policy")
+        self._policy = copy(policy)
         self._policy._bind(self.prefix, self.name)
         # Accept both a concrete client instance and an optional factory.
         # Prefer `factory` when present. Keep compatibility for callers that
@@ -1397,8 +1399,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
     def purge(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Delete every Redis key this cache owns.
 
-        A convenience delegating to :meth:`AbstractPolicy.purge
-        <redis_func_cache.policies.abstract.AbstractPolicy.purge>`, which contains
+        A convenience delegating to :meth:`Policy.purge
+        <redis_func_cache.policies.policy.Policy.purge>`, which contains
         the full description.
 
         Args:
@@ -1421,8 +1423,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
     def vacuum(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
 
-        A convenience delegating to :meth:`AbstractPolicy.vacuum
-        <redis_func_cache.policies.abstract.AbstractPolicy.vacuum>`, which contains
+        A convenience delegating to :meth:`Policy.vacuum
+        <redis_func_cache.policies.policy.Policy.vacuum>`, which contains
         the full description.
 
         Args:

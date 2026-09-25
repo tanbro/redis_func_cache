@@ -1,0 +1,458 @@
+{
+  "FifoClusterMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:fifo-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
+      "gp:gn:fifo-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+    ],
+    "keys_b": [
+      "gp:gn:fifo-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
+      "gp:gn:fifo-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+    ],
+    "scripts": [
+      "fifo_get.lua",
+      "fifo_put.lua"
+    ]
+  },
+  "FifoClusterPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:{gn:fifo-c}:0",
+      "gp:{gn:fifo-c}:1"
+    ],
+    "keys_b": [
+      "gp:{gn:fifo-c}:0",
+      "gp:{gn:fifo-c}:1"
+    ],
+    "scripts": [
+      "fifo_get.lua",
+      "fifo_put.lua"
+    ]
+  },
+  "FifoMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:fifo-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
+      "gp:gn:fifo-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+    ],
+    "keys_b": [
+      "gp:gn:fifo-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
+      "gp:gn:fifo-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+    ],
+    "scripts": [
+      "fifo_get.lua",
+      "fifo_put.lua"
+    ]
+  },
+  "FifoPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:fifo:0",
+      "gp:gn:fifo:1"
+    ],
+    "keys_b": [
+      "gp:gn:fifo:0",
+      "gp:gn:fifo:1"
+    ],
+    "scripts": [
+      "fifo_get.lua",
+      "fifo_put.lua"
+    ]
+  },
+  "FifoTClusterMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:fifo_t-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
+      "gp:gn:fifo_t-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+    ],
+    "keys_b": [
+      "gp:gn:fifo_t-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
+      "gp:gn:fifo_t-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+    ],
+    "scripts": [
+      "fifo_get.lua",
+      "fifo_t_put.lua"
+    ]
+  },
+  "FifoTClusterPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:{gn:fifo_t-c}:0",
+      "gp:{gn:fifo_t-c}:1"
+    ],
+    "keys_b": [
+      "gp:{gn:fifo_t-c}:0",
+      "gp:{gn:fifo_t-c}:1"
+    ],
+    "scripts": [
+      "fifo_get.lua",
+      "fifo_t_put.lua"
+    ]
+  },
+  "FifoTMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:fifo_t-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
+      "gp:gn:fifo_t-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+    ],
+    "keys_b": [
+      "gp:gn:fifo_t-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
+      "gp:gn:fifo_t-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+    ],
+    "scripts": [
+      "fifo_get.lua",
+      "fifo_t_put.lua"
+    ]
+  },
+  "FifoTPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:fifo_t:0",
+      "gp:gn:fifo_t:1"
+    ],
+    "keys_b": [
+      "gp:gn:fifo_t:0",
+      "gp:gn:fifo_t:1"
+    ],
+    "scripts": [
+      "fifo_get.lua",
+      "fifo_t_put.lua"
+    ]
+  },
+  "LfuClusterMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lfu-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
+      "gp:gn:lfu-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+    ],
+    "keys_b": [
+      "gp:gn:lfu-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
+      "gp:gn:lfu-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+    ],
+    "scripts": [
+      "lfu_get.lua",
+      "lfu_put.lua"
+    ]
+  },
+  "LfuClusterPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:{gn:lfu-c}:0",
+      "gp:{gn:lfu-c}:1"
+    ],
+    "keys_b": [
+      "gp:{gn:lfu-c}:0",
+      "gp:{gn:lfu-c}:1"
+    ],
+    "scripts": [
+      "lfu_get.lua",
+      "lfu_put.lua"
+    ]
+  },
+  "LfuMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lfu-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
+      "gp:gn:lfu-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+    ],
+    "keys_b": [
+      "gp:gn:lfu-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
+      "gp:gn:lfu-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+    ],
+    "scripts": [
+      "lfu_get.lua",
+      "lfu_put.lua"
+    ]
+  },
+  "LfuPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lfu:0",
+      "gp:gn:lfu:1"
+    ],
+    "keys_b": [
+      "gp:gn:lfu:0",
+      "gp:gn:lfu:1"
+    ],
+    "scripts": [
+      "lfu_get.lua",
+      "lfu_put.lua"
+    ]
+  },
+  "LruClusterMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lru-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
+      "gp:gn:lru-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+    ],
+    "keys_b": [
+      "gp:gn:lru-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
+      "gp:gn:lru-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+    ],
+    "scripts": [
+      "lru_get.lua",
+      "lru_put.lua"
+    ]
+  },
+  "LruClusterPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:{gn:lru-c}:0",
+      "gp:{gn:lru-c}:1"
+    ],
+    "keys_b": [
+      "gp:{gn:lru-c}:0",
+      "gp:{gn:lru-c}:1"
+    ],
+    "scripts": [
+      "lru_get.lua",
+      "lru_put.lua"
+    ]
+  },
+  "LruMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lru-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
+      "gp:gn:lru-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+    ],
+    "keys_b": [
+      "gp:gn:lru-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
+      "gp:gn:lru-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+    ],
+    "scripts": [
+      "lru_get.lua",
+      "lru_put.lua"
+    ]
+  },
+  "LruPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lru:0",
+      "gp:gn:lru:1"
+    ],
+    "keys_b": [
+      "gp:gn:lru:0",
+      "gp:gn:lru:1"
+    ],
+    "scripts": [
+      "lru_get.lua",
+      "lru_put.lua"
+    ]
+  },
+  "LruTClusterMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lru_t-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
+      "gp:gn:lru_t-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+    ],
+    "keys_b": [
+      "gp:gn:lru_t-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
+      "gp:gn:lru_t-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+    ],
+    "scripts": [
+      "lru_t_get.lua",
+      "lru_t_put.lua"
+    ]
+  },
+  "LruTClusterPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:{gn:lru_t-c}:0",
+      "gp:{gn:lru_t-c}:1"
+    ],
+    "keys_b": [
+      "gp:{gn:lru_t-c}:0",
+      "gp:{gn:lru_t-c}:1"
+    ],
+    "scripts": [
+      "lru_t_get.lua",
+      "lru_t_put.lua"
+    ]
+  },
+  "LruTMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lru_t-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
+      "gp:gn:lru_t-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+    ],
+    "keys_b": [
+      "gp:gn:lru_t-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
+      "gp:gn:lru_t-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+    ],
+    "scripts": [
+      "lru_t_get.lua",
+      "lru_t_put.lua"
+    ]
+  },
+  "LruTPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:lru_t:0",
+      "gp:gn:lru_t:1"
+    ],
+    "keys_b": [
+      "gp:gn:lru_t:0",
+      "gp:gn:lru_t:1"
+    ],
+    "scripts": [
+      "lru_t_get.lua",
+      "lru_t_put.lua"
+    ]
+  },
+  "MruClusterMultiplePolicy": {
+    "ext_args": [
+      "mru"
+    ],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:mru-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
+      "gp:gn:mru-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+    ],
+    "keys_b": [
+      "gp:gn:mru-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
+      "gp:gn:mru-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+    ],
+    "scripts": [
+      "lru_get.lua",
+      "lru_put.lua"
+    ]
+  },
+  "MruClusterPolicy": {
+    "ext_args": [
+      "mru"
+    ],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:{gn:mru-c}:0",
+      "gp:{gn:mru-c}:1"
+    ],
+    "keys_b": [
+      "gp:{gn:mru-c}:0",
+      "gp:{gn:mru-c}:1"
+    ],
+    "scripts": [
+      "lru_get.lua",
+      "lru_put.lua"
+    ]
+  },
+  "MruMultiplePolicy": {
+    "ext_args": [
+      "mru"
+    ],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:mru-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
+      "gp:gn:mru-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+    ],
+    "keys_b": [
+      "gp:gn:mru-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
+      "gp:gn:mru-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+    ],
+    "scripts": [
+      "lru_get.lua",
+      "lru_put.lua"
+    ]
+  },
+  "MruPolicy": {
+    "ext_args": [
+      "mru"
+    ],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:mru:0",
+      "gp:gn:mru:1"
+    ],
+    "keys_b": [
+      "gp:gn:mru:0",
+      "gp:gn:mru:1"
+    ],
+    "scripts": [
+      "lru_get.lua",
+      "lru_put.lua"
+    ]
+  },
+  "RrClusterMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:rr-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
+      "gp:gn:rr-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+    ],
+    "keys_b": [
+      "gp:gn:rr-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
+      "gp:gn:rr-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+    ],
+    "scripts": [
+      "rr_get.lua",
+      "rr_put.lua"
+    ]
+  },
+  "RrClusterPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:{gn:rr-c}:0",
+      "gp:{gn:rr-c}:1"
+    ],
+    "keys_b": [
+      "gp:{gn:rr-c}:0",
+      "gp:{gn:rr-c}:1"
+    ],
+    "scripts": [
+      "rr_get.lua",
+      "rr_put.lua"
+    ]
+  },
+  "RrMultiplePolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:rr-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
+      "gp:gn:rr-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+    ],
+    "keys_b": [
+      "gp:gn:rr-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
+      "gp:gn:rr-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+    ],
+    "scripts": [
+      "rr_get.lua",
+      "rr_put.lua"
+    ]
+  },
+  "RrPolicy": {
+    "ext_args": [],
+    "hash": "304318b8299fb5c4865285ecfd75ee61",
+    "keys_a": [
+      "gp:gn:rr:0",
+      "gp:gn:rr:1"
+    ],
+    "keys_b": [
+      "gp:gn:rr:0",
+      "gp:gn:rr:1"
+    ],
+    "scripts": [
+      "rr_get.lua",
+      "rr_put.lua"
+    ]
+  }
+}

@@ -1,76 +1,17 @@
 """Most Recently Used eviction cache policies."""
 
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any, final
-
-from ..mixins.hash import PickleMd5HashMixin
-from ..mixins.scripts import MruScriptsMixin
-from .base import BaseClusterMultiplePolicy, BaseClusterSinglePolicy, BaseMultiplePolicy, BaseSinglePolicy
+from .hashing import PICKLE_MD5_HASHER
+from .keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying
+from .policy import Policy
+from .scripts import MruScripts
 
 __all__ = ("MruClusterMultiplePolicy", "MruClusterPolicy", "MruMultiplePolicy", "MruPolicy")
 
-
-class _MruPolicyExtArgsMixin:
-    def calc_ext_args(
-        self,
-        fn: Callable | None = None,
-        args: Sequence | None = None,
-        kwds: Mapping[str, Any] | None = None,
-    ) -> tuple[str]:
-        return ("mru",)
-
-
-@final
-class MruPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseSinglePolicy):
-    """
-    MRU eviction policy, single key pair.
-
-    .. inheritance-diagram:: MruPolicy
-        :parts: 1
-
-    All decorated functions share the same Redis key pair.
-    """
-
-    __key__ = "mru"
-
-
-@final
-class MruMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseMultiplePolicy):
-    """
-    MRU eviction policy, multiple key pairs.
-
-    .. inheritance-diagram:: MruMultiplePolicy
-        :parts: 1
-
-    Each decorated function has its own Redis key pair.
-    """
-
-    __key__ = "mru-m"
-
-
-@final
-class MruClusterPolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseClusterSinglePolicy):
-    """
-    MRU eviction policy with Redis cluster support, single key pair.
-
-    .. inheritance-diagram:: MruClusterPolicy
-        :parts: 1
-
-    All decorated functions share the same Redis key pair.
-    """
-
-    __key__ = "mru-c"
-
-
-@final
-class MruClusterMultiplePolicy(_MruPolicyExtArgsMixin, MruScriptsMixin, PickleMd5HashMixin, BaseClusterMultiplePolicy):
-    """
-    MRU eviction policy with Redis cluster support, multiple key pairs.
-
-    .. inheritance-diagram:: MruClusterMultiplePolicy
-        :parts: 1
-
-    Each decorated function has its own Redis key pair.
-    """
-
-    __key__ = "mru-cm"
+#: MRU eviction policy, single key pair shared by all decorated functions.
+MruPolicy = Policy(SingleKeying("mru"), PICKLE_MD5_HASHER, MruScripts())
+#: MRU eviction policy, one key pair per decorated function.
+MruMultiplePolicy = Policy(MultipleKeying("mru-m"), PICKLE_MD5_HASHER, MruScripts())
+#: MRU eviction policy with Redis cluster support, single key pair.
+MruClusterPolicy = Policy(ClusterSingleKeying("mru-c"), PICKLE_MD5_HASHER, MruScripts())
+#: MRU eviction policy with Redis cluster support, one key pair per decorated function.
+MruClusterMultiplePolicy = Policy(ClusterMultipleKeying("mru-cm"), PICKLE_MD5_HASHER, MruScripts())

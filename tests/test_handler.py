@@ -100,11 +100,11 @@ class AsyncRecordingHandler:
 
 
 def _make_cache(handler=None) -> RedisFuncCache:
-    return RedisFuncCache("handler_test", LruPolicy(), factory=REDIS_FACTORY, handler=handler)
+    return RedisFuncCache("handler_test", LruPolicy, factory=REDIS_FACTORY, handler=handler)
 
 
 def _make_async_cache(handler=None) -> RedisFuncCache:
-    return RedisFuncCache("handler_test_async", LruPolicy(), factory=ASYNC_REDIS_FACTORY, handler=handler)
+    return RedisFuncCache("handler_test_async", LruPolicy, factory=ASYNC_REDIS_FACTORY, handler=handler)
 
 
 @pytest.fixture
