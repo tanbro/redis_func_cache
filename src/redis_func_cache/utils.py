@@ -9,6 +9,9 @@ from textwrap import dedent
 from typing import TYPE_CHECKING
 from warnings import warn
 
+if TYPE_CHECKING:  # pragma: no cover
+    from hashlib import _Hash as HashT
+
 try:  # pragma: no cover
     import pygments  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
@@ -36,14 +39,10 @@ else:  # pragma: no cover
 
 from .typing import is_module
 
-if TYPE_CHECKING:  # pragma: no cover
-    from .typing import HashProtocol
-
-
 __all__ = ("b64digest", "get_callable_bytecode", "read_lua_file")
 
 
-def b64digest(x: HashProtocol) -> bytes:
+def b64digest(x: HashT) -> bytes:
     """Convert hash digest to base64 string.
 
     Args:

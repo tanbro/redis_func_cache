@@ -165,18 +165,22 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         ::
 
-            import redis
+            import redis.asyncio as aioredis
             from redis_func_cache import LruTPolicy, RedisFuncCache
 
-            pool = redis.ConnectionPool(...)
-            factory = redis.from_pool(pool)
+            pool = aioredis.ConnectionPool.from_url("redis://")
+            factory = lambda: aioredis.from_pool(pool)
 
             # supply a client instance by a factory
             cache = RedisFuncCache(__name__, LruTPolicy(), factory=factory)
 
+
             @cache
-            def function_to_cache(...):
-                ...
+            async def function_to_cache(*args, **kwargs):
+                # your code here
+                # ...
+                # return result
+                pass
 
     - The `serializer` parameter can be a string or a pair of callables.
     - If a callable factory is provided via the `factory` parameter, it will be invoked every time the redis client is accessed.
@@ -272,12 +276,12 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 - :class:`redis.cluster.RedisCluster`
                 - :class:`redis.asyncio.cluster.RedisCluster`
 
-                .. versionchanged:: 0.9
-                    Renamed from ``client``; ``client=`` still works but is deprecated.
-
                 .. versionchanged:: 0.7
                     Prefer providing a ``factory`` for concurrent/production use;
                     use ``redis_client`` only for simple cases or compatibility.
+
+                .. versionchanged:: 0.9
+                    Renamed from ``client``; ``client=`` still works but is deprecated.
 
             factory: Optional callable that returns a Redis client instance.
 
@@ -379,8 +383,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
             handler: Optional handler wrapping the four serialization boundaries.
 
-                See :class:`~redis_func_cache.handler.HandlerProtocol` for the method
-                set, return conventions, and sync/async rules.
+                See :class:`~redis_func_cache.handler.HandlerProtocol` for the method set, return conventions, and sync/async rules.
 
                 .. versionadded:: 0.9
 
@@ -698,7 +701,9 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         ext_args = ext_args or ()
         script(
             keys=keys,
-            args=chain((maxsize, int(update_ttl), ttl, hash_value, value, field_ttl, encoded_options), ext_args),
+            # ext_args must land on ARGV[7]: policies (e.g. MRU) and the Lua
+            # scripts rely on that fixed position; the reserved options JSON goes last.
+            args=chain((maxsize, int(update_ttl), ttl, hash_value, value, field_ttl), ext_args, (encoded_options,)),
         )
 
     @classmethod
@@ -719,7 +724,9 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         encoded_options = _json_encode(options) if options is not None else b"{}"
         ext_args = ext_args or ()
         await script(
-            keys=keys, args=chain((maxsize, int(update_ttl), ttl, hash_, value, field_ttl, encoded_options), ext_args)
+            keys=keys,
+            # Keep ARGV[7] as the first ext_args entry, mirroring put().
+            args=chain((maxsize, int(update_ttl), ttl, hash_, value, field_ttl), ext_args, (encoded_options,)),
         )
 
     @classmethod
