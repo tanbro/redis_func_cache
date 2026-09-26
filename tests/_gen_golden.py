@@ -25,7 +25,9 @@ import redis_func_cache.policies.lfu as lfu_mod
 import redis_func_cache.policies.lru as lru_mod
 import redis_func_cache.policies.mru as mru_mod
 import redis_func_cache.policies.rr as rr_mod
+from redis_func_cache.fingerprint import hash_fingerprint
 from redis_func_cache.policies import Policy
+from redis_func_cache.utils import b64digest
 
 from ._golden_fns import fn_a, fn_b
 
@@ -35,6 +37,16 @@ ARGS, KWDS = (1,), {"x": "a"}
 
 
 def main() -> None:
+    # The function checksum and the digest embed the function bytecode, which
+    # differs across Python versions; freeze them as placeholders and let the
+    # tests substitute the live values, so the fixture pins only the
+    # version-independent contract (key structure, ARGV layout, script names).
+    checksum_a = b64digest(hash_fingerprint("md5", True, fn_a)).decode()
+    checksum_b = b64digest(hash_fingerprint("md5", True, fn_b)).decode()
+
+    def template(value: str) -> str:
+        return value.replace(checksum_a, "{checksum_a}").replace(checksum_b, "{checksum_b}")
+
     golden: dict[str, dict] = {}
     for module in POLICY_MODULES:
         for attr in dir(module):
@@ -43,9 +55,8 @@ def main() -> None:
                 continue
             policy._bind(PREFIX, NAME)
             golden[attr] = {
-                "keys_a": list(policy.calc_key_pair(fn_a, ARGS, KWDS)),
-                "keys_b": list(policy.calc_key_pair(fn_b, ARGS, KWDS)),
-                "hash": policy.calc_hash(fn_a, ARGS, KWDS).hex(),  # type: ignore[union-attr]
+                "keys_a": [template(k) for k in policy.calc_key_pair(fn_a, ARGS, KWDS)],
+                "keys_b": [template(k) for k in policy.calc_key_pair(fn_b, ARGS, KWDS)],
                 "ext_args": list(policy.calc_ext_args(fn_a, ARGS, KWDS) or ()),
                 "scripts": [policy.scripts.get_script, policy.scripts.put_script],
             }

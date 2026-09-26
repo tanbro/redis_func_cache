@@ -1,14 +1,13 @@
 {
   "FifoClusterMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:fifo-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
-      "gp:gn:fifo-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+      "gp:gn:fifo-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
+      "gp:gn:fifo-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
     ],
     "keys_b": [
-      "gp:gn:fifo-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
-      "gp:gn:fifo-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+      "gp:gn:fifo-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
+      "gp:gn:fifo-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
     ],
     "scripts": [
       "fifo_get.lua",
@@ -17,7 +16,6 @@
   },
   "FifoClusterPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:{gn:fifo-c}:0",
       "gp:{gn:fifo-c}:1"
@@ -33,14 +31,13 @@
   },
   "FifoMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:fifo-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
-      "gp:gn:fifo-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+      "gp:gn:fifo-m:tests._golden_fns:fn_a#{checksum_a}:0",
+      "gp:gn:fifo-m:tests._golden_fns:fn_a#{checksum_a}:1"
     ],
     "keys_b": [
-      "gp:gn:fifo-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
-      "gp:gn:fifo-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+      "gp:gn:fifo-m:tests._golden_fns:fn_b#{checksum_b}:0",
+      "gp:gn:fifo-m:tests._golden_fns:fn_b#{checksum_b}:1"
     ],
     "scripts": [
       "fifo_get.lua",
@@ -49,7 +46,6 @@
   },
   "FifoPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:gn:fifo:0",
       "gp:gn:fifo:1"
@@ -65,14 +61,13 @@
   },
   "FifoTClusterMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:fifo_t-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
-      "gp:gn:fifo_t-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+      "gp:gn:fifo_t-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
+      "gp:gn:fifo_t-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
     ],
     "keys_b": [
-      "gp:gn:fifo_t-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
-      "gp:gn:fifo_t-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+      "gp:gn:fifo_t-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
+      "gp:gn:fifo_t-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
     ],
     "scripts": [
       "fifo_get.lua",
@@ -81,7 +76,6 @@
   },
   "FifoTClusterPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:{gn:fifo_t-c}:0",
       "gp:{gn:fifo_t-c}:1"
@@ -97,14 +91,13 @@
   },
   "FifoTMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:fifo_t-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
-      "gp:gn:fifo_t-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+      "gp:gn:fifo_t-m:tests._golden_fns:fn_a#{checksum_a}:0",
+      "gp:gn:fifo_t-m:tests._golden_fns:fn_a#{checksum_a}:1"
     ],
     "keys_b": [
-      "gp:gn:fifo_t-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
-      "gp:gn:fifo_t-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+      "gp:gn:fifo_t-m:tests._golden_fns:fn_b#{checksum_b}:0",
+      "gp:gn:fifo_t-m:tests._golden_fns:fn_b#{checksum_b}:1"
     ],
     "scripts": [
       "fifo_get.lua",
@@ -113,7 +106,6 @@
   },
   "FifoTPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:gn:fifo_t:0",
       "gp:gn:fifo_t:1"
@@ -129,14 +121,13 @@
   },
   "LfuClusterMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:lfu-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
-      "gp:gn:lfu-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+      "gp:gn:lfu-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
+      "gp:gn:lfu-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
     ],
     "keys_b": [
-      "gp:gn:lfu-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
-      "gp:gn:lfu-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+      "gp:gn:lfu-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
+      "gp:gn:lfu-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
     ],
     "scripts": [
       "lfu_get.lua",
@@ -145,7 +136,6 @@
   },
   "LfuClusterPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:{gn:lfu-c}:0",
       "gp:{gn:lfu-c}:1"
@@ -161,14 +151,13 @@
   },
   "LfuMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:lfu-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
-      "gp:gn:lfu-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+      "gp:gn:lfu-m:tests._golden_fns:fn_a#{checksum_a}:0",
+      "gp:gn:lfu-m:tests._golden_fns:fn_a#{checksum_a}:1"
     ],
     "keys_b": [
-      "gp:gn:lfu-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
-      "gp:gn:lfu-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+      "gp:gn:lfu-m:tests._golden_fns:fn_b#{checksum_b}:0",
+      "gp:gn:lfu-m:tests._golden_fns:fn_b#{checksum_b}:1"
     ],
     "scripts": [
       "lfu_get.lua",
@@ -177,7 +166,6 @@
   },
   "LfuPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:gn:lfu:0",
       "gp:gn:lfu:1"
@@ -193,14 +181,13 @@
   },
   "LruClusterMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:lru-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
-      "gp:gn:lru-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+      "gp:gn:lru-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
+      "gp:gn:lru-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
     ],
     "keys_b": [
-      "gp:gn:lru-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
-      "gp:gn:lru-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+      "gp:gn:lru-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
+      "gp:gn:lru-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
     ],
     "scripts": [
       "lru_get.lua",
@@ -209,7 +196,6 @@
   },
   "LruClusterPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:{gn:lru-c}:0",
       "gp:{gn:lru-c}:1"
@@ -225,14 +211,13 @@
   },
   "LruMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:lru-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
-      "gp:gn:lru-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+      "gp:gn:lru-m:tests._golden_fns:fn_a#{checksum_a}:0",
+      "gp:gn:lru-m:tests._golden_fns:fn_a#{checksum_a}:1"
     ],
     "keys_b": [
-      "gp:gn:lru-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
-      "gp:gn:lru-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+      "gp:gn:lru-m:tests._golden_fns:fn_b#{checksum_b}:0",
+      "gp:gn:lru-m:tests._golden_fns:fn_b#{checksum_b}:1"
     ],
     "scripts": [
       "lru_get.lua",
@@ -241,7 +226,6 @@
   },
   "LruPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:gn:lru:0",
       "gp:gn:lru:1"
@@ -257,14 +241,13 @@
   },
   "LruTClusterMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:lru_t-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
-      "gp:gn:lru_t-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+      "gp:gn:lru_t-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
+      "gp:gn:lru_t-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
     ],
     "keys_b": [
-      "gp:gn:lru_t-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
-      "gp:gn:lru_t-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+      "gp:gn:lru_t-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
+      "gp:gn:lru_t-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
     ],
     "scripts": [
       "lru_t_get.lua",
@@ -273,7 +256,6 @@
   },
   "LruTClusterPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:{gn:lru_t-c}:0",
       "gp:{gn:lru_t-c}:1"
@@ -289,14 +271,13 @@
   },
   "LruTMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:lru_t-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
-      "gp:gn:lru_t-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+      "gp:gn:lru_t-m:tests._golden_fns:fn_a#{checksum_a}:0",
+      "gp:gn:lru_t-m:tests._golden_fns:fn_a#{checksum_a}:1"
     ],
     "keys_b": [
-      "gp:gn:lru_t-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
-      "gp:gn:lru_t-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+      "gp:gn:lru_t-m:tests._golden_fns:fn_b#{checksum_b}:0",
+      "gp:gn:lru_t-m:tests._golden_fns:fn_b#{checksum_b}:1"
     ],
     "scripts": [
       "lru_t_get.lua",
@@ -305,7 +286,6 @@
   },
   "LruTPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:gn:lru_t:0",
       "gp:gn:lru_t:1"
@@ -323,14 +303,13 @@
     "ext_args": [
       "mru"
     ],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:mru-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
-      "gp:gn:mru-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+      "gp:gn:mru-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
+      "gp:gn:mru-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
     ],
     "keys_b": [
-      "gp:gn:mru-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
-      "gp:gn:mru-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+      "gp:gn:mru-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
+      "gp:gn:mru-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
     ],
     "scripts": [
       "lru_get.lua",
@@ -341,7 +320,6 @@
     "ext_args": [
       "mru"
     ],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:{gn:mru-c}:0",
       "gp:{gn:mru-c}:1"
@@ -359,14 +337,13 @@
     "ext_args": [
       "mru"
     ],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:mru-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
-      "gp:gn:mru-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+      "gp:gn:mru-m:tests._golden_fns:fn_a#{checksum_a}:0",
+      "gp:gn:mru-m:tests._golden_fns:fn_a#{checksum_a}:1"
     ],
     "keys_b": [
-      "gp:gn:mru-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
-      "gp:gn:mru-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+      "gp:gn:mru-m:tests._golden_fns:fn_b#{checksum_b}:0",
+      "gp:gn:mru-m:tests._golden_fns:fn_b#{checksum_b}:1"
     ],
     "scripts": [
       "lru_get.lua",
@@ -377,7 +354,6 @@
     "ext_args": [
       "mru"
     ],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:gn:mru:0",
       "gp:gn:mru:1"
@@ -393,14 +369,13 @@
   },
   "RrClusterMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:rr-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:0",
-      "gp:gn:rr-cm:tests._golden_fns:fn_a#{/ilYBuRjIdeT2rVgi//VMg}:1"
+      "gp:gn:rr-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
+      "gp:gn:rr-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
     ],
     "keys_b": [
-      "gp:gn:rr-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:0",
-      "gp:gn:rr-cm:tests._golden_fns:fn_b#{zyH72ZS3JuZomtXO8Ccd1g}:1"
+      "gp:gn:rr-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
+      "gp:gn:rr-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
     ],
     "scripts": [
       "rr_get.lua",
@@ -409,7 +384,6 @@
   },
   "RrClusterPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:{gn:rr-c}:0",
       "gp:{gn:rr-c}:1"
@@ -425,14 +399,13 @@
   },
   "RrMultiplePolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
-      "gp:gn:rr-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:0",
-      "gp:gn:rr-m:tests._golden_fns:fn_a#/ilYBuRjIdeT2rVgi//VMg:1"
+      "gp:gn:rr-m:tests._golden_fns:fn_a#{checksum_a}:0",
+      "gp:gn:rr-m:tests._golden_fns:fn_a#{checksum_a}:1"
     ],
     "keys_b": [
-      "gp:gn:rr-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:0",
-      "gp:gn:rr-m:tests._golden_fns:fn_b#zyH72ZS3JuZomtXO8Ccd1g:1"
+      "gp:gn:rr-m:tests._golden_fns:fn_b#{checksum_b}:0",
+      "gp:gn:rr-m:tests._golden_fns:fn_b#{checksum_b}:1"
     ],
     "scripts": [
       "rr_get.lua",
@@ -441,7 +414,6 @@
   },
   "RrPolicy": {
     "ext_args": [],
-    "hash": "304318b8299fb5c4865285ecfd75ee61",
     "keys_a": [
       "gp:gn:rr:0",
       "gp:gn:rr:1"
