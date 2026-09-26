@@ -137,7 +137,7 @@ def test_miss_does_not_slide_ttl():
 
         decorated = ttl_cache.decorate()(echo)
         client = ttl_cache.get_redis_client()
-        index_key, hmap_key = ttl_cache.policy.calc_keys(echo)
+        index_key, hmap_key = ttl_cache.policy.calc_key_pair(echo)
 
         assert decorated("a") == "a"  # put：两侧 TTL 设为 60
 
@@ -177,7 +177,7 @@ def test_miss_cleans_index_ghost(policy):
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
 
     assert decorated("a") == "a"
@@ -202,7 +202,7 @@ def test_miss_cleans_orphan_hash_field(policy):
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
 
     assert decorated("a") == "a"

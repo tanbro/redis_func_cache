@@ -171,11 +171,11 @@ and races against concurrent `purge`/expiry degrade to harmless no-ops on missin
 keys; pairs created mid-run are picked up by the next vacuum.
 
 The key-pair enumeration is exposed as a small **abstract** hook pair,
-`calc_key_pairs` / `acalc_key_pairs`. Being mandatory override points, they are
+`iterate_key_pairs` / `aiterate_key_pairs`. Being mandatory override points, they are
 abstract on `Policy`/its components, so a policy missing them fails fast
 rather than mid-vacuum. The rule of thumb: **hooks that subclasses must implement are
 abstract and public; machinery that subclasses must not touch carries a leading
-underscore** — consistent with `calc_keys` / `purge` / `get_size` conventions in the
+underscore** — consistent with `calc_key_pair` / `purge` / `get_size` conventions in the
 same hierarchy.
 
 ### Relationship to `get_size`
@@ -183,5 +183,5 @@ same hierarchy.
 `get_size` now reports the index cardinality (`ZCARD` / `SCARD`), matching the eviction
 accounting; ghosts therefore keep the reported size elevated until reclaimed. Users who
 want the live-entry count can read the HASH length (`HLEN`) of the second key from
-`calc_keys()`. A `get_size(accurate=True)` convenience (vacuum first, then report — the
+`calc_key_pair()`. A `get_size(accurate=True)` convenience (vacuum first, then report — the
 two numbers coincide afterwards) remains a possible follow-up, not part of the initial change.

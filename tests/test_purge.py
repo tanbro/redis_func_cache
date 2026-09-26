@@ -39,7 +39,7 @@ def test_single_policy_purge():
     decorated = cache.decorate(echo)
     assert decorated("a") == "a"
 
-    zset_key, hmap_key = cache.policy.calc_keys(echo)
+    zset_key, hmap_key = cache.policy.calc_key_pair(echo)
     assert cache.purge() == 2
     assert client.exists(zset_key, hmap_key) == 0
     assert decorated("a") == "a"  # 缓存已清空，重新执行

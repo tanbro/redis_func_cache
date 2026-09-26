@@ -32,7 +32,7 @@ def test_rebuild_when_index_key_missing(policy):
     cache, decorated, echo, client = _make_cache(policy)
 
     assert decorated("a") == "a"
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     client.delete(index_key)
     assert client.exists(index_key, hmap_key) == 1
 
@@ -47,7 +47,7 @@ def test_rebuild_when_hash_key_missing(policy):
     cache, decorated, echo, client = _make_cache(policy)
 
     assert decorated("a") == "a"
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     client.delete(hmap_key)
     assert client.exists(index_key, hmap_key) == 1
 
@@ -62,7 +62,7 @@ def test_rebuild_sets_ttl_on_both_keys(policy):
     cache, decorated, echo, client = _make_cache(policy, ttl=60)
 
     assert decorated("a") == "a"
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     client.delete(index_key)
 
     assert decorated("a") == "a"  # 重建
@@ -75,7 +75,7 @@ def test_both_keys_missing_recreates_cleanly():
     cache, decorated, echo, client = _make_cache(LruPolicy, ttl=60)
 
     assert decorated("a") == "a"
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     client.delete(index_key, hmap_key)
 
     assert decorated("a") == "a"
@@ -92,7 +92,7 @@ def test_get_size_reports_index_cardinality(policy):
     行为变更：get_size 曾报告 HLEN（活字段数），与驱逐脚本使用的索引基数不一致。
     """
     cache, decorated, echo, client = _make_cache(policy)
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
     hash_b = cache.policy.calc_hash(echo, ("b",), {})
 

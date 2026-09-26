@@ -222,7 +222,7 @@ def test_mru_eviction_direction():
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, _ = cache.policy.calc_keys(echo)
+    index_key, _ = cache.policy.calc_key_pair(echo)
     hash_0 = cache.policy.calc_hash(echo, (0,), {})
     hash_1 = cache.policy.calc_hash(echo, (1,), {})
 
@@ -253,7 +253,7 @@ def test_maxsize_shrink_mass_eviction():
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
 
     # 直接用 pipeline 灌入 total 条，绕过装饰器
     pipe = client.pipeline(transaction=False)

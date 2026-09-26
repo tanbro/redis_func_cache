@@ -79,17 +79,17 @@ class TestKeying:
         def fn():
             pass
 
-        assert SingleKeying("lru").calc_keys("p:", "n") == ("p:n:lru:0", "p:n:lru:1")
-        assert SingleKeying("lru").calc_keys("p:", "n", fn) == ("p:n:lru:0", "p:n:lru:1")
-        assert ClusterSingleKeying("lru-c").calc_keys("p:", "n") == ("p:{n:lru-c}:0", "p:{n:lru-c}:1")
-        m = MultipleKeying("lru-m").calc_keys("p:", "n", fn)
+        assert SingleKeying("lru").calc_key_pair("p:", "n") == ("p:n:lru:0", "p:n:lru:1")
+        assert SingleKeying("lru").calc_key_pair("p:", "n", fn) == ("p:n:lru:0", "p:n:lru:1")
+        assert ClusterSingleKeying("lru-c").calc_key_pair("p:", "n") == ("p:{n:lru-c}:0", "p:{n:lru-c}:1")
+        m = MultipleKeying("lru-m").calc_key_pair("p:", "n", fn)
         assert m[0].startswith("p:n:lru-m:") and m[0].endswith(":0") and m[0][:-2] + ":1" == m[1]
-        cm = ClusterMultipleKeying("lru-cm").calc_keys("p:", "n", fn)
+        cm = ClusterMultipleKeying("lru-cm").calc_key_pair("p:", "n", fn)
         assert "#{" in cm[0] and cm[0].endswith(":0")
 
     def test_multiple_requires_fn(self):
         with pytest.raises(TypeError):
-            MultipleKeying("lru-m").calc_keys("p:", "n", None)
+            MultipleKeying("lru-m").calc_key_pair("p:", "n", None)
 
 
 class TestPolicy:
@@ -99,13 +99,13 @@ class TestPolicy:
 
     def test_unbound_raises(self):
         with pytest.raises(RuntimeError):
-            Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts()).calc_keys(_echo)
+            Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts()).calc_key_pair(_echo)
 
     def test_delegation(self, mocker):
         policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, MruScripts())
         policy._bind("p:", "n")
         assert policy.calc_ext_args(_echo) == ("mru",)
-        assert policy.calc_keys(_echo) == ("p:n:lru:0", "p:n:lru:1")
+        assert policy.calc_key_pair(_echo) == ("p:n:lru:0", "p:n:lru:1")
         assert policy.scripts.index_structure == "zset"
 
     def test_base_key_is_the_public_override_point(self):
@@ -113,18 +113,16 @@ class TestPolicy:
             def base_key(self, prefix: str, name: str, fn=None) -> str:
                 return f"{prefix}-{name}-{self.key}"
 
-        assert MyKeying("x").calc_keys("p:", "n") == ("p:-n-x:0", "p:-n-x:1")
+        assert MyKeying("x").calc_key_pair("p:", "n") == ("p:-n-x:0", "p:-n-x:1")
 
         class Incomplete(Keying):
             pass
 
         with pytest.raises(NotImplementedError):
-            Incomplete().calc_keys("p:", "n")
+            Incomplete().calc_key_pair("p:", "n")
 
     def test_get_size_dispatches_by_index_structure(self, mocker):
         """get_size picks SCARD vs ZCARD from scripts.index_structure."""
-        mocker.patch("redis_func_cache.policies.is_redis_sync_client", return_value=True)
-        mocker.patch("redis_func_cache.keying.is_redis_sync_client", return_value=True)
         for scripts, command in ((LruScripts(), "zcard"), (RrScripts(), "scard")):
             client = mocker.Mock()
             client.scan_iter.return_value = iter(["k:0"])
@@ -143,11 +141,3 @@ class TestCachePolicySnapshot:
         cache_b = RedisFuncCache(uuid4().hex, LruPolicy, factory=redis_factory)
         assert cache_a.policy is not cache_b.policy
         assert cache_a.policy is not LruPolicy
-
-    def test_mismatched_client_raises(self, mocker):
-        async_client = mocker.Mock()
-        async_client.__class__ = type("FakeAsync", (), {})
-        policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts())
-        policy._bind("p:", "n")
-        with pytest.raises(RuntimeError):
-            policy.get_size(async_client)

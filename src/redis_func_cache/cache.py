@@ -33,7 +33,9 @@ from .typing import (
     CallableTV,
     HashValueT,
     RedisClientTV,
+    is_redis_async_client,
     is_redis_async_script,
+    is_redis_sync_client,
     is_redis_sync_script,
 )
 
@@ -613,7 +615,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             args, kwds = user_args, user_kwds
         else:
             args, kwds = bound.args, bound.kwargs
-        keys = self.policy.calc_keys(user_function, args, kwds)
+        keys = self.policy.calc_key_pair(user_function, args, kwds)
         hash_value = self.policy.calc_hash(user_function, args, kwds)
         ext_args = self.policy.calc_ext_args(user_function, args, kwds) or ()
         return keys, hash_value, ext_args
@@ -1261,14 +1263,20 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         .. versionadded:: 1.0
         """
-        return self.policy.purge(self.get_redis_client() if redis_client is None else redis_client, batch_size)
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if not is_redis_sync_client(client):
+            raise TypeError("`redis_client` must be a synchronous Redis client")
+        return self.policy.purge(client, batch_size)
 
     async def apurge(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Async version of :meth:`purge`.
 
         .. versionadded:: 1.0
         """
-        return await self.policy.apurge(self.get_redis_client() if redis_client is None else redis_client, batch_size)
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if not is_redis_async_client(client):
+            raise TypeError("`redis_client` must be an asynchronous Redis client")
+        return await self.policy.apurge(client, batch_size)
 
     def vacuum(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
@@ -1285,11 +1293,17 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         .. versionadded:: 1.0
         """
-        return self.policy.vacuum(self.get_redis_client() if redis_client is None else redis_client, batch_size)
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if not is_redis_sync_client(client):
+            raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
+        return self.policy.vacuum(client, batch_size)
 
     async def avacuum(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
         """Async version of :meth:`vacuum`.
 
         .. versionadded:: 1.0
         """
-        return await self.policy.avacuum(self.get_redis_client() if redis_client is None else redis_client, batch_size)
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if not is_redis_async_client(client):
+            raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
+        return await self.policy.avacuum(client, batch_size)

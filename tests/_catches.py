@@ -35,7 +35,7 @@ from redis_func_cache.typing import is_redis_async_client
 
 if TYPE_CHECKING:
     from redis_func_cache.policies import Policy
-    from redis_func_cache.typing import RedisClientT
+    from redis_func_cache.typing import RedisAsyncClientT, RedisSyncClientT
 
 try:
     from dotenv import load_dotenv
@@ -84,8 +84,8 @@ REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES")
 
 # 解析 Redis 集群节点
 CLUSTER_NODES: list[ClusterNode] = []
-CLUSTER_CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {}
-CLUSTER_MULTI_CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {}
+CLUSTER_CACHES: dict[str, RedisFuncCache[RedisSyncClientT, Policy]] = {}
+CLUSTER_MULTI_CACHES: dict[str, RedisFuncCache[RedisSyncClientT, Policy]] = {}
 
 if REDIS_CLUSTER_NODES:
     CLUSTER_NODES = [
@@ -112,7 +112,7 @@ if REDIS_CLUSTER_NODES:
     }
 
 
-CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {
+CACHES: dict[str, RedisFuncCache[RedisSyncClientT, Policy]] = {
     "tlru": RedisFuncCache(__name__, LruTPolicy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "lru": RedisFuncCache(__name__, LruPolicy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "mru": RedisFuncCache(__name__, MruPolicy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
@@ -121,7 +121,7 @@ CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {
     "lfu": RedisFuncCache(__name__, LfuPolicy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
-MULTI_CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {
+MULTI_CACHES: dict[str, RedisFuncCache[RedisSyncClientT, Policy]] = {
     "tlru": RedisFuncCache(__name__, LruTMultiplePolicy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "lru": RedisFuncCache(__name__, LruMultiplePolicy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "mru": RedisFuncCache(__name__, MruMultiplePolicy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
@@ -131,7 +131,7 @@ MULTI_CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {
 }
 
 
-ASYNC_CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {
+ASYNC_CACHES: dict[str, RedisFuncCache[RedisAsyncClientT, Policy]] = {
     "tlru": RedisFuncCache(__name__, LruTPolicy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
     "lru": RedisFuncCache(__name__, LruPolicy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
     "mru": RedisFuncCache(__name__, MruPolicy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
@@ -141,7 +141,7 @@ ASYNC_CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {
 }
 
 
-ASYNC_MULTI_CACHES: dict[str, RedisFuncCache[RedisClientT, Policy]] = {
+ASYNC_MULTI_CACHES: dict[str, RedisFuncCache[RedisAsyncClientT, Policy]] = {
     "tlru": RedisFuncCache(__name__, LruTClusterMultiplePolicy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
     "lru": RedisFuncCache(__name__, LruClusterMultiplePolicy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
     "mru": RedisFuncCache(__name__, MruClusterMultiplePolicy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),

@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import sys
 from abc import ABC
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Any
 
 if sys.version_info < (3, 12):  # pragma: no cover
@@ -43,11 +43,12 @@ else:  # pragma: no cover
     from typing import override
 
 from .fingerprint import hash_fingerprint
-from .typing import is_redis_async_client, is_redis_sync_client
 from .utils import b64digest, calculate_callable_fullname
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .typing import KeyNameT, RedisClientT
+    from collections.abc import AsyncIterator
+
+    from .typing import KeyNameT, RedisAsyncClientT, RedisSyncClientT
 
 __all__ = (
     "ClusterMultipleKeying",
@@ -68,9 +69,9 @@ def _hash_key_of(index_key: str | bytes) -> str | bytes:
 class Keying(ABC):
     """Decide the Redis key pair a cached value lives under, and manage those keys.
 
-    This class is designed for subclassing: :meth:`calc_keys` is the public API
+    This class is designed for subclassing: :meth:`calc_key_pair` is the public API
     (kept final here) and :meth:`base_key` is the single override point. The
-    ``:0``/``:1`` suffixes applied by :meth:`calc_keys` are an invariant every
+    ``:0``/``:1`` suffixes applied by :meth:`calc_key_pair` are an invariant every
     variant shares.
     """
 
@@ -81,7 +82,7 @@ class Keying(ABC):
         """Build the key base — everything before the ``:0``/``:1`` suffix.
 
         The single override point for key-naming variants. Callers should use
-        :meth:`calc_keys`, which applies the shared ``:0``/``:1`` suffixes.
+        :meth:`calc_key_pair`, which applies the shared ``:0``/``:1`` suffixes.
 
         Args:
             prefix: The cache's key prefix.
@@ -95,7 +96,7 @@ class Keying(ABC):
         """
         raise NotImplementedError
 
-    def calc_keys(
+    def calc_key_pair(
         self,
         prefix: str,
         name: str,
@@ -121,24 +122,27 @@ class Keying(ABC):
         k = self.base_key(prefix, name, fn)
         return f"{k}:0", f"{k}:1"
 
-    def calc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyNameT, KeyNameT]]:
-        """Return the ``(index key, value key)`` pairs owned by this policy (sync).
+    def iterate_key_pairs(
+        self, redis_client: RedisSyncClientT, prefix: str, name: str
+    ) -> Iterator[tuple[KeyNameT, KeyNameT]]:
+        """Iterate over the ``(index key, value key)`` pairs owned by this policy (sync).
 
-        Used by :meth:`Policy.vacuum`; the caller has already guarded the client.
+        Streams lazily; nothing is materialized. The base implementation yields
+        the single static pair (the single-variant behavior); the multiple
+        variants override this with a ``SCAN`` stream.
+
+        Used by :meth:`Policy.vacuum` and :meth:`Policy.get_size`; the caller
+        has already guarded the client.
         """
-        if not is_redis_sync_client(redis_client):
-            raise TypeError("`redis_client` must be a synchronous Redis client")
-        return [self.calc_keys(prefix, name)]
+        yield self.calc_key_pair(prefix, name)
 
-    async def acalc_key_pairs(
-        self, redis_client: RedisClientT, prefix: str, name: str
-    ) -> list[tuple[KeyNameT, KeyNameT]]:
-        """Async version of :meth:`calc_key_pairs`."""
-        if not is_redis_async_client(redis_client):
-            raise TypeError("`redis_client` must be an asynchronous Redis client")
-        return [self.calc_keys(prefix, name)]
+    async def aiterate_key_pairs(
+        self, redis_client: RedisAsyncClientT, prefix: str, name: str
+    ) -> AsyncIterator[tuple[KeyNameT, KeyNameT]]:
+        """Async version of :meth:`iterate_key_pairs`."""
+        yield self.calc_key_pair(prefix, name)
 
-    def purge(self, redis_client: RedisClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+    def purge(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Delete all Redis keys owned by this policy (sync).
 
         Args:
@@ -150,15 +154,11 @@ class Keying(ABC):
         Returns:
             Number of keys deleted.
         """
-        if not is_redis_sync_client(redis_client):
-            raise TypeError("`redis_client` must be a synchronous Redis client")
-        return redis_client.delete(*self.calc_keys(prefix, name))  # type: ignore[union-attr]
+        return redis_client.delete(*self.calc_key_pair(prefix, name))
 
-    async def apurge(self, redis_client: RedisClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+    async def apurge(self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Async version of :meth:`purge`."""
-        if not is_redis_async_client(redis_client):
-            raise TypeError("`redis_client` must be an asynchronous Redis client")
-        return await redis_client.delete(*self.calc_keys(prefix, name))  # type: ignore[union-attr]
+        return await redis_client.delete(*self.calc_key_pair(prefix, name))
 
 
 class SingleKeying(Keying):
@@ -199,52 +199,46 @@ class MultipleKeying(Keying):
         return f"{prefix}{name}:{self.key}:{fullname}#{checksum}"
 
     @override
-    def calc_key_pairs(self, redis_client: RedisClientT, prefix: str, name: str) -> list[tuple[KeyNameT, KeyNameT]]:
-        if not is_redis_sync_client(redis_client):
-            raise TypeError("`redis_client` must be a synchronous Redis client")
-        pat = self._index_pattern(prefix, name)
-        return [(k, _hash_key_of(k)) for k in redis_client.scan_iter(match=pat)]  # type: ignore[union-attr]
+    def iterate_key_pairs(
+        self, redis_client: RedisSyncClientT, prefix: str, name: str
+    ) -> Iterator[tuple[KeyNameT, KeyNameT]]:
+        for k in redis_client.scan_iter(match=self._index_pattern(prefix, name)):
+            yield k, _hash_key_of(k)
 
     @override
-    async def acalc_key_pairs(
-        self, redis_client: RedisClientT, prefix: str, name: str
-    ) -> list[tuple[KeyNameT, KeyNameT]]:
-        if not is_redis_async_client(redis_client):
-            raise TypeError("`redis_client` must be an asynchronous Redis client")
-        pat = self._index_pattern(prefix, name)
-        return [(k, _hash_key_of(k)) async for k in redis_client.scan_iter(match=pat)]  # type: ignore[union-attr]
+    async def aiterate_key_pairs(
+        self, redis_client: RedisAsyncClientT, prefix: str, name: str
+    ) -> AsyncIterator[tuple[KeyNameT, KeyNameT]]:
+        async for k in redis_client.scan_iter(match=self._index_pattern(prefix, name)):
+            yield k, _hash_key_of(k)
 
     @override
-    def purge(self, redis_client: RedisClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+    def purge(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Enumerate keys with ``SCAN`` and delete them in batches with ``UNLINK``."""
-        if not is_redis_sync_client(redis_client):
-            raise TypeError("`redis_client` must be a synchronous Redis client")
         pat = f"{prefix}{name}:{self.key}:*"
         removed = 0
         batch: list[KeyNameT] = []
         for key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
             batch.append(key)
             if len(batch) >= batch_size:
-                removed += redis_client.unlink(*batch)  # type: ignore[union-attr]
+                removed += redis_client.unlink(*batch)
                 batch.clear()
         if batch:
-            removed += redis_client.unlink(*batch)  # type: ignore[union-attr]
+            removed += redis_client.unlink(*batch)
         return removed
 
     @override
-    async def apurge(self, redis_client: RedisClientT, prefix: str, name: str, batch_size: int = 500) -> int:
-        if not is_redis_async_client(redis_client):
-            raise TypeError("`redis_client` must be an asynchronous Redis client")
+    async def apurge(self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         pat = f"{prefix}{name}:{self.key}:*"
         removed = 0
         batch: list[KeyNameT] = []
         async for key in redis_client.scan_iter(match=pat):  # type: ignore[union-attr]
             batch.append(key)
             if len(batch) >= batch_size:
-                removed += await redis_client.unlink(*batch)  # type: ignore[union-attr]
+                removed += await redis_client.unlink(*batch)
                 batch.clear()
         if batch:
-            removed += await redis_client.unlink(*batch)  # type: ignore[union-attr]
+            removed += await redis_client.unlink(*batch)
         return removed
 
     def _index_pattern(self, prefix: str, name: str) -> str:

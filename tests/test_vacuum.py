@@ -62,7 +62,7 @@ def test_vacuum_removes_ghosts(policy_factory):
     for v in values:
         assert decorated(v) == v
 
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     assert _index_size(client, index_key) == 3
 
     client.delete(hmap_key)  # 所有字段瞬间"过期"，全部成为幽灵
@@ -82,7 +82,7 @@ def test_vacuum_keeps_live_entries():
     assert decorated("a") == "a"
     assert decorated("b") == "b"
 
-    zset_key, hmap_key = cache.policy.calc_keys(echo)
+    zset_key, hmap_key = cache.policy.calc_key_pair(echo)
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
     hash_b = cache.policy.calc_hash(echo, ("b",), {})
     client.hdel(hmap_key, hash_a)
@@ -98,7 +98,7 @@ def test_vacuum_on_empty_cache():
     client = Redis.from_url(REDIS_URL)
 
     assert cache.vacuum() == 0
-    zset_key, hmap_key = cache.policy.calc_keys()
+    zset_key, hmap_key = cache.policy.calc_key_pair()
     assert client.exists(zset_key, hmap_key) == 0
 
 
@@ -115,7 +115,7 @@ def test_vacuum_with_small_batch_size():
     for _ in range(count):
         assert decorated(uuid4().hex) is not None
 
-    zset_key, hmap_key = cache.policy.calc_keys(echo)
+    zset_key, hmap_key = cache.policy.calc_key_pair(echo)
     client.delete(hmap_key)
 
     assert cache.vacuum(batch_size=5) == count
@@ -144,7 +144,7 @@ async def test_avacuum_removes_ghosts(policy_factory):
     for v in values:
         assert await decorated(v) == v
 
-    index_key, hmap_key = cache.policy.calc_keys(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
     assert await _aindex_size(client, index_key) == 3
 
     await client.delete(hmap_key)

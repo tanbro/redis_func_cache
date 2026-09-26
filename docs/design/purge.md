@@ -6,7 +6,7 @@
 policy shapes differ structurally:
 
 - **Single policies** own exactly one static key pair (`...:0` ZSET + `...:1`
-  HASH). `BaseSinglePolicy.purge` calls `DEL` on the two names from `calc_keys()` —
+  HASH). `BaseSinglePolicy.purge` calls `DEL` on the two names from `calc_key_pair()` —
   two keys, one command, no enumeration. This variant is already correct and needs no
   change.
 - **Multiple policies** own one key pair *per decorated function*, discovered at
@@ -69,7 +69,7 @@ keys) gain nothing from `UNLINK` over `DEL`, but the code stays uniform and the 
 bound keeps worst cases flat.
 
 The pattern is deliberately `...:{__key__}:*` — *not* the `:*:0` pattern of
-`calc_key_pairs`: a purge must take the hash (`:1`) along with the sorted set (`:0`),
+`iterate_key_pairs`: a purge must take the hash (`:1`) along with the sorted set (`:0`),
 so the enumeration cannot reuse the vacuum's pair iterator even though both start from
 `SCAN`.
 
@@ -77,7 +77,7 @@ so the enumeration cannot reuse the vacuum's pair iterator even though both star
 
 Single policies keep deleting their static pair — nothing to enumerate. Multiple
 policies enumerate with `scan_iter` inline in `purge`/`apurge` (the `:*` pattern and
-the flat key list differ from `calc_key_pairs`'s `:*:0`-pattern pair list, so sharing
+the flat key list differ from `iterate_key_pairs`'s `:*:0`-pattern pair list, so sharing
 would complicate both call sites for no reuse).
 
 ### Cache-level delegation

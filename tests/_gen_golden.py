@@ -3,7 +3,7 @@
 Run against any implementation to (re)freeze the observable contract of every
 built-in policy:
 
-- the Redis key pair produced by :meth:`calc_keys` for two distinct functions,
+- the Redis key pair produced by :meth:`calc_key_pair` for two distinct functions,
 - the sub-key hash produced by :meth:`calc_hash` for fixed inputs,
 - the extra ARGV entries from :meth:`calc_ext_args`,
 - the (get, put) Lua script file names.
@@ -43,8 +43,8 @@ def main() -> None:
                 continue
             policy._bind(PREFIX, NAME)
             golden[attr] = {
-                "keys_a": list(policy.calc_keys(fn_a, ARGS, KWDS)),
-                "keys_b": list(policy.calc_keys(fn_b, ARGS, KWDS)),
+                "keys_a": list(policy.calc_key_pair(fn_a, ARGS, KWDS)),
+                "keys_b": list(policy.calc_key_pair(fn_b, ARGS, KWDS)),
                 "hash": policy.calc_hash(fn_a, ARGS, KWDS).hex(),  # type: ignore[union-attr]
                 "ext_args": list(policy.calc_ext_args(fn_a, ARGS, KWDS) or ()),
                 "scripts": [policy.scripts.get_script, policy.scripts.put_script],

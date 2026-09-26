@@ -28,7 +28,7 @@ existing Redis data stays readable (golden tests pin this contract).
   (`Hasher`, `HashConfig`, presets such as `PickleMd5Hasher`) and
   `scripts.py` (`LruScripts`, `RrScripts`, ...).
 - `Policy(keying, hasher, scripts)` composes the three dimensions and exposes
-  the same facade the cache calls (`calc_keys`, `calc_hash`, `purge`,
+  the same facade the cache calls (`calc_key_pair`, `calc_hash`, `purge`,
   `get_size`, `vacuum`, ...).
 - The hash factory `make_hash_mixin` is replaced by
   [`make_hasher`][redis_func_cache.hashing.make_hasher]; `make_scripts_mixin`
@@ -37,7 +37,7 @@ existing Redis data stays readable (golden tests pin this contract).
   for RR) instead of HLEN, matching what `maxsize` enforcement uses.
 - Policy methods that talk to Redis take the client as an explicit first
   parameter named `redis_client`: `purge`, `apurge`, `get_size`, `aget_size`,
-  `vacuum`, `avacuum`, and `calc_key_pairs` / `acalc_key_pairs`. The script
+  `vacuum`, `avacuum`, and `iterate_key_pairs` / `aiterate_key_pairs`. The script
   registration (`lua_scripts` / `vacuum_script`) likewise moved to the
   `scripts` component as methods taking `redis_client` — no more cached
   `Script` objects bound to a stale client. The cache obtains the client from

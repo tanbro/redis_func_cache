@@ -66,21 +66,21 @@ def test_cache_key_is_exactly_the_consumed_fields():
 
 
 def test_fingerprint_shared_between_mixin_and_policy():
-    """A multiple policy's calc_keys checksum must hit the same cache entry the
+    """A multiple policy's calc_key_pair checksum must hit the same cache entry the
     hash mixin seeded."""
     cache = MULTI_CACHES["lru"]
     policy = cache.policy
 
     before = hash_fingerprint.cache_info().hits
     JsonMd5HexHasher().calc_hash(_echo, (1,), None)
-    policy.calc_keys(fn=_echo, args=(), kwds={})
+    policy.calc_key_pair(fn=_echo, args=(), kwds={})
     assert hash_fingerprint.cache_info().hits >= before + 1
 
 
 def test_multiple_policy_key_contains_b64_checksum():
     """The key pair must embed fullname#<base64 md5 fingerprint>, unpadded."""
     cache = MULTI_CACHES["lru"]
-    keys = cache.policy.calc_keys(fn=_echo, args=(), kwds={})
+    keys = cache.policy.calc_key_pair(fn=_echo, args=(), kwds={})
     fullname = calculate_callable_fullname(_echo)
     checksum = b64encode(_reference_fingerprint("md5", True, _echo)).rstrip(b"=").decode()
     for key in keys:

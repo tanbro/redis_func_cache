@@ -77,8 +77,8 @@ class TestGoldenPolicyContract:
     def test_keys(self, policy):
         name, policy = policy
         expected = GOLDEN[name]
-        assert list(policy.calc_keys(fn_a, ARGS, KWDS)) == expected["keys_a"]
-        assert list(policy.calc_keys(fn_b, ARGS, KWDS)) == expected["keys_b"]
+        assert list(policy.calc_key_pair(fn_a, ARGS, KWDS)) == expected["keys_a"]
+        assert list(policy.calc_key_pair(fn_b, ARGS, KWDS)) == expected["keys_b"]
 
     def test_hash(self, policy):
         name, policy = policy
@@ -153,7 +153,7 @@ class TestGoldenArgvLayout:
         scripts = tuple(client.register_script(t) for t in ("get", "put"))
         name, policy = _policies()[0]
         keys, hash_value, ext_args = (
-            policy.calc_keys(fn_a, ARGS, KWDS),
+            policy.calc_key_pair(fn_a, ARGS, KWDS),
             policy.calc_hash(fn_a, ARGS, KWDS),
             policy.calc_ext_args(fn_a, ARGS, KWDS) or (),
         )

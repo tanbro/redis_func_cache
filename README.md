@@ -135,7 +135,7 @@ Here is an example showing how the *LRU* cache's eviction policy works (maximum 
 The [`RedisFuncCache`][] executes a decorated function with specified arguments and caches its result. Here's a breakdown of the steps:
 
 1. **Initialize Scripts**: Retrieve two Lua script objects for cache hit and update from `policy.lua_scripts`.
-1. **Calculate Keys and Hash**: Compute the cache keys using `policy.calc_keys`, compute the hash value using `policy.calc_hash`, and compute any additional arguments using `policy.calc_ext_args`.
+1. **Calculate Keys and Hash**: Compute the cache key pair using `policy.calc_key_pair`, compute the hash value using `policy.calc_hash`, and compute any additional arguments using `policy.calc_ext_args`.
 1. **Attempt Cache Retrieval**: Attempt to retrieve a cached result. If a cache hit occurs, deserialize and return the cached result.
 1. **Execute User Function**: If no cache hit occurs, execute the decorated function with the provided arguments and keyword arguments.
 1. **Serialize Result and Cache**: Serialize the result of the user function and store it in Redis.
@@ -430,7 +430,7 @@ classDiagram
         +keying: Keying
         +hasher: Hasher
         +scripts: Scripts
-        +calc_keys(f, args, kwds) -> Tuple[str, str]
+        +calc_key_pair(f, args, kwds) -> Tuple[str, str]
         +calc_hash(f, args, kwds) -> KeyT
         +purge() -> int
         +apurge() -> int
@@ -441,7 +441,7 @@ classDiagram
     class Keying {
         <<interface>>
         key: str
-        +calc_keys(prefix, name, f) -> Tuple[str, str]
+        +calc_key_pair(prefix, name, f) -> Tuple[str, str]
     }
 
     class Hasher {

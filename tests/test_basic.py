@@ -28,7 +28,7 @@ def clean_caches():
 def test_policy_extension_methods_accept_fn_keyword():
     policy = MULTI_CACHES["lru"].policy
 
-    keys = policy.calc_keys(fn=_echo, args=(), kwds={})
+    keys = policy.calc_key_pair(fn=_echo, args=(), kwds={})
     hash_value = policy.calc_hash(fn=_echo, args=(), kwds={})
     ext_args = CACHES["mru"].policy.calc_ext_args(fn=_echo, args=(), kwds={})
 

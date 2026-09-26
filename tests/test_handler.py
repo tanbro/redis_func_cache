@@ -520,7 +520,7 @@ def test_handler_context_uses_bound_args_matching_key_computation():
 
     # The same filtered args drive key computation: same effective args → same keys/hash
     assert ctx.func is raw_call
-    assert ctx.keys == c.policy.calc_keys(raw_call, (7,), {})
+    assert ctx.keys == c.policy.calc_key_pair(raw_call, (7,), {})
     assert ctx.hash_value == c.policy.calc_hash(raw_call, (7,), {})
     c.policy.purge(redis_client=c.get_redis_client())
 

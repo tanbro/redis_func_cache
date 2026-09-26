@@ -138,7 +138,7 @@ removed = cache.vacuum(batch_size=500)  # Returns the number of ghosts removed
 
 For async caches, use `await cache.avacuum()`. Each invocation scans incrementally (in `batch_size` chunks) and is atomic per step, so it is safe to run while the cache is serving traffic.
 
-Note on size reporting: `cache.policy.get_size()` returns the index structure cardinality — the same number the eviction script enforces `maxsize` against. Ghost entries keep it elevated until reclaimed; the count of live values is the HASH length (`HLEN`) of the second key from `cache.policy.calc_keys(fn)`.
+Note on size reporting: `cache.policy.get_size()` returns the index structure cardinality — the same number the eviction script enforces `maxsize` against. Ghost entries keep it elevated until reclaimed; the count of live values is the HASH length (`HLEN`) of the second key from `cache.policy.calc_key_pair(fn)`.
 
 ## Cache Mode Control
 

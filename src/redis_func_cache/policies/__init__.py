@@ -34,20 +34,23 @@ The built-in policies (``LruPolicy``, ``RrPolicy``, ...) are preset
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from typing import TYPE_CHECKING, Any, cast
 
-from redis.commands.core import AsyncScript, Script
+if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import AsyncIterator
 
-from ..hashing import Hasher
-from ..keying import Keying
-from ..scripts import Scripts
-from ..typing import is_redis_async_client, is_redis_sync_client
+from redis.commands.core import AsyncScript, Script
 
 if TYPE_CHECKING:  # pragma: no cover
     from redis.typing import ScriptTextT
 
-    from ..typing import HashValueT, KeyNameT, RedisClientT
+from ..hashing import Hasher
+from ..keying import Keying
+from ..scripts import Scripts
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..typing import HashValueT, KeyNameT, RedisAsyncClientT, RedisClientT, RedisSyncClientT
 
 __all__ = ("Policy",)
 
@@ -146,7 +149,7 @@ class Policy:
 
     # --- keying dimension -------------------------------------------------
 
-    def calc_keys(
+    def calc_key_pair(
         self,
         fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
@@ -163,19 +166,39 @@ class Policy:
             Tuple of two Redis key names (index key, value key).
         """
         prefix, name = self._require_bound()
-        return self.keying.calc_keys(prefix, name, fn, args, kwds)
+        return self.keying.calc_key_pair(prefix, name, fn, args, kwds)
 
-    def calc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyNameT, KeyNameT]]:
-        """Return the (index key, value key) pairs to vacuum."""
+    def iterate_key_pairs(self, redis_client: RedisSyncClientT) -> Iterator[tuple[KeyNameT, KeyNameT]]:
+        """Iterate over the (index key, value key) pairs owned by this policy.
+
+        Streams lazily — nothing is materialized. See
+        :meth:`Keying.iterate_key_pairs <redis_func_cache.keying.Keying.iterate_key_pairs>`.
+
+        Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
+
+        Returns:
+            Iterator of (index key, value key) pairs.
+        """
         prefix, name = self._require_bound()
-        return self.keying.calc_key_pairs(redis_client, prefix, name)
+        return self.keying.iterate_key_pairs(redis_client, prefix, name)
 
-    async def acalc_key_pairs(self, redis_client: RedisClientT) -> list[tuple[KeyNameT, KeyNameT]]:
-        """Async version of :meth:`calc_key_pairs`."""
+    def aiterate_key_pairs(self, redis_client: RedisAsyncClientT) -> AsyncIterator[tuple[KeyNameT, KeyNameT]]:
+        """Async version of :meth:`iterate_key_pairs`.
+
+        Not a coroutine: returns the async iterator directly, so callers can
+        ``async for`` over it without awaiting first.
+
+        Args:
+            redis_client: An asynchronous redis client obtained from the bound cache.
+
+        Returns:
+            Async iterator of (index key, value key) pairs.
+        """
         prefix, name = self._require_bound()
-        return await self.keying.acalc_key_pairs(redis_client, prefix, name)
+        return self.keying.aiterate_key_pairs(redis_client, prefix, name)
 
-    def purge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
+    def purge(self, redis_client: RedisSyncClientT, batch_size: int = 500) -> int:
         """Purge the cache synchronously. Delegates to :attr:`keying`.
 
         Args:
@@ -188,7 +211,7 @@ class Policy:
         prefix, name = self._require_bound()
         return self.keying.purge(redis_client, prefix, name, batch_size)
 
-    async def apurge(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
+    async def apurge(self, redis_client: RedisAsyncClientT, batch_size: int = 500) -> int:
         """Async version of :meth:`purge`.
 
         Args:
@@ -201,7 +224,7 @@ class Policy:
         prefix, name = self._require_bound()
         return await self.keying.apurge(redis_client, prefix, name, batch_size)
 
-    def get_size(self, redis_client: RedisClientT) -> int:
+    def get_size(self, redis_client: RedisSyncClientT) -> int:
         """Get the number of items in the cache synchronously.
 
         Reports the sum of the index structure cardinalities (``ZCARD``, or
@@ -217,15 +240,13 @@ class Policy:
         Returns:
             Number of items in the cache.
         """
-        if not is_redis_sync_client(redis_client):
-            raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         count = redis_client.scard if self.scripts.index_structure == "set" else redis_client.zcard
         return sum(
             count(index_key)  # type: ignore[union-attr, return-value]
-            for index_key, _ in self.keying.calc_key_pairs(redis_client, *self._require_bound())
+            for index_key, _ in self.keying.iterate_key_pairs(redis_client, *self._require_bound())
         )
 
-    async def aget_size(self, redis_client: RedisClientT) -> int:
+    async def aget_size(self, redis_client: RedisAsyncClientT) -> int:
         """Async version of :meth:`get_size`; see it for the size semantics.
 
         Args:
@@ -234,11 +255,9 @@ class Policy:
         Returns:
             Number of items in the cache.
         """
-        if not is_redis_async_client(redis_client):
-            raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         count = redis_client.scard if self.scripts.index_structure == "set" else redis_client.zcard
         total = 0
-        for index_key, _ in await self.keying.acalc_key_pairs(redis_client, *self._require_bound()):
+        async for index_key, _ in self.keying.aiterate_key_pairs(redis_client, *self._require_bound()):
             total += await count(index_key)  # type: ignore[misc, union-attr, return-value]
         return total
 
@@ -262,7 +281,7 @@ class Policy:
 
     # --- maintenance --------------------------------------------------------
 
-    def vacuum(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
+    def vacuum(self, redis_client: RedisSyncClientT, batch_size: int = 500) -> int:
         """Remove index members whose hash fields have expired ("ghost" entries).
 
         Ghost entries appear when a per-field TTL expires a hash field while the
@@ -281,13 +300,12 @@ class Policy:
             The number of ghost entries removed.
 
         Raises:
-            RuntimeError: If the given redis client is asynchronous.
+            The client's sync/async nature is enforced statically; passing the
+            wrong kind is a type error, not a runtime one.
         """
-        if not is_redis_sync_client(redis_client):
-            raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         script = cast(Script, self.vacuum_script(redis_client))
         removed = 0
-        for index_key, value_key in self.calc_key_pairs(redis_client):
+        for index_key, value_key in self.iterate_key_pairs(redis_client):
             cursor: int | str | bytes = 0
             while True:
                 cursor, removed_in_chunk = script(keys=(index_key, value_key), args=(cursor, batch_size))
@@ -296,7 +314,7 @@ class Policy:
                     break
         return removed
 
-    async def avacuum(self, redis_client: RedisClientT, batch_size: int = 500) -> int:
+    async def avacuum(self, redis_client: RedisAsyncClientT, batch_size: int = 500) -> int:
         """Async version of :meth:`vacuum`.
 
         Args:
@@ -307,13 +325,11 @@ class Policy:
             The number of ghost entries removed.
 
         Raises:
-            RuntimeError: If the given redis client is synchronous.
+            The client's sync/async nature is enforced statically.
         """
-        if not is_redis_async_client(redis_client):
-            raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
         script = cast(AsyncScript, self.vacuum_script(redis_client))
         removed = 0
-        for index_key, value_key in await self.acalc_key_pairs(redis_client):
+        async for index_key, value_key in self.aiterate_key_pairs(redis_client):
             cursor: int | str | bytes = 0
             while True:
                 cursor, removed_in_chunk = await script(keys=(index_key, value_key), args=(cursor, batch_size))
