@@ -162,6 +162,8 @@ Practical guidance for the `factory` argument:
 
   - The key calculation defined in `hashing.Hasher.calc_hash()` uses the function's bytecode as part of the hash computation by default. So it cannot hit cache across different Python versions.
 
+  This is **by design**, not a defect: bytecode differs between Python versions (and between builds of the same code), so the fingerprint deliberately changes with them. A Python upgrade therefore invalidates stale entries automatically, instead of serving results computed by an incompatible interpreter. Only opt out of it — via a custom hasher as shown below — if you *want* entries to survive interpreter changes.
+
   If your application needs to be compatible across Python versions, compose a policy with a hasher that disables `use_bytecode` in its `__hash_config__` and uses a [json][] based serializer. Or define your own hasher using a version-compatible serialization method. For example:
 
   ```python
