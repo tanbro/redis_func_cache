@@ -1,9 +1,11 @@
 import pytest
 
 from redis_func_cache import LruPolicy, RedisFuncCache
-from redis_func_cache.policies.fifo import FifoPolicy
+from redis_func_cache.policies.fifo import FifoPolicy, FifoTPolicy
 from redis_func_cache.policies.lfu import LfuPolicy
+from redis_func_cache.policies.lru import LruMultiplePolicy, LruTPolicy
 from redis_func_cache.policies.mru import MruPolicy
+from redis_func_cache.policies.rr import RrPolicy
 
 from ._catches import CACHES, redis_factory
 from ._mocks import patch_object
@@ -299,3 +301,113 @@ def test_cache_data_consistency():
             assert echo(i) == values[i]
 
     cache.policy.purge(redis_client=cache.get_redis_client())
+
+
+def test_rr_eviction_count_consistency():
+    """RR 随机驱逐无法断言"哪个"成员被逐，但计数与两侧一致性可以精确锁定。
+
+    索引（SET）与 hash 两侧数量相等且等于 maxsize；索引成员必须都在写过的
+    hash 集合内且有对应字段（无幽灵/孤儿）。
+    """
+    maxsize = 4
+    cache = _make_cache(RrPolicy, maxsize=maxsize)
+
+    def echo(x):
+        return _echo(x)
+
+    decorated = cache.decorate()(echo)
+    client = cache.get_redis_client()
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+
+    total = maxsize * 2
+    for i in range(total):
+        assert decorated(i) == i
+
+    assert client.scard(index_key) == maxsize  # SET 索引计数
+    assert client.hlen(hmap_key) == maxsize
+
+    written = {cache.policy.calc_hash(echo, (i,), {}) for i in range(total)}
+    members = client.smembers(index_key)
+    assert len(members) == maxsize
+    for member in members:
+        assert isinstance(member, bytes)
+        assert member in written  # 索引成员来自写入集合（无幽灵）
+        assert client.hexists(hmap_key, member)  # 每个成员有对应字段（无孤儿）
+
+    cache.policy.purge(redis_client=client)
+
+
+def test_lru_t_eviction_direction():
+    """LruT（成员级 TTL 变体，lru_t 脚本）与 LRU 同方向：驱逐最久未用。"""
+    cache = _make_cache(LruTPolicy, maxsize=2)
+
+    def echo(x):
+        return _echo(x)
+
+    decorated = cache.decorate()(echo)
+    client = cache.get_redis_client()
+    index_key, _ = cache.policy.calc_key_pair(echo)
+    hash_0 = cache.policy.calc_hash(echo, (0,), {})
+    hash_1 = cache.policy.calc_hash(echo, (1,), {})
+
+    assert decorated(0) == 0
+    assert decorated(1) == 1
+    assert decorated(0) == 0  # 重访 0 → 最新
+
+    assert decorated(2) == 2  # 驱逐最久未用的 1
+
+    assert client.zscore(index_key, hash_0) is not None
+    assert client.zscore(index_key, hash_1) is None
+
+    cache.policy.purge(redis_client=client)
+
+
+def test_fifo_t_eviction_direction():
+    """FifoT（成员级 TTL 变体）与 FIFO 同方向：重访不改变顺序，驱逐最早插入。"""
+    cache = _make_cache(FifoTPolicy, maxsize=2)
+
+    def echo(x):
+        return _echo(x)
+
+    decorated = cache.decorate()(echo)
+    client = cache.get_redis_client()
+    index_key, _ = cache.policy.calc_key_pair(echo)
+    hash_0 = cache.policy.calc_hash(echo, (0,), {})
+    hash_1 = cache.policy.calc_hash(echo, (1,), {})
+
+    assert decorated(0) == 0
+    assert decorated(1) == 1
+    assert decorated(0) == 0  # 重访不改变 FIFO 顺序
+    assert decorated(1) == 1
+
+    assert decorated(2) == 2  # 驱逐最早插入的 0
+
+    assert client.zscore(index_key, hash_0) is None
+    assert client.zscore(index_key, hash_1) is not None
+
+    cache.policy.purge(redis_client=client)
+
+
+def test_lru_multiple_eviction_direction():
+    """multiple keying 变体只改键名，驱逐方向与单键一致。"""
+    cache = _make_cache(LruMultiplePolicy, maxsize=2)
+
+    def echo(x):
+        return _echo(x)
+
+    decorated = cache.decorate()(echo)
+    client = cache.get_redis_client()
+    index_key, _ = cache.policy.calc_key_pair(echo)
+    hash_0 = cache.policy.calc_hash(echo, (0,), {})
+    hash_1 = cache.policy.calc_hash(echo, (1,), {})
+
+    assert decorated(0) == 0
+    assert decorated(1) == 1
+    assert decorated(0) == 0
+
+    assert decorated(2) == 2
+
+    assert client.zscore(index_key, hash_0) is not None
+    assert client.zscore(index_key, hash_1) is None
+
+    cache.policy.purge(redis_client=client)
