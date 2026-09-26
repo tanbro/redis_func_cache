@@ -32,7 +32,9 @@ from .serializers import (
 from .typing import (
     CallableTV,
     HashValueT,
+    RedisAsyncClientT,
     RedisClientTV,
+    RedisSyncClientT,
     is_redis_async_client,
     is_redis_async_script,
     is_redis_sync_client,
@@ -1248,7 +1250,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         finally:
             self._stats.reset(token)
 
-    def purge(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
+    def purge(self, batch_size: int = 500, redis_client: RedisSyncClientT | None = None) -> int:
         """Delete every Redis key this cache owns.
 
         A convenience delegating to :meth:`Policy.purge
@@ -1268,7 +1270,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             raise TypeError("`redis_client` must be a synchronous Redis client")
         return self.policy.purge(client, batch_size)
 
-    async def apurge(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
+    async def apurge(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`purge`.
 
         .. versionadded:: 1.0
@@ -1278,7 +1280,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             raise TypeError("`redis_client` must be an asynchronous Redis client")
         return await self.policy.apurge(client, batch_size)
 
-    def vacuum(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
+    def vacuum(self, batch_size: int = 500, redis_client: RedisSyncClientT | None = None) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
 
         A convenience delegating to :meth:`Policy.vacuum
@@ -1298,7 +1300,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
         return self.policy.vacuum(client, batch_size)
 
-    async def avacuum(self, batch_size: int = 500, redis_client: RedisClientTV | None = None) -> int:
+    async def avacuum(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`vacuum`.
 
         .. versionadded:: 1.0
