@@ -5,6 +5,8 @@
 用 ``HDEL`` / 删除整个 HASH 键来确定性地模拟字段过期，而非真实等待 TTL。
 """
 
+import asyncio
+import time
 from uuid import uuid4
 
 import pytest
@@ -17,6 +19,7 @@ from redis_func_cache.policies.lru import LruMultiplePolicy
 from redis_func_cache.policies.rr import RrPolicy
 
 from ._catches import REDIS_URL, async_redis_pool_factory
+from ._mocks import patch_object
 
 # 回归说明：vacuum 脚本曾对 RR 策略的 SET 索引执行 ZSCAN 而报 WRONGTYPE，
 # RrPolicy 参数化覆盖该修复。
@@ -196,3 +199,132 @@ async def test_multiple_policy_aget_size():
     assert await cache.decorate(ttl=600)(echo_b)("c") == "c"
 
     assert await cache.policy.aget_size(redis_client=cache.get_redis_client()) == 3
+
+
+# ---------------------------------------------------------------------------
+# 真实字段过期端到端：不模拟 HDEL，让 HEXPIRE 自然到期，验证
+# "字段过期 → 索引幽灵 → 清理" 的完整链路（miss 单条惰性清理 / vacuum 批量清理）。
+# ---------------------------------------------------------------------------
+
+REAL_TTL = 1  # 字段 TTL（秒），最小可等待值
+EXPIRY_WAIT = 1.6  # 覆盖 TTL 到期 + 脚本执行间隔
+
+
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+def test_field_ttl_expiry_lazy_cleanup_on_miss(policy):
+    """真实 HEXPIRE 到期后，get miss 的单条惰性清理逐个移除索引幽灵。"""
+    cache = make_sync_cache(policy)
+
+    def echo(x):
+        return x
+
+    decorated = cache.decorate(ttl=REAL_TTL)(echo)
+    client = cache.get_redis_client()
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+
+    assert decorated("a") == "a"
+    assert decorated("b") == "b"
+    assert _index_size(client, index_key) == 2
+
+    time.sleep(EXPIRY_WAIT)  # 两个字段的 HEXPIRE 自然到期
+
+    # 幽灵仍在索引中（get_size 计入），hash 字段已被 Redis 判定过期
+    assert _index_size(client, index_key) == 2
+
+    with patch_object(cache, "put"):  # put 被拦截，不回写，以便观察清理
+        assert decorated("a") == "a"  # miss：惰性清理移除幽灵 a
+        assert _index_size(client, index_key) == 1
+        assert decorated("b") == "b"  # miss：惰性清理移除幽灵 b
+        assert _index_size(client, index_key) == 0
+        assert client.hlen(hmap_key) == 0
+
+    cache.policy.purge(redis_client=client)
+
+
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+def test_field_ttl_expiry_vacuum_collects(policy):
+    """真实 HEXPIRE 到期后，vacuum 一次性收走全部幽灵，get 随后重算。"""
+    cache = make_sync_cache(policy)
+
+    def echo(x):
+        return x
+
+    decorated = cache.decorate(ttl=REAL_TTL)(echo)
+    client = cache.get_redis_client()
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+
+    for v in ("a", "b", "c"):
+        assert decorated(v) == v
+    assert _index_size(client, index_key) == 3
+
+    time.sleep(EXPIRY_WAIT)
+
+    assert cache.vacuum() == 3
+    assert _index_size(client, index_key) == 0
+    assert client.hlen(hmap_key) == 0
+
+    # vacuum 之后 get 重算并回写
+    assert decorated("a") == "a"
+    assert _index_size(client, index_key) == 1
+    assert client.hlen(hmap_key) == 1
+
+    cache.policy.purge(redis_client=client)
+
+
+@pytest.mark.asyncio(loop_scope="function")
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+async def test_async_field_ttl_expiry_lazy_cleanup_on_miss(policy):
+    """真实字段过期 + 异步 miss 惰性清理。"""
+    cache = make_async_cache(policy)
+
+    async def echo(x):
+        return x
+
+    decorated = cache.decorate(ttl=REAL_TTL)(echo)
+    client = cache.get_redis_client()
+    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+
+    assert await decorated("a") == "a"
+    assert await decorated("b") == "b"
+    assert await _aindex_size(client, index_key) == 2
+
+    await asyncio.sleep(EXPIRY_WAIT)
+
+    assert await _aindex_size(client, index_key) == 2
+
+    with patch_object(cache, "aput"):
+        assert await decorated("a") == "a"
+        assert await _aindex_size(client, index_key) == 1
+        assert await decorated("b") == "b"
+        assert await _aindex_size(client, index_key) == 0
+        assert await client.hlen(hmap_key) == 0
+
+    await cache.policy.apurge(redis_client=client)
+
+
+@pytest.mark.asyncio(loop_scope="function")
+@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+async def test_async_field_ttl_expiry_vacuum_collects(policy):
+    """真实字段过期 + ``avacuum`` 批量清理。"""
+    cache = make_async_cache(policy)
+
+    async def echo(x):
+        return x
+
+    decorated = cache.decorate(ttl=REAL_TTL)(echo)
+    client = cache.get_redis_client()
+    index_key, _ = cache.policy.calc_key_pair(echo)
+
+    for v in ("a", "b", "c"):
+        assert await decorated(v) == v
+    assert await _aindex_size(client, index_key) == 3
+
+    await asyncio.sleep(EXPIRY_WAIT)
+
+    assert await cache.avacuum() == 3
+    assert await _aindex_size(client, index_key) == 0
+
+    assert await decorated("a") == "a"
+    assert await _aindex_size(client, index_key) == 1
+
+    await cache.policy.apurge(redis_client=client)
