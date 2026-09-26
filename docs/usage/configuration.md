@@ -50,13 +50,17 @@ The default serializer is [JSON][], which works with simple data types. For comp
 
 ```python
 import pickle
+
+from redis import Redis
 from redis_func_cache import RedisFuncCache, LruTPolicy
+
+pool = Redis.ConnectionPool.from_url("redis://")
 
 # Method 1: Set at cache instance level
 cache = RedisFuncCache(
     __name__,
     LruTPolicy,
-    factory=lambda: Redis.from_url("redis://"),
+    factory=lambda: Redis.from_pool(pool),
     serializer="pickle",  # or (pickle.dumps, pickle.loads)
 )
 

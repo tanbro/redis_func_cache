@@ -31,7 +31,8 @@ In-process caches like the standard library's `functools.cache` are private to a
 from redis import Redis
 from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
-factory = lambda: Redis.from_url("redis://")
+pool = Redis.ConnectionPool.from_url("redis://")
+factory = lambda: Redis.from_pool(pool)
 cache = Cache("quickstart", LruTPolicy, maxsize=128, ttl=300, factory=factory)
 
 
@@ -61,7 +62,8 @@ import asyncio
 from redis.asyncio import Redis as AsyncRedis
 from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
 
-factory = lambda: AsyncRedis.from_url("redis://")
+pool = AsyncRedis.ConnectionPool.from_url("redis://")
+factory = lambda: AsyncRedis.from_pool(pool)
 cache = Cache("quickstart-async", LruTPolicy, maxsize=128, ttl=300, factory=factory)
 
 
@@ -94,7 +96,8 @@ The library supports multiple cache eviction policies. You can specify a policy 
 from redis import Redis
 from redis_func_cache import RedisFuncCache, FifoPolicy, LruTPolicy, LfuPolicy, RrPolicy
 
-factory = lambda: Redis.from_url("redis://")
+pool = Redis.ConnectionPool.from_url("redis://")
+factory = lambda: Redis.from_pool(pool)
 
 # FIFO (First In, First Out)
 fifo_cache = RedisFuncCache("my-fifo-cache", FifoPolicy, factory=factory)

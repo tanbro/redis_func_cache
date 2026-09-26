@@ -90,7 +90,8 @@ workflow is symmetric:
 from redis import Redis
 from redis_func_cache import LruMultiplePolicy, RedisFuncCache
 
-cache = RedisFuncCache("my-cache", LruMultiplePolicy, factory=lambda: Redis.from_url("redis://"))
+pool = Redis.ConnectionPool.from_url("redis://")
+cache = RedisFuncCache("my-cache", LruMultiplePolicy, factory=lambda: Redis.from_pool(pool))
 
 
 @cache

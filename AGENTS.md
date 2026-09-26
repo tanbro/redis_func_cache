@@ -23,7 +23,8 @@ cache = RedisFuncCache(LruTPolicy)
 
 # ✅ CORRECT: choose policy/maxsize/ttl/serializer at construction,
 #    then decorate with a bare @cache
-cache = RedisFuncCache("my-cache", LruTPolicy, factory=lambda: redis.Redis())
+pool = redis.ConnectionPool.from_url("redis://")
+cache = RedisFuncCache("my-cache", LruTPolicy, factory=lambda: redis.Redis.from_pool(pool))
 
 @cache
 def my_func(x): ...
@@ -31,8 +32,8 @@ def my_func(x): ...
 # ❌ NOT thread-safe (a single shared client instance)
 cache = RedisFuncCache("my-cache", LruTPolicy, redis_client=redis_client)
 
-# ✅ Thread-safe for concurrent use
-cache = RedisFuncCache("my-cache", LruTPolicy, factory=lambda: redis.Redis())
+# ✅ Thread-safe for concurrent use: lightweight clients sharing one pool
+cache = RedisFuncCache("my-cache", LruTPolicy, factory=lambda: redis.Redis.from_pool(pool))
 ```
 
 ## 🔍 Key Information Index
@@ -100,7 +101,8 @@ Every cache uses **TWO Redis keys**:
 # ✅ Policy instance at construction (policies take no arguments)
 import redis
 
-cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: redis.Redis())
+pool = redis.ConnectionPool.from_url("redis://")
+cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: redis.Redis.from_pool(pool))
 
 
 @cache
@@ -394,7 +396,8 @@ import time
 from redis_func_cache import LruPolicy, RedisFuncCache
 
 # Create the cache (maxsize is a constructor option)
-cache = RedisFuncCache(__name__, LruPolicy, maxsize=1000, factory=lambda: redis.Redis())
+pool = redis.ConnectionPool.from_url("redis://")
+cache = RedisFuncCache(__name__, LruPolicy, maxsize=1000, factory=lambda: redis.Redis.from_pool(pool))
 
 
 def monitor_cache_performance(run_traffic):
@@ -563,7 +566,7 @@ cloudpickle = ["cloudpickle>=2.0.0"] # Enhanced pickle
 ### Optimization Recommendations
 1. **Serializer Choice**: Use `msgpack` for binary data (fastest), JSON for text
 2. **Cache Size**: Set appropriate `maxsize` values based on memory constraints
-3. **Factory Pattern**: Always use `factory=lambda: redis.Redis()` for concurrent access
+3. **Factory Pattern**: Always use a factory returning lightweight clients that share one pre-configured pool — e.g. after `pool = redis.ConnectionPool.from_url("redis://")`, use `factory=lambda: redis.Redis.from_pool(pool)`. Never build a pool per factory call (leaks connections, defeats EVALSHA)
 4. **Redis Client**: Consider `hiredis` for better performance
 5. **TTL Strategy**: Use structure-level TTL for efficiency
 
@@ -659,7 +662,8 @@ def debug_function(x):
 #### Manual Cache Inspection
 ```python
 # Check cache statistics (collected via stats_context)
-cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: redis.Redis())
+pool = redis.ConnectionPool.from_url("redis://")
+cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: redis.Redis.from_pool(pool))
 
 
 # Test specific scenarios

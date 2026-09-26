@@ -92,7 +92,8 @@ The chosen design is an **explicit, on-demand maintenance operation**, placed on
 from redis import Redis
 from redis_func_cache import LruPolicy, RedisFuncCache
 
-cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: Redis.from_url("redis://"))
+pool = Redis.ConnectionPool.from_url("redis://")
+cache = RedisFuncCache("my-cache", LruPolicy, factory=lambda: Redis.from_pool(pool))
 
 
 @cache.decorate(ttl=600)  # per-item TTL (Redis >= 7.4)

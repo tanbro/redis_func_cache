@@ -40,7 +40,8 @@ import time
 from redis import Redis
 from redis_func_cache import RedisFuncCache, LruTPolicy
 
-factory = lambda: Redis.from_url("redis://")
+pool = Redis.ConnectionPool.from_url("redis://")
+factory = lambda: Redis.from_pool(pool)
 cache = RedisFuncCache("my-cache", LruTPolicy, factory=factory)
 
 

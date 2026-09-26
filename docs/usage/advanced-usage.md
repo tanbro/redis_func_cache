@@ -26,8 +26,9 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
        return bson.decode(x)["return_value"]
 
 
+   pool = Redis.ConnectionPool.from_url("redis://")
    cache = RedisFuncCache(
-       __name__, LruTPolicy, factory=lambda: Redis.from_url("redis://"), serializer=(serialize, deserialize)
+       __name__, LruTPolicy, factory=lambda: Redis.from_pool(pool), serializer=(serialize, deserialize)
    )
 
 
@@ -49,7 +50,8 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
    from redis import Redis
    from redis_func_cache import RedisFuncCache, LruTPolicy
 
-   cache = RedisFuncCache(__name__, LruTPolicy, factory=lambda: Redis.from_url("redis://"))
+   pool = Redis.ConnectionPool.from_url("redis://")
+   cache = RedisFuncCache(__name__, LruTPolicy, factory=lambda: Redis.from_pool(pool))
 
 
    @cache(serializer=(msgpack.packb, msgpack.unpackb))
@@ -238,8 +240,11 @@ from redis_func_cache.keying import SingleKeying
 from redis_func_cache.policies import Policy
 from redis_func_cache.scripts import LruScripts
 
+pool = redis.ConnectionPool.from_url("redis://")
+
+
 def factory():
-    return redis.Redis.from_pool(redis.ConnectionPool.from_url("redis://"))
+    return redis.Redis.from_pool(pool)
 
 MY_PREFIX = "my_prefix"
 
@@ -340,7 +345,8 @@ from redis_func_cache.scripts import LruScripts
 
 my_json_sha1_hex_policy = Policy(SingleKeying("my-lru"), JsonSha1HexHasher(), LruScripts())
 
-my_json_sha1_hex_cache = RedisFuncCache("json_sha1_hex", my_json_sha1_hex_policy, factory=lambda: Redis.from_url("redis://"))
+pool = Redis.ConnectionPool.from_url("redis://")
+my_json_sha1_hex_cache = RedisFuncCache("json_sha1_hex", my_json_sha1_hex_policy, factory=lambda: Redis.from_pool(pool))
 ```
 
 If none of the predefined combinations fits — for example, you want `msgpack` serialization with `sha3_256` — subclass [`Hasher`][] with a custom [`HashConfig`][]:
