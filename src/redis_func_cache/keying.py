@@ -80,10 +80,6 @@ class Keying(ABC):
 
     __slots__ = ()
 
-    def _fn_identity(self, fn: Callable) -> tuple[str, str]:
-        """Return the ``(fullname, checksum)`` pair identifying a function's key segment."""
-        return calculate_callable_fullname(fn), b64digest(hash_fingerprint("md5", True, fn)).decode()
-
     def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
         """Build the key base — everything before the ``:0``/``:1`` suffix.
 
@@ -202,7 +198,8 @@ class MultipleKeying(Keying):
     def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
         if fn is None:
             raise TypeError("The multiple keying variants require the decorated function to derive the key pair")
-        fullname, checksum = self._fn_identity(fn)
+        fullname = calculate_callable_fullname(fn)
+        checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
         return f"{prefix}{name}:{self.key}:{fullname}#{checksum}"
 
     @override
@@ -261,5 +258,6 @@ class ClusterMultipleKeying(MultipleKeying):
     def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
         if fn is None:
             raise TypeError("The multiple keying variants require the decorated function to derive the key pair")
-        fullname, checksum = self._fn_identity(fn)
+        fullname = calculate_callable_fullname(fn)
+        checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
         return f"{prefix}{name}:{self.key}:{fullname}#{{{checksum}}}"
