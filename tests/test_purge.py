@@ -11,6 +11,7 @@ from uuid import uuid4
 import pytest
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
+from redis.connection import ConnectionPool
 
 from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.policies.lru import LruMultiplePolicy
@@ -19,9 +20,11 @@ from ._catches import REDIS_URL
 
 POLICY_FACTORIES = [(LruPolicy,), (LruMultiplePolicy,)]
 
+SYNC_POOL = ConnectionPool.from_url(REDIS_URL)
+
 
 def make_sync_cache(policy) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, policy, factory=lambda: Redis.from_url(REDIS_URL))
+    return RedisFuncCache(uuid4().hex, policy, factory=lambda: Redis(connection_pool=SYNC_POOL))
 
 
 def make_async_cache(policy) -> RedisFuncCache:

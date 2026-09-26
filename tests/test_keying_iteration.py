@@ -10,6 +10,7 @@ import pytest
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.cluster import RedisCluster as AsyncRedisCluster
+from redis.connection import ConnectionPool
 
 from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.policies.fifo import FifoClusterMultiplePolicy, FifoClusterPolicy
@@ -26,9 +27,11 @@ from ._catches import (
     REDIS_URL,
 )
 
+SYNC_POOL = ConnectionPool.from_url(REDIS_URL)
+
 
 def make_sync_cache(policy) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, policy, factory=lambda: Redis.from_url(REDIS_URL))
+    return RedisFuncCache(uuid4().hex, policy, factory=lambda: Redis(connection_pool=SYNC_POOL))
 
 
 def make_async_cache(policy) -> RedisFuncCache:
@@ -36,11 +39,15 @@ def make_async_cache(policy) -> RedisFuncCache:
 
 
 def make_async_cluster_cache(policy) -> RedisFuncCache:
-    return RedisFuncCache(
-        uuid4().hex,
-        policy,
-        factory=lambda: AsyncRedisCluster(startup_nodes=ASYNC_CLUSTER_NODES),  # type: ignore[abstract]
-    )
+    holder: list[AsyncRedisCluster] = []
+
+    def factory():
+        """每个缓存实例单例复用集群客户端：factory 每次访问都会被调用。"""
+        if not holder:
+            holder.append(AsyncRedisCluster(startup_nodes=ASYNC_CLUSTER_NODES))  # type: ignore[abstract,arg-type]
+        return holder[0]
+
+    return RedisFuncCache(uuid4().hex, policy, factory=factory)
 
 
 def _norm(key) -> str:

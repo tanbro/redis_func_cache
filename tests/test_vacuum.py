@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
+from redis.connection import ConnectionPool
 
 from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.policies.lru import LruMultiplePolicy
@@ -20,6 +21,8 @@ from ._catches import REDIS_URL
 # 回归说明：vacuum 脚本曾对 RR 策略的 SET 索引执行 ZSCAN 而报 WRONGTYPE，
 # RrPolicy 参数化覆盖该修复。
 POLICY_FACTORIES = [(LruPolicy,), (LruMultiplePolicy,), (RrPolicy,)]
+
+SYNC_POOL = ConnectionPool.from_url(REDIS_URL)
 
 
 def _index_size(client, index_key) -> int:
@@ -41,7 +44,7 @@ async def _aindex_size(client, index_key) -> int:
 
 
 def make_sync_cache(policy) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, policy, factory=lambda: Redis.from_url(REDIS_URL))
+    return RedisFuncCache(uuid4().hex, policy, factory=lambda: Redis(connection_pool=SYNC_POOL))
 
 
 def make_async_cache(policy) -> RedisFuncCache:

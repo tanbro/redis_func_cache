@@ -11,6 +11,7 @@ from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.cluster import ClusterNode as AsyncClusterNode
 from redis.cluster import ClusterNode, RedisCluster
+from redis.connection import ConnectionPool
 
 from redis_func_cache import (
     FifoClusterMultiplePolicy,
@@ -46,15 +47,21 @@ else:
     load_dotenv()
 
 
+redis_pool: ConnectionPool | None = None
 redis_client: Redis | None = None
 async_redis_client: AsyncRedis | None = None
 
 
 def redis_factory(**kwargs):
-    global redis_client
-    if redis_client is None:
-        redis_client = Redis.from_url(REDIS_URL)
-    return redis_client
+    """返回包在进程级共享连接池之上的客户端。
+
+    与 cache.py 文档一致：factory 每次访问都会被调用，应当返回共享池上的
+    轻量包装，而不是每次新建连接池。
+    """
+    global redis_pool
+    if redis_pool is None:
+        redis_pool = ConnectionPool.from_url(REDIS_URL)
+    return Redis(connection_pool=redis_pool)
 
 
 def async_redis_factory(**kwargs):
@@ -79,8 +86,11 @@ async def close_async_redis_client():
 MAXSIZE = 8
 
 REDIS_URL = getenv("REDIS_URL", "redis://")
-REDIS_FACTORY = lambda: Redis.from_url(REDIS_URL)
-ASYNC_REDIS_FACTORY = lambda: AsyncRedis.from_url(REDIS_URL)
+REDIS_POOL = ConnectionPool.from_url(REDIS_URL)
+REDIS_FACTORY = lambda: Redis(connection_pool=REDIS_POOL)
+ASYNC_REDIS_FACTORY = lambda: AsyncRedis.from_url(
+    REDIS_URL
+)  # 异步池跨事件循环不安全（pytest-asyncio 每测试独立 loop），保持每次新建
 REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES")
 
 # 解析 Redis 集群节点
@@ -96,7 +106,17 @@ if REDIS_CLUSTER_NODES:
     ASYNC_CLUSTER_NODES = [
         AsyncClusterNode(cluster.split(":")[-2], int(cluster.split(":")[-1])) for cluster in REDIS_CLUSTER_NODES.split()
     ]
-    REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # type: ignore[abstract]
+
+    cluster_redis_client: RedisCluster | None = None
+
+    def cluster_redis_factory(**kwargs):
+        """集群客户端按进程单例复用：拓扑发现开销大，不宜每次访问重建。"""
+        global cluster_redis_client
+        if cluster_redis_client is None:
+            cluster_redis_client = RedisCluster(startup_nodes=CLUSTER_NODES)  # type: ignore[abstract,arg-type]
+        return cluster_redis_client
+
+    REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = cluster_redis_factory
 
     CLUSTER_CACHES = {
         "tlru": RedisFuncCache(__name__, LruTClusterPolicy, factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
