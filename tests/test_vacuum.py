@@ -129,9 +129,9 @@ def test_vacuum_with_small_batch_size():
 
 
 def test_vacuum_guard_against_async_client():
-    """同步 vacuum 遇到异步客户端时抛出 RuntimeError。"""
+    """同步 vacuum 遇到异步客户端时抛出 TypeError。"""
     cache = make_async_cache(LruPolicy)
-    with pytest.raises(RuntimeError, match="synchronous"):
+    with pytest.raises(TypeError, match="synchronous"):
         cache.vacuum()
 
 
@@ -160,9 +160,9 @@ async def test_avacuum_removes_ghosts(policy_factory):
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_avacuum_guard_against_sync_client():
-    """异步 avacuum 遇到同步客户端时抛出 RuntimeError。"""
+    """异步 avacuum 遇到同步客户端时抛出 TypeError。"""
     cache = make_sync_cache(LruPolicy)
-    with pytest.raises(RuntimeError, match="asynchronous"):
+    with pytest.raises(TypeError, match="asynchronous"):
         await cache.avacuum()
 
 

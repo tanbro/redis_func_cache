@@ -267,7 +267,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                       my_cache = RedisFuncCache(
                           __name__,
                           MyPolicy(),
-                          client=redis_client,
+                          redis_client=redis_client,
                           # here pass two callbacks to serializer
                           serializer=(my_serializer, my_deserializer),
                           # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -496,8 +496,9 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         Args:
             script: Redis Lua script to be evaluated, which should attempt to retrieve the return value from the cache using the given keys and hash.
-            key_pair: The key name pair of the Redis set and hash-map data structure used by the cache.
+            keys: The key name pair of the Redis set and hash-map data structure used by the cache.
             hash_value: The member of the Redis key and also the field name of the Redis hash map.
+            update_ttl: Whether to refresh the TTL of the cache structures on this access.
             ttl: Time-to-live of the cache in seconds.
             options: Reserved for future use.
             ext_args: Extra arguments passed to the Lua script.
@@ -543,9 +544,11 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         Args:
             script: Redis Lua script to be evaluated, which shall store the return value in the cache.
-            key_pair: The key name pair of the Redis set and hash-map data structure used by the cache.
+            keys: The key name pair of the Redis set and hash-map data structure used by the cache.
             hash_value: The member of the Redis key and also the field name of the Redis hash map.
             value: The value to be stored in the hash map.
+            maxsize: The maximum size of the cache.
+            update_ttl: Whether to refresh the TTL of the cache structures on this write.
             ttl: Time-to-live of the cache in seconds.
             field_ttl: Time-to-live of the field name of the Redis hash map.
             options: Reserved for future use.
@@ -680,7 +683,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         redis_client = self.get_redis_client()
         script_0, script_1 = self.policy.lua_scripts(redis_client)
         if not is_redis_sync_script(script_0) or not is_redis_sync_script(script_1):
-            raise RuntimeError("Redis lua script must be in synchronous mode on a non async function")
+            raise TypeError("Redis lua script must be in synchronous mode on a non async function")
         if stats:
             stats.count += 1
         handler = self._handler if handler is None else handler
@@ -799,7 +802,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         redis_client = self.get_redis_client()
         script_0, script_1 = self.policy.lua_scripts(redis_client)
         if not is_redis_async_script(script_0) or not is_redis_async_script(script_1):
-            raise RuntimeError("Redis lua script must be in asynchronous mode on an async function")
+            raise TypeError("Redis lua script must be in asynchronous mode on an async function")
         if stats:
             stats.count += 1
         handler = handler if handler is not None else self._handler
@@ -999,7 +1002,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
                 from redis_func_cache import RedisFuncCache
 
-                cache = RedisFuncCache("my_cache", MyPolicy(), client=redis_client)
+                cache = RedisFuncCache("my_cache", MyPolicy(), redis_client=redis_client)
 
             We can use it as a decorator, either the instance itself or the :meth:`decorate` method, with or without parentheses::
 
@@ -1041,14 +1044,17 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         serialize_func: SerializerT | None = None
         deserialize_func: DeserializerT | None = None
         if isinstance(serializer, str):
-            serialize_func, deserialize_func = _serializers[serializer]
+            try:
+                serialize_func, deserialize_func = _serializers[serializer]
+            except KeyError:
+                raise ValueError(f"Unknown serializer: {serializer}")
         elif serializer is not None:
             serialize_func, deserialize_func = serializer
         field_ttl = 0 if ttl is None else int(ttl)
+        if field_ttl < 0:
+            raise ValueError("ttl must be a positive integer")
         if field_ttl:
             warn("The ‘ttl’ parameter is experimental and only available in Redis versions above 7.4")
-            if field_ttl < 0:
-                raise ValueError("ttl must be a positive integer")
 
         def decorator(user_func: CallableTV) -> CallableTV:
             if is_staticmethod := isinstance(user_func, staticmethod):
@@ -1223,7 +1229,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 def func(): ...
 
 
-                with cache.disable_read():
+                with cache.write_only():
                     # `func()` will be executed and result stored in cache, but not read from cache
                     result = func()
 
@@ -1297,7 +1303,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         """
         client = self.get_redis_client() if redis_client is None else redis_client
         if not is_redis_sync_client(client):
-            raise RuntimeError("Can not perform a synchronous operation with an asynchronous redis client")
+            raise TypeError("Can not perform a synchronous operation with an asynchronous redis client")
         return self.policy.vacuum(client, batch_size)
 
     async def avacuum(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
@@ -1307,5 +1313,5 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         """
         client = self.get_redis_client() if redis_client is None else redis_client
         if not is_redis_async_client(client):
-            raise RuntimeError("Can not perform an asynchronous operation with a synchronous redis client")
+            raise TypeError("Can not perform an asynchronous operation with a synchronous redis client")
         return await self.policy.avacuum(client, batch_size)

@@ -244,7 +244,7 @@ See [docs/migration.md](docs/usage/migration.md) for the summary and migration e
 
 ## Advanced Usage
 
-Custom serializers, the handler extension for the serialization boundaries, custom key formats, and custom hash algorithms (including the `make_hash_mixin` / `make_scripts_mixin` factories).
+Custom serializers, the handler extension for the serialization boundaries, custom key formats, and custom hash algorithms (including the `make_hasher` factory and `Scripts` subclasses).
 See [docs/advanced-usage.md](docs/usage/advanced-usage.md) for details.
 
 ## Cache Maintenance

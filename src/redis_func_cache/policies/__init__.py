@@ -37,9 +37,6 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Callable, Iterator
 from typing import TYPE_CHECKING, Any, cast
 
-if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import AsyncIterator
-
 from redis.commands.core import AsyncScript, Script
 
 if TYPE_CHECKING:  # pragma: no cover

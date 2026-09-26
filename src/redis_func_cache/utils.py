@@ -17,10 +17,6 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     pygments = None  # type: ignore[assignment]
     LUA_PYGMENTS_FILTER_TYPES = None
-    warn(
-        "Pygments could reduce the size of the cache's LUA script. To install it: pip install redis_func_cache[pygments]",
-        ImportWarning,
-    )
 else:  # pragma: no cover
     from pygments.filter import simplefilter
     from pygments.lexers import get_lexer_by_name

@@ -248,7 +248,7 @@ class MyKeying(SingleKeying):
         return f"{prefix}-{name}-{fn.__name__}-{self.key}"
 
 my_policy = Policy(MyKeying("my_key"), PICKLE_MD5_HASHER, LruScripts())
-my_cache = RedisFuncCache(name="my_cache", policy=my_policy, factory=factory, prefix=MY_PREFIX)
+my_cache = RedisFuncCache("my_cache", my_policy, factory=factory, prefix=MY_PREFIX)
 
 @my_cache
 def my_func(*args, **kwargs): ...
@@ -340,9 +340,7 @@ from redis_func_cache.scripts import LruScripts
 
 my_json_sha1_hex_policy = Policy(SingleKeying("my-lru"), JsonSha1HexHasher(), LruScripts())
 
-my_json_sha1_hex_cache = RedisFuncCache(
-    name="json_sha1_hex", policy=my_json_sha1_hex_policy, factory=lambda: Redis.from_url("redis://")
-)
+my_json_sha1_hex_cache = RedisFuncCache("json_sha1_hex", my_json_sha1_hex_policy, factory=lambda: Redis.from_url("redis://"))
 ```
 
 If none of the predefined combinations fits — for example, you want `msgpack` serialization with `sha3_256` — subclass [`Hasher`][] with a custom [`HashConfig`][]:
@@ -389,7 +387,7 @@ class MyHasher(Hasher):
 
 my_custom_hash_policy = Policy(SingleKeying("my-lru2"), MyHasher(), LruScripts())
 
-my_custom_hash_cache = RedisFuncCache(name=__name__, policy=my_custom_hash_policy, redis_client=redis_client)
+my_custom_hash_cache = RedisFuncCache(__name__, my_custom_hash_policy, redis_client=redis_client)
 
 redis_client = Redis.from_url("redis://")
 

@@ -56,8 +56,10 @@ cache = RedisFuncCache("my-cache", LruTPolicy, factory=lambda: redis.Redis())
 Core Components:
 ├── src/redis_func_cache/cache.py          # RedisFuncCache class
 ├── src/redis_func_cache/__init__.py       # Public API exports
-├── src/redis_func_cache/policies/         # Policy implementations
-├── src/redis_func_cache/policies/         # keying.py / hashing.py / scripts.py / policy.py
+├── src/redis_func_cache/keying.py        # Key-naming component
+├── src/redis_func_cache/hashing.py       # Hasher component
+├── src/redis_func_cache/scripts.py       # Lua-scripts component
+├── src/redis_func_cache/policies/        # Policy presets (composition of the three)
 └── src/redis_func_cache/lua/*.lua         # Atomic Lua scripts
 
 Configuration:
