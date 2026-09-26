@@ -141,6 +141,7 @@ async def test_multiple_aiterate_key_pairs():
     assert [p async for p in cache.policy.aiterate_key_pairs(cache.get_redis_client())] == []
 
 
+@pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
 @pytest.mark.parametrize("cache_name", ["lru", "rr"])
 def test_cluster_iterate_key_pairs(cache_name):
     """集群单策略的 iterate 在真实集群上产出静态键对。"""
@@ -157,6 +158,7 @@ def test_cluster_iterate_key_pairs(cache_name):
         cache.policy.purge(cache.get_redis_client())
 
 
+@pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
 @pytest.mark.parametrize("cache_name", ["lru", "rr"])
 def test_cluster_multiple_iterate_key_pairs(cache_name):
     """集群多策略的 iterate 在真实集群上产出每个函数一个键对。"""
