@@ -9,6 +9,7 @@ from warnings import warn
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
+from redis.asyncio.cluster import ClusterNode as AsyncClusterNode
 from redis.cluster import ClusterNode, RedisCluster
 
 from redis_func_cache import (
@@ -84,12 +85,16 @@ REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES")
 
 # 解析 Redis 集群节点
 CLUSTER_NODES: list[ClusterNode] = []
+ASYNC_CLUSTER_NODES: list[AsyncClusterNode] = []
 CLUSTER_CACHES: dict[str, RedisFuncCache[RedisSyncClientT, Policy]] = {}
 CLUSTER_MULTI_CACHES: dict[str, RedisFuncCache[RedisSyncClientT, Policy]] = {}
 
 if REDIS_CLUSTER_NODES:
     CLUSTER_NODES = [
         ClusterNode(cluster.split(":")[-2], int(cluster.split(":")[-1])) for cluster in REDIS_CLUSTER_NODES.split()
+    ]
+    ASYNC_CLUSTER_NODES = [
+        AsyncClusterNode(cluster.split(":")[-2], int(cluster.split(":")[-1])) for cluster in REDIS_CLUSTER_NODES.split()
     ]
     REDIS_CLUSTER_FACTORY: Callable[[], RedisCluster] = lambda: RedisCluster(startup_nodes=CLUSTER_NODES)  # type: ignore[abstract]
 

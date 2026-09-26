@@ -18,10 +18,10 @@ from redis_func_cache.policies.rr import RrClusterMultiplePolicy, RrClusterPolic
 
 from ._catches import (
     ASYNC_CACHES,
+    ASYNC_CLUSTER_NODES,
     ASYNC_MULTI_CACHES,
     CLUSTER_CACHES,
     CLUSTER_MULTI_CACHES,
-    CLUSTER_NODES,
     REDIS_CLUSTER_NODES,
     REDIS_URL,
 )
@@ -39,7 +39,7 @@ def make_async_cluster_cache(policy) -> RedisFuncCache:
     return RedisFuncCache(
         uuid4().hex,
         policy,
-        factory=lambda: AsyncRedisCluster(startup_nodes=CLUSTER_NODES),  # type: ignore[abstract,arg-type]
+        factory=lambda: AsyncRedisCluster(startup_nodes=ASYNC_CLUSTER_NODES),  # type: ignore[abstract]
     )
 
 
