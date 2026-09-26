@@ -50,7 +50,7 @@ all = [
   "Pygments>=2.9",
   "dill>=0.3.6",
   "pymongo>=3.9",
-  "msgpack>=1.0",
+  "msgpack>=1.2.1",
   "PyYAML>=5.4",
   "cbor2>=5.0",
   "cloudpickle>=3.0",
@@ -60,7 +60,7 @@ cbor = ["cbor2>=5.0"]
 cloudpickle = ["cloudpickle>=3.0"]
 dill = ["dill>=0.3.6"]
 hiredis = ["redis[hiredis]"]
-msgpack = ["msgpack>=1.0"]
+msgpack = ["msgpack>=1.2.1"]
 pygments = ["Pygments>=2.9"]
 yaml = ["PyYAML>=5.4"]
 
