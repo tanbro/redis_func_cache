@@ -51,7 +51,7 @@ all = [
   "dill>=0.3.6",
   "pymongo>=3.9",
   "msgpack>=1.2.1",
-  "PyYAML>=5.4",
+  "PyYAML>=6.0",
   "cbor2>=5.0",
   "cloudpickle>=3.0",
 ]
@@ -62,7 +62,7 @@ dill = ["dill>=0.3.6"]
 hiredis = ["redis[hiredis]"]
 msgpack = ["msgpack>=1.2.1"]
 pygments = ["Pygments>=2.9"]
-yaml = ["PyYAML>=5.4"]
+yaml = ["PyYAML>=6.0"]
 
 [dependency-groups]
 dev = [
