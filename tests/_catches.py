@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import atexit
+import weakref
 from collections.abc import Callable, Coroutine
 from os import getenv
 from typing import TYPE_CHECKING
 from warnings import warn
 
 from redis import Redis
+from redis.asyncio import ConnectionPool as AsyncConnectionPool
 from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.cluster import ClusterNode as AsyncClusterNode
 from redis.cluster import ClusterNode, RedisCluster
@@ -88,9 +90,37 @@ MAXSIZE = 8
 REDIS_URL = getenv("REDIS_URL", "redis://")
 REDIS_POOL = ConnectionPool.from_url(REDIS_URL)
 REDIS_FACTORY = lambda: Redis(connection_pool=REDIS_POOL)
-ASYNC_REDIS_FACTORY = lambda: AsyncRedis.from_url(
-    REDIS_URL
-)  # 异步池跨事件循环不安全（pytest-asyncio 每测试独立 loop），保持每次新建
+
+# redis.asyncio 连接绑定创建时的事件循环，池不能跨 loop 复用
+# （pytest-asyncio 每测试独立 loop）；但同一 loop 内应当像生产环境一样共享池，
+# 而不是 factory 每次访问都新建。因此按运行中的 loop 缓存池，loop 结束后清理。
+async_loop_pools: dict[int, tuple] = {}
+
+
+def async_redis_pool_factory(**kwargs):
+    """返回包在当前事件循环共享连接池之上的异步客户端。
+
+    与同步侧和 cache.py 文档一致：factory 每次访问都会被调用，应当返回共享
+    池上的轻量包装；池本身按事件循环隔离。
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # 无事件循环的上下文（如类型守卫测试）只构造客户端、不发起请求，一次性新建即可
+        return AsyncRedis.from_url(REDIS_URL)
+    entry = async_loop_pools.get(id(loop))
+    if entry is not None and entry[0]() is loop:
+        return AsyncRedis(connection_pool=entry[1])
+    for key, (ref, _) in list(async_loop_pools.items()):
+        pooled_loop = ref()
+        if pooled_loop is None or pooled_loop.is_closed():
+            del async_loop_pools[key]
+    pool = AsyncConnectionPool.from_url(REDIS_URL)
+    async_loop_pools[id(loop)] = (weakref.ref(loop), pool)
+    return AsyncRedis(connection_pool=pool)
+
+
+ASYNC_REDIS_FACTORY = async_redis_pool_factory
 REDIS_CLUSTER_NODES = getenv("REDIS_CLUSTER_NODES")
 
 # 解析 Redis 集群节点

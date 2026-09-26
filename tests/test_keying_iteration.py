@@ -8,7 +8,6 @@ from uuid import uuid4
 
 import pytest
 from redis import Redis
-from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.cluster import RedisCluster as AsyncRedisCluster
 from redis.connection import ConnectionPool
 
@@ -25,6 +24,7 @@ from ._catches import (
     CLUSTER_MULTI_CACHES,
     REDIS_CLUSTER_NODES,
     REDIS_URL,
+    async_redis_pool_factory,
 )
 
 SYNC_POOL = ConnectionPool.from_url(REDIS_URL)
@@ -35,7 +35,7 @@ def make_sync_cache(policy) -> RedisFuncCache:
 
 
 def make_async_cache(policy) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, policy, factory=lambda: AsyncRedis.from_url(REDIS_URL))
+    return RedisFuncCache(uuid4().hex, policy, factory=async_redis_pool_factory)
 
 
 def make_async_cluster_cache(policy) -> RedisFuncCache:

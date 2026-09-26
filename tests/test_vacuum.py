@@ -16,7 +16,7 @@ from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.policies.lru import LruMultiplePolicy
 from redis_func_cache.policies.rr import RrPolicy
 
-from ._catches import REDIS_URL
+from ._catches import REDIS_URL, async_redis_pool_factory
 
 # 回归说明：vacuum 脚本曾对 RR 策略的 SET 索引执行 ZSCAN 而报 WRONGTYPE，
 # RrPolicy 参数化覆盖该修复。
@@ -48,7 +48,7 @@ def make_sync_cache(policy) -> RedisFuncCache:
 
 
 def make_async_cache(policy) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, policy, factory=lambda: AsyncRedis.from_url(REDIS_URL))
+    return RedisFuncCache(uuid4().hex, policy, factory=async_redis_pool_factory)
 
 
 @pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple", "rr"])

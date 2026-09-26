@@ -16,7 +16,7 @@ from redis.connection import ConnectionPool
 from redis_func_cache import LruPolicy, RedisFuncCache
 from redis_func_cache.policies.lru import LruMultiplePolicy
 
-from ._catches import REDIS_URL
+from ._catches import REDIS_URL, async_redis_pool_factory
 
 POLICY_FACTORIES = [(LruPolicy,), (LruMultiplePolicy,)]
 
@@ -28,7 +28,7 @@ def make_sync_cache(policy) -> RedisFuncCache:
 
 
 def make_async_cache(policy) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, policy, factory=lambda: AsyncRedis.from_url(REDIS_URL))
+    return RedisFuncCache(uuid4().hex, policy, factory=async_redis_pool_factory)
 
 
 def test_single_policy_purge():
