@@ -25,14 +25,21 @@ Policy**:
   in a `WeakKeyDictionary`), and the module-level ARGV builders `build_get_args`/`build_put_args`.
   Scripts never invokes the scripts and never computes key names.
 - **Policy** (`src/redis_func_cache/policies/__init__.py`): the **single entry point from the cache
-  layer** — `get/put/aget/aput` (register + ARGV assembly + invoke), `vacuum/avacuum` (cursor loop),
-  `get_size/aget_size` (ZCARD/SCARD dispatch on the private `_index_structure` fact),
-  `purge/apurge`, `calc_key_pair`/`calc_hash`, `iterate_key_pairs` (the last three are the user
+  layer** — `get/put/aget/aput` (register + ARGV assembly + invoke), `vacuum_all_pairs`/`avacuum_all_pairs` +
+  `vacuum_one_pair`/`avacuum_one_pair` (cursor loop),
+  `get_size/aget_size` (ZCARD/SCARD dispatch on `Scripts.index_structure`),
+  `purge_all_pairs`/`apurge_all_pairs` + `purge_one_pair`/`apurge_one_pair`, `calc_key_pair`/`calc_hash`,
+  `iterate_key_pairs` (the last three are the user
   introspection surface; the cache layer itself only calls `locate` — the single identity-assembly
   point — plus get/put and the maintenance methods, reusing the located identity via the `located`
   kwarg). Also stateless: `prefix` /
   `name` are explicit parameters on every method that needs them (mirroring Keying), so preset
   instances are shareable singletons — never copy a policy, never reintroduce `_bind`.
+- **Naming rule for maintenance methods**: suffixes (`_all_pairs`/`_one_pair`) appear only on the
+  layer where the granularity contrast exists — the policy has both granularities; the cache
+  facades keep the short names `purge`/`vacuum` (whole-cache granularity only; no one-pair cache
+  facade by design — a fn-keyed one-pair op would be a false promise under `MultipleKeying`,
+  whose entries span several pairs).
 - **IO ownership follows each component's abstraction** (Redis IO is *not* exclusive to Policy):
   Keying owns key-lifecycle IO (enumerating/deleting the key pairs it names — only it knows the
   layout, e.g. `MultipleKeying.purge`'s SCAN+UNLINK); Policy owns entry-level IO (get/put/vacuum/

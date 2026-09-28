@@ -1159,8 +1159,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def purge(self, batch_size: int = 500, redis_client: RedisSyncClientT | None = None) -> int:
         """Delete every Redis key this cache owns.
 
-        A convenience delegating to :meth:`Policy.purge
-        <redis_func_cache.policies.Policy.purge>`, which contains
+        A convenience delegating to :meth:`Policy.purge_all_pairs
+        <redis_func_cache.policies.Policy.purge_all_pairs>`, which contains
         the full description.
 
         Args:
@@ -1173,7 +1173,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         .. versionadded:: 1.0
         """
-        return self.policy.purge(
+        return self.policy.purge_all_pairs(
             cast(RedisSyncClientT, self.get_redis_client() if redis_client is None else redis_client),
             self.prefix,
             self.name,
@@ -1185,7 +1185,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         .. versionadded:: 1.0
         """
-        return await self.policy.apurge(
+        return await self.policy.apurge_all_pairs(
             cast(RedisAsyncClientT, self.get_redis_client() if redis_client is None else redis_client),
             self.prefix,
             self.name,
@@ -1228,8 +1228,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def vacuum(self, batch_size: int = 500, redis_client: RedisSyncClientT | None = None) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
 
-        A convenience delegating to :meth:`Policy.vacuum
-        <redis_func_cache.policies.Policy.vacuum>`, which contains
+        A convenience delegating to :meth:`Policy.vacuum_all_pairs
+        <redis_func_cache.policies.Policy.vacuum_all_pairs>`, which contains
         the full description.
 
         Args:
@@ -1242,7 +1242,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         .. versionadded:: 1.0
         """
-        return self.policy.vacuum(
+        return self.policy.vacuum_all_pairs(
             cast(RedisSyncClientT, self.get_redis_client() if redis_client is None else redis_client),
             self.prefix,
             self.name,
@@ -1254,7 +1254,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         .. versionadded:: 1.0
         """
-        return await self.policy.avacuum(
+        return await self.policy.avacuum_all_pairs(
             cast(RedisAsyncClientT, self.get_redis_client() if redis_client is None else redis_client),
             self.prefix,
             self.name,

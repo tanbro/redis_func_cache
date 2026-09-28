@@ -108,3 +108,46 @@ async def test_apurge(policy_factory):
     assert await cache.apurge(batch_size=1) >= 2
     pat = f"{cache.prefix}{cache.name}:*"
     assert [key async for key in client.scan_iter(match=pat)] == []
+
+
+def test_purge_one_pair():
+    """policy.purge_one_pair 只删除指定键对，其余键对不受影响。"""
+    cache = make_sync_cache(lru_multiple_policy)
+    client = Redis.from_url(REDIS_URL)
+
+    def echo_a(x):
+        return x
+
+    def echo_b(x):
+        return x
+
+    cache.decorate(echo_a)("a")
+    cache.decorate(echo_b)("b")
+
+    pair_a = cache.policy.calc_key_pair(cache.prefix, cache.name, echo_a)
+    assert cache.policy.purge_one_pair(client, *pair_a) == 2
+    assert client.exists(*pair_a) == 0
+
+    pair_b = cache.policy.calc_key_pair(cache.prefix, cache.name, echo_b)
+    assert client.exists(*pair_b) == 2  # 另一个函数的键对完好
+
+    # 删除不存在的键对返回 0
+    assert cache.policy.purge_one_pair(client, *pair_a) == 0
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_apurge_one_pair():
+    """``apurge_one_pair`` 的异步镜像测试。"""
+    cache = make_async_cache(lru_multiple_policy)
+    client = AsyncRedis.from_url(REDIS_URL)
+
+    async def echo(x):
+        return x
+
+    decorated = cache.decorate(echo)
+    assert await decorated("a") == "a"
+
+    pair = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
+    assert await cache.policy.apurge_one_pair(client, *pair) == 2
+    assert await client.exists(*pair) == 0
+    assert await cache.policy.apurge_one_pair(client, *pair) == 0

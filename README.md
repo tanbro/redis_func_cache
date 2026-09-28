@@ -250,7 +250,7 @@ See [docs/advanced-usage.md](docs/usage/advanced-usage.md) for details.
 
 ## Cache Maintenance
 
-Two explicit maintenance operations are available on both [`RedisFuncCache`][] (`cache.vacuum` / `cache.purge`) and its policy (`policy.vacuum(redis_client, prefix, name)` / `policy.purge(redis_client, prefix, name)`):
+Two explicit maintenance operations are available on both [`RedisFuncCache`][] (`cache.vacuum` / `cache.purge`) and its policy (`policy.vacuum_all_pairs(redis_client, prefix, name)` / `policy.purge_all_pairs(redis_client, prefix, name)`):
 
 ### Vacuum: clean expired entries
 
@@ -418,7 +418,7 @@ Core class:
 classDiagram
     class RedisFuncCache {
         -redis_client: RedisClientTV
-        -policy: AbstractPolicy
+        -policy: Policy
         -serializer: SerializerPairT
         +__init__(name, policy, redis_client, serializer)
         +__call__(func)
@@ -434,9 +434,10 @@ classDiagram
         +scripts: Scripts
         +calc_key_pair(prefix, name, f) -> Tuple[str, str]
         +calc_hash(f, args, kwds) -> KeyT
-        +purge(client, prefix, name) -> int
+        +purge_all_pairs(client, prefix, name) -> int
+        +purge_one_pair(client, index_key, value_key) -> int
         +get_size(client, prefix, name) -> int
-        +vacuum(client, prefix, name) -> int
+        +vacuum_all_pairs(client, prefix, name) -> int
         +get(client, prefix, name, f) -> bytes
         +put(client, prefix, name, f, value) -> None
     }

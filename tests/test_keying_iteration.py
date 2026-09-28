@@ -92,7 +92,7 @@ def test_multiple_iterate_key_pairs():
     }
 
     # purge 之后不再枚举到任何键对
-    cache.policy.purge(cache.get_redis_client(), cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(cache.get_redis_client(), cache.prefix, cache.name)
     assert list(cache.policy.iterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)) == []
 
 
@@ -159,7 +159,7 @@ def test_cluster_iterate_key_pairs(cache_name):
         }
         assert pairs == {_norm_pair(cache.policy.calc_key_pair(cache.prefix, cache.name, echo))}
     finally:
-        cache.policy.purge(cache.get_redis_client(), cache.prefix, cache.name)
+        cache.policy.purge_all_pairs(cache.get_redis_client(), cache.prefix, cache.name)
 
 
 @pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
@@ -185,7 +185,7 @@ def test_cluster_multiple_iterate_key_pairs(cache_name):
             cache.policy.calc_key_pair(cache.prefix, cache.name, echo_b)[0],
         }
     finally:
-        cache.policy.purge(cache.get_redis_client(), cache.prefix, cache.name)
+        cache.policy.purge_all_pairs(cache.get_redis_client(), cache.prefix, cache.name)
 
 
 @pytest.mark.asyncio(loop_scope="function")

@@ -29,8 +29,8 @@ unchanged — existing Redis data stays readable (golden tests pin this contract
   (`Hasher`, `HashConfig`, presets such as `PickleMd5Hasher`) and
   `scripts.py` (`LruScripts`, `RrScripts`, ...).
 - `Policy(keying, hasher, scripts)` composes the three dimensions and exposes
-  the same facade the cache calls (`calc_key_pair`, `calc_hash`, `purge`,
-  `get_size`, `vacuum`, ...).
+  the same facade the cache calls (`calc_key_pair`, `calc_hash`, `purge_all_pairs`,
+  `get_size`, `vacuum_all_pairs`, ...).
 - The hash factory `make_hash_mixin` is replaced by
   [`make_hasher`][redis_func_cache.hashing.make_hasher]; `make_scripts_mixin`
   is removed (a :class:`~redis_func_cache.scripts.Scripts` subclass is the way).
@@ -38,11 +38,11 @@ unchanged — existing Redis data stays readable (golden tests pin this contract
   for RR) instead of HLEN, matching what `maxsize` enforcement uses.
 - Policy methods that talk to Redis take the client as an explicit first
   parameter named `redis_client`, and the key namespace as explicit `prefix` /
-  `name` parameters right after it: `purge`, `apurge`, `get_size`, `aget_size`,
-  `vacuum`, `avacuum`, `get` / `put` / `aget` / `aput`, and
+  `name` parameters right after it: `purge_all_pairs`, `apurge_all_pairs`, `get_size`, `aget_size`,
+  `vacuum_all_pairs`, `avacuum_all_pairs`, `get` / `put` / `aget` / `aput`, and
   `iterate_key_pairs` / `aiterate_key_pairs` (namespace comes first on
   `calc_key_pair`, which takes no client). Script invocation (`get` / `put` /
-  `aget` / `aput` / `vacuum`) lives on the **policy**; the
+  `aget` / `aput` / `vacuum_all_pairs`) lives on the **policy**; the
   `scripts` component only *declares* the Lua files and *registers* them per
   client (`register_scripts` / `register_vacuum_script`). The cache obtains the
   client from your `redis_client=` / `factory=` and passes it down; the
@@ -114,7 +114,7 @@ cache = RedisFuncCache("my-cache", my_policy, factory=factory)
 | `policy.cache`                               | nothing — the namespace is a per-call `prefix` / `name` argument |
 | `policy.vacuum_script` (property)            | `policy.scripts.vacuum_script` (script file name); register it with `redis_client.register_script(policy.scripts.read_vacuum_script())` |
 | `policy.lua_scripts` (property)              | `policy.scripts.register_scripts(redis_client)`    |
-| `policy.scripts.get` / `put` / `vacuum`      | `policy.get` / `put` / `vacuum` (invocation moved to the policy; `build_get_args` / `build_put_args` pin the ARGV layout) |
+| `policy.scripts.get` / `put` / `vacuum`      | `policy.get` / `put` / `vacuum_all_pairs` (invocation moved to the policy; `build_get_args` / `build_put_args` pin the ARGV layout) |
 
 ## v0.6 → v0.7
 

@@ -208,7 +208,7 @@ class Scripts(ABC):
         """
         registered = self._registered_vacuum.get(redis_client)
         if registered is None:
-            registered = cast(Script | AsyncScript, redis_client.register_script(self.read_vacuum_script()))
+            registered = redis_client.register_script(self.read_vacuum_script())
             self._registered_vacuum[redis_client] = registered
         return registered
 

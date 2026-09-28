@@ -250,7 +250,7 @@ def test_mru_eviction_direction():
     assert client.zscore(index_key, hash_0) is not None  # 0（最旧）仍在
     assert client.zscore(index_key, hash_1) is None  # 1（最近写入）已被驱逐
 
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
 
 
 def test_maxsize_shrink_mass_eviction():
@@ -287,7 +287,7 @@ def test_maxsize_shrink_mass_eviction():
     assert client.hlen(hmap_key) == 10
     assert cache.policy.get_size(client, cache.prefix, cache.name) == 10
 
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
 
 
 def test_cache_data_consistency():
@@ -346,7 +346,7 @@ def test_rr_eviction_count_consistency():
         assert member in written  # 索引成员来自写入集合（无幽灵）
         assert client.hexists(hmap_key, member)  # 每个成员有对应字段（无孤儿）
 
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
 
 
 def test_lru_t_eviction_direction():
@@ -371,7 +371,7 @@ def test_lru_t_eviction_direction():
     assert client.zscore(index_key, hash_0) is not None
     assert client.zscore(index_key, hash_1) is None
 
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
 
 
 def test_fifo_t_eviction_direction():
@@ -397,7 +397,7 @@ def test_fifo_t_eviction_direction():
     assert client.zscore(index_key, hash_0) is None
     assert client.zscore(index_key, hash_1) is not None
 
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
 
 
 def test_lru_multiple_eviction_direction():
@@ -422,4 +422,4 @@ def test_lru_multiple_eviction_direction():
     assert client.zscore(index_key, hash_0) is not None
     assert client.zscore(index_key, hash_1) is None
 
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)

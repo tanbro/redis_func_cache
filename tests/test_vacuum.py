@@ -104,7 +104,7 @@ def test_vacuum_on_empty_cache():
     client = Redis.from_url(REDIS_URL)
 
     assert cache.vacuum() == 0
-    zset_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, cache.prefix, cache.name)
+    zset_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name)
     assert client.exists(zset_key, hmap_key) == 0
 
 
@@ -223,7 +223,7 @@ def test_field_ttl_expiry_lazy_cleanup_on_miss(policy):
         assert _index_size(client, index_key) == 0
         assert client.hlen(hmap_key) == 0
 
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
 
 
 @pytest.mark.parametrize("policy", [lru_policy, rr_policy], ids=["lru", "rr"])
@@ -253,7 +253,7 @@ def test_field_ttl_expiry_vacuum_collects(policy):
     assert _index_size(client, index_key) == 1
     assert client.hlen(hmap_key) == 1
 
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -284,7 +284,7 @@ async def test_async_field_ttl_expiry_lazy_cleanup_on_miss(policy):
         assert await _aindex_size(client, index_key) == 0
         assert await client.hlen(hmap_key) == 0
 
-    await cache.policy.apurge(client, cache.prefix, cache.name)
+    await cache.policy.apurge_all_pairs(client, cache.prefix, cache.name)
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -312,4 +312,4 @@ async def test_async_field_ttl_expiry_vacuum_collects(policy):
     assert await decorated("a") == "a"
     assert await _aindex_size(client, index_key) == 1
 
-    await cache.policy.apurge(client, cache.prefix, cache.name)
+    await cache.policy.apurge_all_pairs(client, cache.prefix, cache.name)

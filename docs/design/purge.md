@@ -2,11 +2,11 @@
 
 ## Background
 
-`purge` (and its async mirror `apurge`) deletes every Redis key a policy owns. The two
+`purge_all_pairs` (and its async mirror `apurge_all_pairs`) deletes every Redis key a policy owns. The two
 policy shapes differ structurally:
 
 - **Single policies** own exactly one static key pair (`...:0` ZSET + `...:1`
-  HASH). `BaseSinglePolicy.purge` calls `DEL` on the two names from `calc_key_pair()` —
+  HASH). `Keying.purge` calls `DEL` on the two names from `calc_key_pair()` —
   two keys, one command, no enumeration. This variant is already correct and needs no
   change.
 - **Multiple policies** own one key pair *per decorated function*, discovered at
@@ -111,12 +111,41 @@ cache.purge()  # drop every structure this cache owns (each function's ZSET + HA
 
 - `cache.purge(batch_size=500)` deletes every key the cache owns and returns the
   number deleted. `cache.apurge()` is the async mirror; the policy-level
-  `cache.policy.purge(redis_client, prefix, name)` remains available — the policy-level signature takes the client and the key namespace explicitly, while the cache-level `cache.purge()` supplies both for you.
+  `cache.policy.purge_all_pairs(redis_client, prefix, name)` remains available — the policy-level signature takes the client and the key namespace explicitly, while the cache-level `cache.purge()` supplies both for you.
 - The `batch_size` parameter is new and keyword-friendly; the return value keeps its
   meaning (number of keys removed), so existing callers are unaffected.
 - The optional `redis_client` argument is checked statically: it must have the same
   sync/async kind as the cache's own client (enforced by the type checker via the
   class's client type variable); no runtime type guard is performed.
+
+### Naming: the maintenance vocabulary
+
+The policy-level maintenance methods form a granularity matrix, and the names state
+their unit of work explicitly:
+
+| Method | Unit of work |
+| --- | --- |
+| `purge_all_pairs` / `apurge_all_pairs` | enumerate and delete *every* key pair of the namespace |
+| `purge_one_pair` / `apurge_one_pair` | delete *one* (index, value) key pair outright |
+| `vacuum_all_pairs` / `avacuum_all_pairs` | sweep expired members of *every* key pair |
+| `vacuum_one_pair` / `avacuum_one_pair` | sweep expired members of *one* key pair |
+| `iterate_key_pairs` / `aiterate_key_pairs` | enumerate the key pairs (read-only) |
+
+The suffix is load-bearing at the policy layer because both granularities exist there,
+and `purge_one_pair` takes raw key names (from `iterate_key_pairs` / `calc_key_pair`)
+so its semantics are unambiguous under every keying variant.
+
+The cache-level facades keep the short names `purge` / `apurge` / `vacuum` / `avacuum`:
+the cache has exactly one granularity — *the whole cache it names* — so the suffix has
+nothing to contrast with, and cache users are not asked to think in key pairs. The rule
+is: **suffixes appear only on the layer where the granularity contrast exists**.
+
+A cache-level *function*-scoped purge (e.g. `purge_one_pair(fn, ...)` keyed by the
+decorated function) was considered and rejected: under `MultipleKeying` one function's
+entries span several key pairs, so a pair computed from `(fn, args)` is one shard —
+the name would promise "this function's cache" while deleting only a fragment. If
+function-level invalidation is wanted later, it should enumerate all of a function's
+pairs and is a separate feature, not an overload of pair-level purge.
 
 ### Namespace purge
 

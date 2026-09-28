@@ -75,7 +75,7 @@ limit — memory is bounded by the same envelope as live entries. The actual cos
 
 | Option | Verdict | Why |
 | --- | --- | --- |
-| Explicit `vacuum()` / `avacuum()` on the policy | **Adopted** | Deterministic, O(1) extra cost on the hot path, accurate reporting. See below. |
+| Explicit `vacuum_all_pairs()` / `avacuum_all_pairs()` on the policy | **Adopted** | Deterministic, O(1) extra cost on the hot path, accurate reporting. See below. |
 | Whole vacuum as a single atomic Lua script (cursor loop server-side) | Rejected | Redis executes scripts on its single thread; a full ZSET traversal inside one script blocks the entire instance for the duration and can hit the busy-reply threshold on large caches. Chunked execution exists precisely to yield. |
 | Probabilistic sampling embedded in the put script (`ZRANDMEMBER` + `HEXISTS` + `ZREM`) | **Rejected** | Nondeterministic: cleanup latency is unbounded (a ghost may linger arbitrarily long), the hot-path cost fluctuates with traffic, and the eventual size still cannot be trusted at any point in time. It optimizes the wrong property — we want *accurate* size and *bounded* residue, not expected-value cleanup. |
 | Score-range targeted sweep (`ZRANGEBYSCORE` on "old" members) | Rejected | `field_ttl` is per-decorated-function while `HEXPIRE` is refreshed only on put; last-access scores and field expiry times diverge. Worse, score semantics differ per policy (timestamp / insertion order / frequency), so the sweep would have to be policy-specific. |
@@ -83,7 +83,7 @@ limit — memory is bounded by the same envelope as live entries. The actual cos
 | Keyspace notifications + background sweeper thread | Rejected | Expired-field notifications for hashes are not delivered reliably (and hash-field expiry events are emitted on access, not on expiry); it also drags a runtime dependency and threading model into the library. |
 | Versioned/generation keys (swap structure on invalidation) | Rejected | A wholesale redesign of the key layout to solve a bounded, low-severity issue. |
 
-## Chosen design: `vacuum` on the policy
+## Chosen design: `vacuum_all_pairs` on the policy
 
 The chosen design is an **explicit, on-demand maintenance operation**, placed on
 `Policy` and delegated by `RedisFuncCache`:
@@ -107,9 +107,11 @@ print(f"removed {removed} expired entries")
 
 - `cache.vacuum(batch_size=500)` removes every ZSET member whose hash field has
   expired and returns the number removed. `cache.avacuum()` is the async mirror.
-- It is also available directly on the policy: `cache.policy.vacuum(redis_client, prefix, name)`, taking the client and the key namespace explicitly (see the client lifecycle contract in `Policy`).
-- It raises `RuntimeError` when called against a client whose sync/async nature does
-  not match the call, mirroring `purge` / `apurge`.
+- It is also available directly on the policy: `cache.policy.vacuum_all_pairs(redis_client, prefix, name)`, taking the client and the key namespace explicitly (see the client lifecycle contract in `Policy`).
+- The optional `redis_client` argument is checked statically: it must have the same
+  sync/async kind as the cache's own client (enforced by the type checker via the
+  class's client type variable); no runtime type guard is performed, mirroring
+  `purge` / `apurge` (cache-level).
 
 ### Why the policy level is the right home
 
@@ -122,8 +124,8 @@ cluster policies).
 
 One structural wrinkle: multiple policies derive a key pair *per decorated function*,
 so a vacuum call has no function argument to compute keys from. The enumeration of key
-pairs is therefore a small hook implemented once each in `BaseSinglePolicy` (return the
-static pair) and `BaseMultiplePolicy` (enumerate pairs by a `SCAN` pattern, deriving
+pairs is therefore a small hook implemented once each in `SingleKeying` (return the
+static pair) and `MultipleKeying` (enumerate pairs by a `SCAN` pattern, deriving
 the hash key from each sorted-set key's `:0` suffix). This is the single-versus-multiple
 *structural* distinction, not eviction logic — the six eviction strategies themselves
 remain zero-code.
@@ -176,7 +178,7 @@ The key-pair enumeration is exposed as a small **abstract** hook pair,
 abstract on `Policy`/its components, so a policy missing them fails fast
 rather than mid-vacuum. The rule of thumb: **hooks that subclasses must implement are
 abstract and public; machinery that subclasses must not touch carries a leading
-underscore** — consistent with `calc_key_pair` / `purge` / `get_size` conventions in the
+underscore** — consistent with `calc_key_pair` / `purge_all_pairs` / `get_size` conventions in the
 same hierarchy.
 
 ### Relationship to `get_size`

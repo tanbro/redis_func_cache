@@ -105,7 +105,7 @@ def test_get_size_reports_index_cardinality(policy):
     assert cache.policy.get_size(client, cache.prefix, cache.name) == 2
     assert client.hlen(hmap_key) == 1
 
-    cache.policy.vacuum(client, cache.prefix, cache.name)
+    cache.policy.vacuum_all_pairs(client, cache.prefix, cache.name)
     assert cache.policy.get_size(client, cache.prefix, cache.name) == 1
 
     # 索引成员丢失 → 孤儿字段：get_size 下降为 0（孤儿字段不再计入）

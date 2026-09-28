@@ -11,7 +11,7 @@ multiple-inheritance hierarchy:
 The policy is the **single entry point from the cache layer**: it computes
 hashes and key pairs, invokes the Lua scripts (via the ARGV helpers in
 :mod:`~redis_func_cache.scripts`), and owns the cross-key-pair maintenance
-operations (``purge`` / ``vacuum`` / ``get_size``). Higher layers never talk
+operations (``purge_all_pairs`` / ``vacuum_all_pairs`` / ``get_size``). Higher layers never talk
 to :attr:`scripts` directly.
 
 IO ownership follows each component's abstraction — Redis IO is *not*
@@ -182,7 +182,7 @@ class Policy:
     ) -> Iterator[tuple[KeyNameT, KeyNameT]]:
         """Iterate over the (index key, value key) pairs owned by this policy.
 
-        The read-only twin of :meth:`purge`: used internally by
+        The read-only twin of :meth:`purge_all_pairs`: used internally by
         :meth:`vacuum` / :meth:`get_size`, and part of the policy's user
         introspection surface for building custom maintenance or inspection
         tools. Streams lazily — nothing is materialized. See
@@ -216,7 +216,7 @@ class Policy:
         """
         return self.keying.aiterate_key_pairs(redis_client, prefix, name)
 
-    def purge(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+    def purge_all_pairs(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Purge the cache synchronously. Delegates to :attr:`keying`.
 
         Args:
@@ -230,8 +230,10 @@ class Policy:
         """
         return self.keying.purge(redis_client, prefix, name, batch_size)
 
-    async def apurge(self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
-        """Async version of :meth:`purge`.
+    async def apurge_all_pairs(
+        self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500
+    ) -> int:
+        """Async version of :meth:`purge_all_pairs`.
 
         Args:
             redis_client: An asynchronous redis client obtained from the bound cache.
@@ -243,6 +245,43 @@ class Policy:
             Number of keys deleted.
         """
         return await self.keying.apurge(redis_client, prefix, name, batch_size)
+
+    def purge_one_pair(self, redis_client: RedisSyncClientT, index_key: KeyNameT, value_key: KeyNameT) -> int:
+        """Delete one (index, value) key pair outright.
+
+        The granularity counterpart of :meth:`vacuum_one_pair`: where vacuum
+        removes the expired *members* of a pair, this removes the pair itself.
+        Takes raw key names — typically obtained from :meth:`iterate_key_pairs`
+        or :meth:`calc_key_pair` — so the semantics are unambiguous regardless
+        of the keying variant (under ``MultipleKeying`` a function's entries
+        span several pairs; the caller knows exactly which one is deleted).
+
+        Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
+            index_key: The index key (ZSET, or SET for the RR family).
+            value_key: The value key (HASH).
+
+        Returns:
+            Number of keys actually deleted (0, 1 or 2).
+
+        .. versionadded:: 1.0
+        """
+        return redis_client.unlink(index_key, value_key)
+
+    async def apurge_one_pair(self, redis_client: RedisAsyncClientT, index_key: KeyNameT, value_key: KeyNameT) -> int:
+        """Async version of :meth:`purge_one_pair`.
+
+        Args:
+            redis_client: An asynchronous redis client obtained from the bound cache.
+            index_key: The index key (ZSET, or SET for the RR family).
+            value_key: The value key (HASH).
+
+        Returns:
+            Number of keys actually deleted (0, 1 or 2).
+
+        .. versionadded:: 1.0
+        """
+        return await redis_client.unlink(index_key, value_key)
 
     def _fetch_index_size(self, redis_client: RedisSyncClientT, index_key: KeyNameT) -> int:
         """Cardinality of one index structure — ``ZCARD``, or ``SCARD`` for the RR family."""
@@ -480,10 +519,10 @@ class Policy:
 
     # --- maintenance --------------------------------------------------------
 
-    def _vacuum_pair(
+    def vacuum_one_pair(
         self, redis_client: RedisSyncClientT, index_key: KeyNameT, value_key: KeyNameT, batch_size: int
     ) -> int:
-        """Vacuum one (index, value) key pair; see :meth:`vacuum` for the semantics."""
+        """Vacuum one (index, value) key pair; see :meth:`vacuum_all_pairs` for the semantics."""
         script = cast(Script, self.scripts.register_vacuum_script(redis_client))
         removed = 0
         cursor: int | str | bytes = 0
@@ -493,7 +532,7 @@ class Policy:
             if cursor in (0, b"0", "0"):
                 return removed
 
-    def vacuum(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+    def vacuum_all_pairs(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Remove index members whose hash fields have expired ("ghost" entries).
 
         Ghost entries appear when a per-field TTL expires a hash field while the
@@ -512,14 +551,14 @@ class Policy:
             The number of ghost entries removed.
         """
         return sum(
-            self._vacuum_pair(redis_client, index_key, value_key, batch_size)
+            self.vacuum_one_pair(redis_client, index_key, value_key, batch_size)
             for index_key, value_key in self.iterate_key_pairs(redis_client, prefix, name)
         )
 
-    async def _avacuum_pair(
+    async def avacuum_one_pair(
         self, redis_client: RedisAsyncClientT, index_key: KeyNameT, value_key: KeyNameT, batch_size: int
     ) -> int:
-        """Async version of :meth:`_vacuum_pair`."""
+        """Async version of :meth:`vacuum_one_pair`."""
         script = cast(AsyncScript, self.scripts.register_vacuum_script(redis_client))
         removed = 0
         cursor: int | str | bytes = 0
@@ -529,8 +568,10 @@ class Policy:
             if cursor in (0, b"0", "0"):
                 return removed
 
-    async def avacuum(self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
-        """Async version of :meth:`vacuum`.
+    async def avacuum_all_pairs(
+        self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500
+    ) -> int:
+        """Async version of :meth:`vacuum_all_pairs`.
 
         Args:
             redis_client: An asynchronous redis client obtained from the bound cache.
@@ -543,5 +584,5 @@ class Policy:
         """
         removed = 0
         async for index_key, value_key in self.aiterate_key_pairs(redis_client, prefix, name):
-            removed += await self._avacuum_pair(redis_client, index_key, value_key, batch_size)
+            removed += await self.avacuum_one_pair(redis_client, index_key, value_key, batch_size)
         return removed

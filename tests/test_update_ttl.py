@@ -187,7 +187,7 @@ def test_miss_cleans_index_ghost(policy):
         assert decorated("a") == "a"  # miss：get 脚本清理幽灵
 
     assert _index_size(client, policy, index_key) == 0
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
 
 
 @pytest.mark.parametrize("policy", [lru_policy, rr_policy], ids=["lru", "rr"])
@@ -215,4 +215,4 @@ def test_miss_cleans_orphan_hash_field(policy):
         assert decorated("a") == "a"  # miss：get 脚本清理孤儿字段
 
     assert client.hlen(hmap_key) == 0
-    cache.policy.purge(client, cache.prefix, cache.name)
+    cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
