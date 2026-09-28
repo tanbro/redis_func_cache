@@ -139,10 +139,10 @@ class Scripts(ABC):
     """
 
     def __init__(self) -> None:
-        self._registered: WeakKeyDictionary[Any, tuple[Script, Script] | tuple[AsyncScript, AsyncScript]] = (
+        self._registered: WeakKeyDictionary[RedisClientT, tuple[Script, Script] | tuple[AsyncScript, AsyncScript]] = (
             WeakKeyDictionary()
         )
-        self._registered_vacuum: WeakKeyDictionary[Any, Script | AsyncScript] = WeakKeyDictionary()
+        self._registered_vacuum: WeakKeyDictionary[RedisClientT, Script | AsyncScript] = WeakKeyDictionary()
 
     def calc_ext_args(
         self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
@@ -176,8 +176,8 @@ class Scripts(ABC):
         Registration is a local operation (the script SHA is computed, no
         server round trip). Results are cached per client instance: with a
         ``factory``, each call may receive a different client, and the returned
-        Script objects must follow it. Clients that cannot be weak-referenced
-        are registered afresh on every call.
+        Script objects must follow it. A ``TypeError`` from the cache means the
+        client is unhashable or cannot be weak-referenced and is raised as-is.
 
         Args:
             redis_client: The redis client to register the scripts with.
@@ -185,21 +185,14 @@ class Scripts(ABC):
         Returns:
             Tuple of registered Script or AsyncScript objects (get, put).
         """
-        registered: tuple[Script, Script] | tuple[AsyncScript, AsyncScript] | None
-        try:
-            registered = self._registered.get(redis_client)
-        except TypeError:  # unhashable or non-weakrefable client
-            registered = None
+        registered = self._registered.get(redis_client)
         if registered is None:
             script_texts = self.read_lua_scripts()
             registered = cast(
-                "tuple[Script, Script] | tuple[AsyncScript, AsyncScript]",
+                tuple[Script, Script] | tuple[AsyncScript, AsyncScript],
                 (redis_client.register_script(script_texts[0]), redis_client.register_script(script_texts[1])),
             )
-            try:
-                self._registered[redis_client] = registered
-            except TypeError:
-                pass
+            self._registered[redis_client] = registered
         return registered
 
     def register_vacuum_script(self, redis_client: RedisClientT) -> Script | AsyncScript:
@@ -213,17 +206,10 @@ class Scripts(ABC):
         Returns:
             The registered vacuum Script or AsyncScript object.
         """
-        registered: Script | AsyncScript | None
-        try:
-            registered = self._registered_vacuum.get(redis_client)
-        except TypeError:
-            registered = None
+        registered = self._registered_vacuum.get(redis_client)
         if registered is None:
-            registered = cast("Script | AsyncScript", redis_client.register_script(self.read_vacuum_script()))
-            try:
-                self._registered_vacuum[redis_client] = registered
-            except TypeError:
-                pass
+            registered = cast(Script | AsyncScript, redis_client.register_script(self.read_vacuum_script()))
+            self._registered_vacuum[redis_client] = registered
         return registered
 
 

@@ -542,23 +542,6 @@ classDiagram
     RedisFuncCache --> Wrapper
 ```
 
-Weak reference:
-
-```mermaid
-classDiagram
-    class AbstractPolicy {
-        -_cache: CallableProxyType[RedisFuncCache]
-        +cache: RedisFuncCache
-    }
-
-    class RedisFuncCache {
-        -_policy_instance: AbstractPolicy
-    }
-
-    RedisFuncCache --> AbstractPolicy : creates
-    AbstractPolicy --> CallableProxyType : weak reference
-```
-
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
 

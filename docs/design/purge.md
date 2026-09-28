@@ -114,7 +114,9 @@ cache.purge()  # drop every structure this cache owns (each function's ZSET + HA
   `cache.policy.purge(redis_client, prefix, name)` remains available — the policy-level signature takes the client and the key namespace explicitly, while the cache-level `cache.purge()` supplies both for you.
 - The `batch_size` parameter is new and keyword-friendly; the return value keeps its
   meaning (number of keys removed), so existing callers are unaffected.
-- The sync/async client guards and `RuntimeError` messages stay as they were.
+- The optional `redis_client` argument is checked statically: it must have the same
+  sync/async kind as the cache's own client (enforced by the type checker via the
+  class's client type variable); no runtime type guard is performed.
 
 ### Namespace purge
 

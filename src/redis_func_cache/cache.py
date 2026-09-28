@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, cast
 from warnings import warn
 
 from redis import RedisError
@@ -32,8 +32,6 @@ from .typing import (
     RedisAsyncClientT,
     RedisClientTV,
     RedisSyncClientT,
-    is_redis_async_client,
-    is_redis_sync_client,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -45,10 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ("RedisFuncCache",)
 
 
-PolicyTV = TypeVar("PolicyTV", bound=Policy)
-
-
-class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
+class RedisFuncCache(Generic[RedisClientTV]):
     """A function cache class backed by Redis.
 
     This class provides a decorator-based caching mechanism for functions, storing their results in Redis.
@@ -123,9 +118,9 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
     def __init__(
         self,
         name: str,
-        policy: PolicyTV,
+        policy: Policy,
         *,
-        redis_client: RedisClientTV | None = None,
+        redis_client: RedisSyncClientT | None = None,
         factory: Callable[[], RedisClientTV] | None = None,
         maxsize: int = DEFAULT_MAXSIZE,
         ttl: int = DEFAULT_TTL,
@@ -306,7 +301,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 raise TypeError("`factory` must be a callable")
             self._redis_client_factory = factory
         elif redis_client is not None:  # pragma: no cover
-            self._redis_client_instance = redis_client
+            self._redis_client_instance = cast(RedisClientTV, redis_client)
         else:
             raise RuntimeError("Either `redis_client` or `factory` must be provided.")
         # other arguments
@@ -409,7 +404,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             raise ValueError("serializer must be a string or a sequence type of a pair of callable objects")
 
     @property
-    def policy(self) -> PolicyTV:
+    def policy(self) -> Policy:
         """Instance of the caching policy.
 
         Note:
@@ -1172,26 +1167,32 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         Args:
             batch_size: The number of keys per deletion command.
+            redis_client: Optional Redis client of the same kind as the cache's
+                own (checked statically); obtained from the cache when omitted.
 
         Returns:
             The number of keys deleted.
 
         .. versionadded:: 1.0
         """
-        client = self.get_redis_client() if redis_client is None else redis_client
-        if not is_redis_sync_client(client):
-            raise TypeError("`redis_client` must be a synchronous Redis client")
-        return self.policy.purge(client, self.prefix, self.name, batch_size)
+        return self.policy.purge(
+            cast(RedisSyncClientT, self.get_redis_client() if redis_client is None else redis_client),
+            self.prefix,
+            self.name,
+            batch_size,
+        )
 
     async def apurge(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`purge`.
 
         .. versionadded:: 1.0
         """
-        client = self.get_redis_client() if redis_client is None else redis_client
-        if not is_redis_async_client(client):
-            raise TypeError("`redis_client` must be an asynchronous Redis client")
-        return await self.policy.apurge(client, self.prefix, self.name, batch_size)
+        return await self.policy.apurge(
+            cast(RedisAsyncClientT, self.get_redis_client() if redis_client is None else redis_client),
+            self.prefix,
+            self.name,
+            batch_size,
+        )
 
     def get_size(self, redis_client: RedisSyncClientT | None = None) -> int:
         """Get the number of items in the cache synchronously.
@@ -1201,28 +1202,30 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         the full description.
 
         Args:
-            redis_client: Optional synchronous Redis client; obtained from the
-                cache when omitted.
+            redis_client: Optional Redis client of the same kind as the cache's
+                own (checked statically); obtained from the cache when omitted.
 
         Returns:
             Number of items in the cache.
 
         .. versionadded:: 1.0
         """
-        client = self.get_redis_client() if redis_client is None else redis_client
-        if not is_redis_sync_client(client):
-            raise TypeError("`redis_client` must be a synchronous Redis client")
-        return self.policy.get_size(client, self.prefix, self.name)
+        return self.policy.get_size(
+            cast(RedisSyncClientT, self.get_redis_client() if redis_client is None else redis_client),
+            self.prefix,
+            self.name,
+        )
 
     async def aget_size(self, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`get_size`.
 
         .. versionadded:: 1.0
         """
-        client = self.get_redis_client() if redis_client is None else redis_client
-        if not is_redis_async_client(client):
-            raise TypeError("`redis_client` must be an asynchronous Redis client")
-        return await self.policy.aget_size(client, self.prefix, self.name)
+        return await self.policy.aget_size(
+            cast(RedisAsyncClientT, self.get_redis_client() if redis_client is None else redis_client),
+            self.prefix,
+            self.name,
+        )
 
     def vacuum(self, batch_size: int = 500, redis_client: RedisSyncClientT | None = None) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
@@ -1233,23 +1236,29 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
 
         Args:
             batch_size: The number of members to fetch per scan step.
+            redis_client: Optional Redis client of the same kind as the cache's
+                own (checked statically); obtained from the cache when omitted.
 
         Returns:
             The number of ghost entries removed.
 
         .. versionadded:: 1.0
         """
-        client = self.get_redis_client() if redis_client is None else redis_client
-        if not is_redis_sync_client(client):
-            raise TypeError("Can not perform a synchronous operation with an asynchronous redis client")
-        return self.policy.vacuum(client, self.prefix, self.name, batch_size)
+        return self.policy.vacuum(
+            cast(RedisSyncClientT, self.get_redis_client() if redis_client is None else redis_client),
+            self.prefix,
+            self.name,
+            batch_size,
+        )
 
     async def avacuum(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`vacuum`.
 
         .. versionadded:: 1.0
         """
-        client = self.get_redis_client() if redis_client is None else redis_client
-        if not is_redis_async_client(client):
-            raise TypeError("Can not perform an asynchronous operation with a synchronous redis client")
-        return await self.policy.avacuum(client, self.prefix, self.name, batch_size)
+        return await self.policy.avacuum(
+            cast(RedisAsyncClientT, self.get_redis_client() if redis_client is None else redis_client),
+            self.prefix,
+            self.name,
+            batch_size,
+        )

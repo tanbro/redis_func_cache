@@ -278,7 +278,7 @@ class Policy:
 
     # --- script invocation (the single entry point to the Redis side) ------
 
-    def _locate(
+    def locate(
         self,
         prefix: str,
         name: str,
@@ -286,7 +286,25 @@ class Policy:
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
     ) -> tuple[tuple[KeyT, KeyT], HashValueT]:
-        """Compute the ``(key pair, hash value)`` locating one call in the cache."""
+        """Compute the ``(key pair, hash value)`` locating one call in the cache.
+
+        A pure query combining :meth:`calc_key_pair` and :meth:`calc_hash` —
+        handy for inspecting which Redis keys and hash field a decorated call
+        maps to. :meth:`get` / :meth:`put` (and their async mirrors) use it
+        internally.
+
+        Args:
+            prefix: The cache's key prefix.
+            name: The cache's name.
+            fn: The function being cached.
+            args: Positional arguments.
+            kwds: Keyword arguments.
+
+        Returns:
+            Tuple of the ``(index_key, hash_key)`` pair and the hash value.
+
+        .. versionadded:: 1.0
+        """
         key_pair = self.calc_key_pair(prefix, name, fn, args, kwds)
         return (key_pair[0], key_pair[1]), self.calc_hash(fn, args, kwds)
 
@@ -323,7 +341,7 @@ class Policy:
         Returns:
             The serialized hit value, or :data:`None` on a miss.
         """
-        keys, hash_value = self._locate(prefix, name, fn, args, kwds)
+        keys, hash_value = self.locate(prefix, name, fn, args, kwds)
         get_script, _ = self.scripts.register_scripts(redis_client)
         return cast(EncodedT | None, get_script(keys=keys, args=build_get_args(update_ttl, ttl, hash_value, options)))
 
@@ -341,7 +359,7 @@ class Policy:
         options: Mapping[str, Any] | None = None,
     ) -> EncodedT | None:
         """Async version of :meth:`get`."""
-        keys, hash_value = self._locate(prefix, name, fn, args, kwds)
+        keys, hash_value = self.locate(prefix, name, fn, args, kwds)
         get_script, _ = self.scripts.register_scripts(redis_client)
         return cast(
             EncodedT | None, await get_script(keys=keys, args=build_get_args(update_ttl, ttl, hash_value, options))
@@ -385,7 +403,7 @@ class Policy:
             field_ttl: Time-to-live of the hash field.
             options: Reserved for future use.
         """
-        keys, hash_value = self._locate(prefix, name, fn, args, kwds)
+        keys, hash_value = self.locate(prefix, name, fn, args, kwds)
         ext_args = self.scripts.calc_ext_args(fn, args, kwds)
         _, put_script = self.scripts.register_scripts(redis_client)
         put_script(
@@ -410,7 +428,7 @@ class Policy:
         options: Mapping[str, Any] | None = None,
     ) -> None:
         """Async version of :meth:`put`."""
-        keys, hash_value = self._locate(prefix, name, fn, args, kwds)
+        keys, hash_value = self.locate(prefix, name, fn, args, kwds)
         ext_args = self.scripts.calc_ext_args(fn, args, kwds)
         _, put_script = self.scripts.register_scripts(redis_client)
         await put_script(

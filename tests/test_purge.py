@@ -92,13 +92,6 @@ def test_purge_on_empty_cache():
     assert cache.purge() == 0
 
 
-def test_purge_guard_against_async_client():
-    """同步 purge 遇到异步客户端时抛出 TypeError。"""
-    cache = make_async_cache(lru_policy)
-    with pytest.raises(TypeError, match="synchronous"):
-        cache.purge()
-
-
 @pytest.mark.asyncio(loop_scope="function")
 @pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple"])
 async def test_apurge(policy_factory):
@@ -115,11 +108,3 @@ async def test_apurge(policy_factory):
     assert await cache.apurge(batch_size=1) >= 2
     pat = f"{cache.prefix}{cache.name}:*"
     assert [key async for key in client.scan_iter(match=pat)] == []
-
-
-@pytest.mark.asyncio(loop_scope="function")
-async def test_apurge_guard_against_sync_client():
-    """异步 apurge 遇到同步客户端时抛出 TypeError。"""
-    cache = make_sync_cache(lru_policy)
-    with pytest.raises(TypeError, match="asynchronous"):
-        await cache.apurge()

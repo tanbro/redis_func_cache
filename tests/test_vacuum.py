@@ -128,13 +128,6 @@ def test_vacuum_with_small_batch_size():
     assert client.zcard(zset_key) == 0
 
 
-def test_vacuum_guard_against_async_client():
-    """同步 vacuum 遇到异步客户端时抛出 TypeError。"""
-    cache = make_async_cache(lru_policy)
-    with pytest.raises(TypeError, match="synchronous"):
-        cache.vacuum()
-
-
 @pytest.mark.asyncio(loop_scope="function")
 @pytest.mark.parametrize("policy_factory", POLICY_FACTORIES, ids=["single", "multiple", "rr"])
 async def test_avacuum_removes_ghosts(policy_factory):
@@ -156,14 +149,6 @@ async def test_avacuum_removes_ghosts(policy_factory):
     await client.delete(hmap_key)
     assert await cache.avacuum() == 3
     assert await _aindex_size(client, index_key) == 0
-
-
-@pytest.mark.asyncio(loop_scope="function")
-async def test_avacuum_guard_against_sync_client():
-    """异步 avacuum 遇到同步客户端时抛出 TypeError。"""
-    cache = make_sync_cache(lru_policy)
-    with pytest.raises(TypeError, match="asynchronous"):
-        await cache.avacuum()
 
 
 def test_multiple_policy_get_size():
