@@ -19,14 +19,13 @@ import hashlib
 import json
 import pickle
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
-from redis_func_cache import RedisFuncCache
 from redis_func_cache.fingerprint import hash_fingerprint
 from redis_func_cache.policies import Policy
-from redis_func_cache.scripts import Script
+from redis_func_cache.scripts import build_get_args, build_put_args
 from redis_func_cache.utils import b64digest, calculate_callable_fullname, get_callable_bytecode
 
 from ._golden_fns import fn_a, fn_b
@@ -53,7 +52,6 @@ def _policies() -> list[tuple[str, Policy]]:
         for attr in dir(module):
             policy = getattr(module, attr)
             if isinstance(policy, Policy):
-                policy._bind(PREFIX, NAME)
                 out.append((attr, policy))
     assert len(out) == len(GOLDEN)
     return out
@@ -86,8 +84,8 @@ class TestGoldenPolicyContract:
         expected = GOLDEN[name]
         keys_a = [k.replace("{checksum_a}", CHECKSUM_A).replace("{checksum_b}", CHECKSUM_B) for k in expected["keys_a"]]
         keys_b = [k.replace("{checksum_a}", CHECKSUM_A).replace("{checksum_b}", CHECKSUM_B) for k in expected["keys_b"]]
-        assert list(policy.calc_key_pair(fn_a, ARGS, KWDS)) == keys_a
-        assert list(policy.calc_key_pair(fn_b, ARGS, KWDS)) == keys_b
+        assert list(policy.calc_key_pair(PREFIX, NAME, fn_a, ARGS, KWDS)) == keys_a
+        assert list(policy.calc_key_pair(PREFIX, NAME, fn_b, ARGS, KWDS)) == keys_b
 
     def test_hash(self, policy):
         """The digest must equal md5(fullname + bytecode + pickle(args) + pickle(kwds)).
@@ -108,7 +106,7 @@ class TestGoldenPolicyContract:
 
     def test_ext_args(self, policy):
         name, policy = policy
-        assert list(policy.calc_ext_args(fn_a, ARGS, KWDS) or ()) == GOLDEN[name]["ext_args"]
+        assert list(policy.scripts.calc_ext_args(fn_a, ARGS, KWDS) or ()) == GOLDEN[name]["ext_args"]
 
     def test_scripts(self, policy):
         name, policy = policy
@@ -120,65 +118,25 @@ class TestGoldenArgvLayout:
     the reserved options JSON goes last."""
 
     def test_put_argv(self):
-        calls: list[dict[str, Any]] = []  # type: ignore[annotation-unchecked]
-        RedisFuncCache.put(
-            cast(Script, _RecordScript(calls)),
-            keys=("z", "h"),
-            hash_value=b"deadbeef",
-            value="v",
-            maxsize=10,
-            update_ttl=True,
-            ttl=60,
-            field_ttl=30,
-            ext_args=("mru",),
-        )
-        assert calls == [
-            {
-                "keys": ["z", "h"],
-                "args": [10, 1, 60, b"deadbeef", "v", 30, "mru", b"{}"],
-            }
-        ]
+        args = build_put_args(10, True, 60, b"deadbeef", "v", 30, ("mru",))
+        assert args == [10, 1, 60, b"deadbeef", "v", 30, "mru", b"{}"]
 
     def test_put_argv_no_ext_args_options_last(self):
-        calls: list[dict[str, Any]] = []  # type: ignore[annotation-unchecked]
-        RedisFuncCache.put(
-            cast(Script, _RecordScript(calls)),
-            keys=("z", "h"),
-            hash_value=b"deadbeef",
-            value="v",
-            maxsize=10,
-            update_ttl=False,
-            ttl=0,
-        )
-        assert calls[0]["args"] == [10, 0, 0, b"deadbeef", "v", 0, b"{}"]
+        args = build_put_args(10, False, 0, b"deadbeef", "v", 0)
+        assert args == [10, 0, 0, b"deadbeef", "v", 0, b"{}"]
 
     def test_get_argv(self):
-        calls: list[dict[str, Any]] = []  # type: ignore[annotation-unchecked]
-        RedisFuncCache.get(
-            cast(Script, _RecordScript(calls)),
-            keys=("z", "h"),
-            hash_value=b"deadbeef",
-            update_ttl=True,
-            ttl=60,
-            options={"a": 1},
-            ext_args=("mru",),
-        )
-        assert calls[0]["args"][:4] == [1, 60, b"deadbeef", json.dumps({"a": 1}, separators=(",", ":")).encode()]
-        assert calls[0]["args"][4:] == ["mru"]
+        args = build_get_args(True, 60, b"deadbeef", {"a": 1})
+        assert args == [1, 60, b"deadbeef", json.dumps({"a": 1}, separators=(",", ":")).encode()]
+        assert build_get_args(False, 0, b"deadbeef")[3] == b"{}"
 
-    def test_policy_ext_args_land_on_argv7(self):
-        """End-to-end: a policy's ext_args flow into put's ARGV[7]."""
+    @pytest.mark.parametrize("policy", _policies(), ids=lambda p: p[0])
+    def test_policy_ext_args_land_on_argv7(self, policy):
+        """End-to-end: each policy's ext_args flow into put's ARGV[7]."""
+        name, policy = policy
         calls: list[dict[str, Any]] = []  # type: ignore[annotation-unchecked]
-        client = _RecordingClient(calls)
-        scripts = tuple(client.register_script(t) for t in ("get", "put"))
-        name, policy = _policies()[0]
-        keys, hash_value, ext_args = (
-            policy.calc_key_pair(fn_a, ARGS, KWDS),
-            policy.calc_hash(fn_a, ARGS, KWDS),
-            policy.calc_ext_args(fn_a, ARGS, KWDS) or (),
-        )
-        RedisFuncCache.put(
-            cast(Script, scripts[1]), keys, hash_value, "v", maxsize=10, update_ttl=True, ttl=60, ext_args=ext_args
+        policy.put(
+            _RecordingClient(calls), PREFIX, NAME, fn_a, ARGS, KWDS, value="v", maxsize=10, update_ttl=True, ttl=60
         )
         expected_ext = GOLDEN[name]["ext_args"]
         args = calls[0]["args"]

@@ -15,7 +15,7 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
    ```python
    import bson
    from redis import Redis
-   from redis_func_cache import RedisFuncCache, LruTPolicy
+   from redis_func_cache import RedisFuncCache, lru_t_policy
 
 
    def serialize(x):
@@ -28,7 +28,7 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
 
    pool = Redis.ConnectionPool.from_url("redis://")
    cache = RedisFuncCache(
-       __name__, LruTPolicy, factory=lambda: Redis.from_pool(pool), serializer=(serialize, deserialize)
+       __name__, lru_t_policy, factory=lambda: Redis.from_pool(pool), serializer=(serialize, deserialize)
    )
 
 
@@ -48,10 +48,10 @@ To utilize alternative serialization methods, such as [msgpack][], you have two 
    ```python
    import msgpack
    from redis import Redis
-   from redis_func_cache import RedisFuncCache, LruTPolicy
+   from redis_func_cache import RedisFuncCache, lru_t_policy
 
    pool = Redis.ConnectionPool.from_url("redis://")
-   cache = RedisFuncCache(__name__, LruTPolicy, factory=lambda: Redis.from_pool(pool))
+   cache = RedisFuncCache(__name__, lru_t_policy, factory=lambda: Redis.from_pool(pool))
 
 
    @cache(serializer=(msgpack.packb, msgpack.unpackb))
@@ -121,7 +121,7 @@ The offload logic lives in the two `before_*` methods; the two `after_*` methods
 
 ```python
 import redis
-from redis_func_cache import LruTPolicy, RedisFuncCache
+from redis_func_cache import lru_t_policy, RedisFuncCache
 from redis_func_cache.handler import HandlerContext
 
 LARGE = 1 << 20  # 1 MiB
@@ -167,7 +167,7 @@ pool = redis.ConnectionPool.from_url("redis://")
 
 cache = RedisFuncCache(
     __name__,
-    LruTPolicy,
+    lru_t_policy,
     factory=lambda: redis.Redis.from_pool(pool),
     handler=ObjectStorageOffload(),
 )
@@ -226,7 +226,9 @@ from redis_func_cache.scripts import LruScripts
 policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts())
 ```
 
-The built-in policies (e.g. `LruPolicy`) are preset `Policy` instances using exactly this composition.
+The built-in policies (e.g. `lru_policy`) are preset `Policy` instances using exactly this composition.
+Policies are **stateless** — the key namespace (`prefix` / `name`) is passed to the policy's methods
+at every call — so one instance can be shared by any number of caches; never copy or "bind" one.
 If you want a different key format, subclass one of the keying classes, override `base_key`,
 compose a `Policy`, and pass that instance to [`RedisFuncCache`][].
 The following example demonstrates how to customize the key format for an _LRU_ policy:
@@ -423,22 +425,22 @@ def some_func(*args, **kwargs): ...
 [`ClusterMultipleKeying`]: redis_func_cache.keying.ClusterMultipleKeying
 [`Hasher`]: redis_func_cache.hashing.Hasher
 [`HashConfig`]: redis_func_cache.hashing.HashConfig
-[`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
-[`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
-[`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"
-[`MruPolicy`]: redis_func_cache.policies.mru.MruPolicy "Most Recently Used policy"
-[`RrPolicy`]: redis_func_cache.policies.rr.RrPolicy "Random Remove policy"
-[`LruTPolicy`]: redis_func_cache.policies.lru.LruTPolicy "Time based Least Recently Used policy."
-[`FifoMultiplePolicy`]: redis_func_cache.policies.fifo.FifoMultiplePolicy
-[`LfuMultiplePolicy`]: redis_func_cache.policies.lfu.LfuMultiplePolicy
-[`LruMultiplePolicy`]: redis_func_cache.policies.lru.LruMultiplePolicy
-[`MruMultiplePolicy`]: redis_func_cache.policies.mru.MruMultiplePolicy
-[`RrMultiplePolicy`]: redis_func_cache.policies.rr.RrMultiplePolicy
-[`LruTMultiplePolicy`]: redis_func_cache.policies.lru.LruTMultiplePolicy
-[`FifoClusterPolicy`]: redis_func_cache.policies.fifo.FifoClusterPolicy
-[`LfuClusterPolicy`]: redis_func_cache.policies.lfu.LfuClusterPolicy
-[`LruClusterPolicy`]: redis_func_cache.policies.lru.LruClusterPolicy
-[`MruClusterPolicy`]: redis_func_cache.policies.mru.MruClusterPolicy
-[`RrClusterPolicy`]: redis_func_cache.policies.rr.RrClusterPolicy
-[`LruTClusterPolicy`]: redis_func_cache.policies.lru.LruTClusterPolicy
-[`LruTClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruTClusterMultiplePolicy
+[`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
+[`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
+[`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
+[`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
+[`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
+[`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
+[`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
+[`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
+[`lru_multiple_policy`]: redis_func_cache.policies.lru.lru_multiple_policy
+[`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
+[`rr_multiple_policy`]: redis_func_cache.policies.rr.rr_multiple_policy
+[`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
+[`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
+[`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
+[`lru_cluster_policy`]: redis_func_cache.policies.lru.lru_cluster_policy
+[`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy
+[`rr_cluster_policy`]: redis_func_cache.policies.rr.rr_cluster_policy
+[`lru_t_cluster_policy`]: redis_func_cache.policies.lru.lru_t_cluster_policy
+[`lru_t_cluster_multiple_policy`]: redis_func_cache.policies.lru.lru_t_cluster_multiple_policy

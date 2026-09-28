@@ -2,7 +2,7 @@ from random import randint
 
 import pytest
 
-from redis_func_cache import LruPolicy, RedisFuncCache
+from redis_func_cache import RedisFuncCache, lru_policy
 from redis_func_cache.utils import calculate_callable_fullname, get_callable_bytecode
 
 from ._catches import CACHES, MAXSIZE, MULTI_CACHES, redis_factory
@@ -18,19 +18,20 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_redis_client())
+        cache.purge()
     yield
     # 测试后清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_redis_client())
+        cache.purge()
 
 
 def test_policy_extension_methods_accept_fn_keyword():
-    policy = MULTI_CACHES["lru"].policy
+    cache = MULTI_CACHES["lru"]
+    policy = cache.policy
 
-    keys = policy.calc_key_pair(fn=_echo, args=(), kwds={})
+    keys = policy.calc_key_pair(cache.prefix, cache.name, fn=_echo, args=(), kwds={})
     hash_value = policy.calc_hash(fn=_echo, args=(), kwds={})
-    ext_args = CACHES["mru"].policy.calc_ext_args(fn=_echo, args=(), kwds={})
+    ext_args = CACHES["mru"].policy.scripts.calc_ext_args(fn=_echo, args=(), kwds={})
 
     assert len(keys) == 2
     assert hash_value
@@ -83,16 +84,16 @@ def test_basic():
 
         # mock hit
         for i in range(cache.maxsize):
-            with patch_object(cache, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
-                with patch_object(cache, "put") as mock_put:
+            with patch_object(cache.policy, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
+                with patch_object(cache.policy, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
 
         # mock not hit
         for i in range(cache.maxsize):
-            with patch_object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
-                with patch_object(cache, "put") as mock_put:
+            with patch_object(cache.policy, "get", return_value=None) as mock_get:  # noqa: SIM117
+                with patch_object(cache.policy, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_called_once()
@@ -100,31 +101,31 @@ def test_basic():
         # first run, fill the cache to max size. then second run, to hit the cache
         for i in range(cache.maxsize):
             assert _echo(i) == echo(i)
-            assert i + 1 == cache.policy.get_size(redis_client=cache.get_redis_client())
-            with patch_object(cache, "put") as mock_put:
+            assert i + 1 == cache.get_size()
+            with patch_object(cache.policy, "put") as mock_put:
                 assert i == echo(i)
                 mock_put.assert_not_called()
 
         # run again, should be all hit
         for i in range(cache.maxsize):
-            with patch_object(cache, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
-                with patch_object(cache, "put") as mock_put:
+            with patch_object(cache.policy, "get", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
+                with patch_object(cache.policy, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
 
-        assert cache.maxsize == cache.policy.get_size(redis_client=cache.get_redis_client())
+        assert cache.maxsize == cache.get_size()
 
         # run more than max size, should be not all hit
         n = randint(cache.maxsize + 1, 2 * cache.maxsize)
         for i in range(cache.maxsize, n):
-            with patch_object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
-                with patch_object(cache, "put") as mock_put:
+            with patch_object(cache.policy, "get", return_value=None) as mock_get:  # noqa: SIM117
+                with patch_object(cache.policy, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_called_once()
 
-        assert cache.maxsize == cache.policy.get_size(redis_client=cache.get_redis_client())
+        assert cache.maxsize == cache.get_size()
 
 
 def test_different_args():
@@ -162,7 +163,7 @@ def test_complex_args():
         assert None is echo(None)
 
         # run again, should be all hit
-        with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "put") as mock_put:
             assert {"a": 1} == echo({"a": 1})
             assert [1, 2, 3] == echo([1, 2, 3])
             assert "1" == echo("1")
@@ -185,16 +186,16 @@ def test_cache_clear():
         for i in range(cache.maxsize):
             assert i == echo(i)
 
-        assert cache.maxsize == cache.policy.get_size(redis_client=cache.get_redis_client())
+        assert cache.maxsize == cache.get_size()
 
         # clear the cache
-        cache.policy.purge(redis_client=cache.get_redis_client())
-        assert 0 == cache.policy.get_size(redis_client=cache.get_redis_client())
+        cache.purge()
+        assert 0 == cache.get_size()
 
         # run again, should be all miss
         for i in range(cache.maxsize):
-            with patch_object(cache, "get", return_value=None) as mock_get:  # noqa: SIM117
-                with patch_object(cache, "put") as mock_put:
+            with patch_object(cache.policy, "get", return_value=None) as mock_get:  # noqa: SIM117
+                with patch_object(cache.policy, "put") as mock_put:
                     echo(i)
                     mock_get.assert_called_once()
                     mock_put.assert_called_once()
@@ -216,8 +217,8 @@ def test_cache_wrapper():
 def test_different_policies():
     """测试不同缓存策略。"""
     # test LRU policy
-    lru_cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=MAXSIZE)
-    lru_cache.policy.purge(redis_client=lru_cache.get_redis_client())
+    lru_cache = RedisFuncCache(__name__, lru_policy, factory=redis_factory, maxsize=MAXSIZE)
+    lru_cache.purge()
 
     @lru_cache
     def echo(x):
@@ -227,10 +228,10 @@ def test_different_policies():
     for i in range(lru_cache.maxsize):
         assert i == echo(i)
 
-    assert lru_cache.maxsize == lru_cache.policy.get_size(redis_client=lru_cache.get_redis_client())
+    assert lru_cache.maxsize == lru_cache.get_size()
 
     # access the first item, should be hit
-    with patch_object(lru_cache, "put") as mock_put:
+    with patch_object(lru_cache.policy, "put") as mock_put:
         assert 0 == echo(0)
         mock_put.assert_not_called()
 
@@ -239,9 +240,9 @@ def test_different_policies():
     for i in range(lru_cache.maxsize, n):
         assert i == echo(i)
 
-    assert lru_cache.maxsize == lru_cache.policy.get_size(redis_client=lru_cache.get_redis_client())
+    assert lru_cache.maxsize == lru_cache.get_size()
 
-    lru_cache.policy.purge(redis_client=lru_cache.get_redis_client())
+    lru_cache.purge()
 
 
 def test_multiple_decorators():
@@ -261,7 +262,7 @@ def test_multiple_decorators():
 
         assert 1 == echo(1)
 
-        with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "put") as mock_put:
             assert 1 == echo(1)
             mock_put.assert_not_called()
 
@@ -269,8 +270,8 @@ def test_multiple_decorators():
 def test_custom_maxsize():
     """测试自定义最大缓存大小。"""
     maxsize = 3
-    custom_cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
-    custom_cache.policy.purge(redis_client=custom_cache.get_redis_client())
+    custom_cache = RedisFuncCache(__name__, lru_policy, factory=redis_factory, maxsize=maxsize)
+    custom_cache.purge()
 
     @custom_cache
     def echo(x):
@@ -280,22 +281,22 @@ def test_custom_maxsize():
     for i in range(custom_cache.maxsize):
         assert i == echo(i)
 
-    assert custom_cache.maxsize == custom_cache.policy.get_size(redis_client=custom_cache.get_redis_client())
+    assert custom_cache.maxsize == custom_cache.get_size()
 
     # run more than max size, should evict items
     n = randint(custom_cache.maxsize + 1, 2 * custom_cache.maxsize)
     for i in range(custom_cache.maxsize, n):
         assert i == echo(i)
 
-    assert custom_cache.maxsize == custom_cache.policy.get_size(redis_client=custom_cache.get_redis_client())
+    assert custom_cache.maxsize == custom_cache.get_size()
 
-    custom_cache.policy.purge(redis_client=custom_cache.get_redis_client())
+    custom_cache.purge()
 
 
 def test_json_serializer():
     """测试JSON序列化。"""
-    json_cache = RedisFuncCache(__name__, LruPolicy, serializer="json", factory=redis_factory, maxsize=MAXSIZE)
-    json_cache.policy.purge(redis_client=json_cache.get_redis_client())
+    json_cache = RedisFuncCache(__name__, lru_policy, serializer="json", factory=redis_factory, maxsize=MAXSIZE)
+    json_cache.purge()
 
     @json_cache
     def echo(x):
@@ -306,19 +307,19 @@ def test_json_serializer():
     assert result == data
 
     # 确保再次调用会命中缓存
-    with patch_object(json_cache, "put") as mock_put:
+    with patch_object(json_cache.policy, "put") as mock_put:
         result2 = echo(data)
         assert result2 == data
         mock_put.assert_not_called()
 
-    json_cache.policy.purge(redis_client=json_cache.get_redis_client())
+    json_cache.purge()
 
 
 def test_lru_eviction_correctness():
     """测试LRU缓存淘汰的正确性。"""
     maxsize = 3
-    lru_cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
-    lru_cache.policy.purge(redis_client=lru_cache.get_redis_client())
+    lru_cache = RedisFuncCache(__name__, lru_policy, factory=redis_factory, maxsize=maxsize)
+    lru_cache.purge()
 
     @lru_cache
     def echo(x):
@@ -328,7 +329,7 @@ def test_lru_eviction_correctness():
     for i in range(maxsize):
         assert echo(i) == i
 
-    assert lru_cache.maxsize == lru_cache.policy.get_size(redis_client=lru_cache.get_redis_client())
+    assert lru_cache.maxsize == lru_cache.get_size()
 
     # 访问第一个元素，使其变为最近使用
     assert echo(0) == 0
@@ -338,16 +339,16 @@ def test_lru_eviction_correctness():
     assert result == maxsize
 
     # 验证缓存大小仍然正确
-    assert lru_cache.maxsize == lru_cache.policy.get_size(redis_client=lru_cache.get_redis_client())
+    assert lru_cache.maxsize == lru_cache.get_size()
 
-    lru_cache.policy.purge(redis_client=lru_cache.get_redis_client())
+    lru_cache.purge()
 
 
 def test_eviction_count_accuracy():
     """测试缓存淘汰数量的准确性。"""
     maxsize = 3
-    lru_cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
-    lru_cache.policy.purge(redis_client=lru_cache.get_redis_client())
+    lru_cache = RedisFuncCache(__name__, lru_policy, factory=redis_factory, maxsize=maxsize)
+    lru_cache.purge()
 
     @lru_cache
     def echo(x):
@@ -358,13 +359,13 @@ def test_eviction_count_accuracy():
         assert echo(i) == i
 
     # 验证缓存已满
-    assert lru_cache.policy.get_size(redis_client=lru_cache.get_redis_client()) == maxsize
+    assert lru_cache.get_size() == maxsize
 
     # 添加超出缓存大小的元素，触发淘汰
     result = echo(maxsize)
     assert result == maxsize
 
     # 验证淘汰后缓存大小仍然正确
-    assert lru_cache.policy.get_size(redis_client=lru_cache.get_redis_client()) == maxsize
+    assert lru_cache.get_size() == maxsize
 
-    lru_cache.policy.purge(redis_client=lru_cache.get_redis_client())
+    lru_cache.purge()

@@ -6,7 +6,19 @@ multiple-inheritance hierarchy:
 
 - :class:`~redis_func_cache.keying.Keying` — how Redis keys are named
 - :class:`~redis_func_cache.hashing.Hasher` — how each call is hashed to a sub-key
-- :class:`~redis_func_cache.scripts.Scripts` — which Lua scripts run and how they talk to Redis
+- :class:`~redis_func_cache.scripts.Scripts` — which Lua scripts run and what they expect
+
+The policy itself is the **single entry point to the Redis side**: it computes
+hashes and key pairs, invokes the Lua scripts (via the ARGV helpers in
+:mod:`~redis_func_cache.scripts`), and orchestrates the cross-key-pair
+maintenance operations (``purge`` / ``vacuum`` / ``get_size``). Higher layers
+never talk to :attr:`scripts` directly.
+
+Like :class:`~redis_func_cache.keying.Keying`, a policy is **completely
+stateless**: it holds no namespace, no client and no cache reference. The key
+namespace (``prefix`` / ``name``) is passed to every method that needs it, so
+built-in preset instances (``lru_policy``, ``rr_policy``, ...) can be shared
+freely across caches and processes — there is never a reason to copy one.
 
 Build a custom policy by composing components::
 
@@ -24,27 +36,32 @@ Build a custom policy by composing components::
     policy = Policy(SingleKeying("my-lru"), StableJsonMd5Hasher(), LruScripts())
     cache = RedisFuncCache("my-cache", policy, factory=factory)
 
-The built-in policies (``LruPolicy``, ``RrPolicy``, ...) are preset
-:class:`Policy` instances.
+The built-in policies (``lru_policy``, ``rr_policy``, ...) are preset
+:class:`Policy` instances — despite living in the package namespace under
+snake_case names, they are objects, not classes.
 
 .. versionchanged:: 1.0
     Replaces the mixin-based ``AbstractPolicy`` class hierarchy. Custom policies
-    are now built by composition rather than by subclassing mixins.
+    are now built by composition rather than by subclassing mixins. The policy
+    no longer stores the key namespace: ``prefix`` / ``name`` are explicit
+    arguments, and preset instances are shareable singletons.
 """
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 from redis.commands.core import AsyncScript, Script
+from redis.typing import EncodedT
+
+from ..scripts import Scripts, build_get_args, build_put_args
 
 if TYPE_CHECKING:  # pragma: no cover
-    from redis.typing import ScriptTextT
+    from redis.typing import EncodableT, KeyT
 
 from ..hashing import Hasher
 from ..keying import Keying
-from ..scripts import Scripts
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..typing import HashValueT, KeyNameT, RedisAsyncClientT, RedisClientT, RedisSyncClientT
@@ -55,6 +72,13 @@ __all__ = ("Policy",)
 class Policy:
     """A caching policy composed of a keying, a hasher and a scripts component.
 
+    .. admonition:: Stateless component, explicit namespace
+
+        A policy holds no per-cache state: the key namespace (``prefix`` /
+        ``name``) is an explicit argument of every method that builds or
+        enumerates key names, supplied by :class:`RedisFuncCache` at each call.
+        Preset policy instances are therefore safe to share across caches.
+
     .. admonition:: Redis client lifecycle contract
 
         Every method that talks to Redis takes the client as an explicit
@@ -63,8 +87,9 @@ class Policy:
         must **never** obtain a client itself and must **never** store a client
         on the instance: with a ``factory``, clients are per-operation and must
         not outlive the call. The only cacheable artifacts are
-        client-independent ones (script *text*, key names, the bound
-        ``prefix`` / ``name`` values).
+        client-independent ones (script *text*, key names). Registered script
+        objects are cached inside :attr:`scripts`, keyed weakly by client, so
+        they never outlive the client they were registered against.
     """
 
     keying: Keying
@@ -77,11 +102,9 @@ class Policy:
     def __init__(self, keying: Keying, hasher: Hasher, scripts: Scripts) -> None:
         """Compose a policy from its three components.
 
-        The policy may be instantiated standalone;
-        :class:`RedisFuncCache` binds its key namespace (``prefix`` and
-        ``name``) onto the policy via :meth:`_bind` during cache construction —
-        a plain value copy, not an object reference, so no reference cycle
-        exists between the two.
+        The policy is stateless and may be instantiated standalone and shared;
+        :class:`RedisFuncCache` passes its key namespace (``prefix`` and
+        ``name``) to the policy's methods at every call.
 
         Args:
             keying: The key-naming component.
@@ -91,30 +114,12 @@ class Policy:
         self.keying = keying
         self.hasher = hasher
         self.scripts = scripts
-        self._prefix: str | None = None
-        self._name: str | None = None
 
     def __repr__(self) -> str:
         keying = type(self.keying).__name__
         hasher = type(self.hasher).__name__
         scripts = type(self.scripts).__name__
         return f"Policy({keying}({self.keying.key!r}), {hasher}(), {scripts}())"
-
-    def _bind(self, prefix: str, name: str) -> None:
-        """Bind the cache key namespace (``prefix``, ``name``) onto this policy.
-
-        Called by :class:`RedisFuncCache` at construction time and whenever its
-        ``prefix`` or ``name`` properties are reassigned. Values are copied, so
-        the policy holds no reference to the cache instance.
-        """
-        self._prefix = prefix
-        self._name = name
-
-    def _require_bound(self) -> tuple[str, str]:
-        """Return the bound ``(prefix, name)``, raising if the policy is unbound."""
-        if self._prefix is None or self._name is None:
-            raise RuntimeError("Policy instance is not bound to a RedisFuncCache")
-        return self._prefix, self._name
 
     # --- hash dimension ---------------------------------------------------
 
@@ -138,16 +143,12 @@ class Policy:
         """
         return self.hasher.calc_hash(fn, args, kwds)
 
-    def calc_ext_args(
-        self, fn: Callable | None = None, args: tuple[Any, ...] | None = None, kwds: dict[str, Any] | None = None
-    ) -> Any:
-        """Extra ARGV entries the scripts expect. Delegates to :attr:`scripts`."""
-        return self.scripts.calc_ext_args(fn, args, kwds)
-
     # --- keying dimension -------------------------------------------------
 
     def calc_key_pair(
         self,
+        prefix: str,
+        name: str,
         fn: Callable | None = None,
         args: tuple[Any, ...] | None = None,
         kwds: dict[str, Any] | None = None,
@@ -155,6 +156,8 @@ class Policy:
         """Calculate the Redis key pair for caching. Delegates to :attr:`keying`.
 
         Args:
+            prefix: The cache's key prefix.
+            name: The cache's name.
             fn: The function being cached.
             args: Positional arguments.
             kwds: Keyword arguments.
@@ -162,10 +165,11 @@ class Policy:
         Returns:
             Tuple of two Redis key names (index key, value key).
         """
-        prefix, name = self._require_bound()
         return self.keying.calc_key_pair(prefix, name, fn, args, kwds)
 
-    def iterate_key_pairs(self, redis_client: RedisSyncClientT) -> Iterator[tuple[KeyNameT, KeyNameT]]:
+    def iterate_key_pairs(
+        self, redis_client: RedisSyncClientT, prefix: str, name: str
+    ) -> Iterator[tuple[KeyNameT, KeyNameT]]:
         """Iterate over the (index key, value key) pairs owned by this policy.
 
         Streams lazily — nothing is materialized. See
@@ -173,14 +177,17 @@ class Policy:
 
         Args:
             redis_client: A synchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
 
         Returns:
             Iterator of (index key, value key) pairs.
         """
-        prefix, name = self._require_bound()
         return self.keying.iterate_key_pairs(redis_client, prefix, name)
 
-    def aiterate_key_pairs(self, redis_client: RedisAsyncClientT) -> AsyncIterator[tuple[KeyNameT, KeyNameT]]:
+    def aiterate_key_pairs(
+        self, redis_client: RedisAsyncClientT, prefix: str, name: str
+    ) -> AsyncIterator[tuple[KeyNameT, KeyNameT]]:
         """Async version of :meth:`iterate_key_pairs`.
 
         Not a coroutine: returns the async iterator directly, so callers can
@@ -188,149 +195,293 @@ class Policy:
 
         Args:
             redis_client: An asynchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
 
         Returns:
             Async iterator of (index key, value key) pairs.
         """
-        prefix, name = self._require_bound()
         return self.keying.aiterate_key_pairs(redis_client, prefix, name)
 
-    def purge(self, redis_client: RedisSyncClientT, batch_size: int = 500) -> int:
+    def purge(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Purge the cache synchronously. Delegates to :attr:`keying`.
 
         Args:
             redis_client: A synchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
             batch_size: The number of keys per deletion command.
 
         Returns:
             Number of keys deleted.
         """
-        prefix, name = self._require_bound()
         return self.keying.purge(redis_client, prefix, name, batch_size)
 
-    async def apurge(self, redis_client: RedisAsyncClientT, batch_size: int = 500) -> int:
+    async def apurge(self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Async version of :meth:`purge`.
 
         Args:
             redis_client: An asynchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
             batch_size: The number of keys per deletion command.
 
         Returns:
             Number of keys deleted.
         """
-        prefix, name = self._require_bound()
         return await self.keying.apurge(redis_client, prefix, name, batch_size)
 
-    def get_size(self, redis_client: RedisSyncClientT) -> int:
+    def _count_index(self, redis_client: RedisSyncClientT, index_key: KeyNameT) -> int:
+        """Cardinality of one index structure — ``ZCARD``, or ``SCARD`` for the RR family."""
+        count = redis_client.scard if self.scripts._index_structure == "set" else redis_client.zcard
+        return count(index_key)  # type: ignore[return-value]
+
+    def get_size(self, redis_client: RedisSyncClientT, prefix: str, name: str) -> int:
         """Get the number of items in the cache synchronously.
 
         Reports the sum of the index structure cardinalities (``ZCARD``, or
-        ``SCARD`` for the set-based RR family, selected via
-        :attr:`Scripts.index_structure`), which is the same number the eviction
+        ``SCARD`` for the set-based RR family, selected via the private
+        ``Scripts._index_structure`` fact), which is the same number the eviction
         script enforces ``maxsize`` against. With per-item TTL, expired-but-not-
         yet-vacuumed entries ("ghosts") keep this number elevated; the count of
         live values is the HASH length (``HLEN``) of the second key.
 
         Args:
             redis_client: A synchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
 
         Returns:
             Number of items in the cache.
         """
-        count = redis_client.scard if self.scripts.index_structure == "set" else redis_client.zcard
         return sum(
-            count(index_key)  # type: ignore[union-attr, return-value]
-            for index_key, _ in self.keying.iterate_key_pairs(redis_client, *self._require_bound())
+            self._count_index(redis_client, index_key)
+            for index_key, _ in self.keying.iterate_key_pairs(redis_client, prefix, name)
         )
 
-    async def aget_size(self, redis_client: RedisAsyncClientT) -> int:
+    async def aget_size(self, redis_client: RedisAsyncClientT, prefix: str, name: str) -> int:
         """Async version of :meth:`get_size`; see it for the size semantics.
 
         Args:
             redis_client: An asynchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
 
         Returns:
             Number of items in the cache.
         """
-        count = redis_client.scard if self.scripts.index_structure == "set" else redis_client.zcard
         total = 0
-        async for index_key, _ in self.keying.aiterate_key_pairs(redis_client, *self._require_bound()):
-            total += await count(index_key)  # type: ignore[misc, union-attr, return-value]
+        async for index_key, _ in self.keying.aiterate_key_pairs(redis_client, prefix, name):
+            count = redis_client.scard if self.scripts._index_structure == "set" else redis_client.zcard
+            total += await count(index_key)  # type: ignore[misc]
         return total
 
-    # --- scripts dimension ------------------------------------------------
+    # --- script invocation (the single entry point to the Redis side) ------
 
-    def read_lua_scripts(self) -> tuple[ScriptTextT, ScriptTextT]:
-        """Read and clean the Lua scripts from package resources. Delegates to :attr:`scripts`."""
-        return self.scripts.read_lua_scripts()
+    def _locate(
+        self,
+        prefix: str,
+        name: str,
+        fn: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
+    ) -> tuple[tuple[KeyT, KeyT], HashValueT]:
+        """Compute the ``(key pair, hash value)`` locating one call in the cache."""
+        key_pair = self.calc_key_pair(prefix, name, fn, args, kwds)
+        return (key_pair[0], key_pair[1]), self.calc_hash(fn, args, kwds)
 
-    def read_vacuum_script(self) -> str:
-        """Read and clean the vacuum Lua script from package resources."""
-        return self.scripts.read_vacuum_script()
+    def get(
+        self,
+        redis_client: RedisClientT,
+        prefix: str,
+        name: str,
+        fn: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
+        *,
+        update_ttl: bool,
+        ttl: int,
+        options: Mapping[str, Any] | None = None,
+    ) -> EncodedT | None:
+        """Attempt one cache read: run the get Lua script for this call.
 
-    def lua_scripts(self, redis_client: RedisClientT) -> tuple[Script, Script] | tuple[AsyncScript, AsyncScript]:
-        """Register the get/put Lua scripts against the given client. Delegates to :attr:`scripts`."""
-        return self.scripts.lua_scripts(redis_client)
-
-    def vacuum_script(self, redis_client: RedisClientT) -> Script | AsyncScript:
-        """Register the vacuum Lua script against the given client. Delegates to :attr:`scripts`."""
-        return self.scripts.vacuum_script(redis_client)
-
-    # --- maintenance --------------------------------------------------------
-
-    def vacuum(self, redis_client: RedisSyncClientT, batch_size: int = 500) -> int:
-        """Remove index members whose hash fields have expired ("ghost" entries).
-
-        Ghost entries appear when a per-field TTL expires a hash field while the
-        matching index member survives. This method scans the index in batches
-        and removes members whose hash fields are gone.
-
-        Each script invocation performs one scan step plus the probe and the
-        removal atomically, and returns the next cursor; this method loops until
-        the cursor returns to zero.
+        Computes the hash and key pair, registers the script against the given
+        client (cached per client) and invokes it with the ARGV layout built by
+        :func:`~redis_func_cache.scripts.build_get_args`.
 
         Args:
             redis_client: A synchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
+            fn: The function being cached.
+            args: Positional arguments.
+            kwds: Keyword arguments.
+            update_ttl: Whether to refresh the TTL of the cache structures on this access.
+            ttl: Time-to-live of the cache in seconds.
+            options: Reserved for future use.
+
+        Returns:
+            The serialized hit value, or :data:`None` on a miss.
+        """
+        keys, hash_value = self._locate(prefix, name, fn, args, kwds)
+        get_script, _ = self.scripts.register_scripts(redis_client)
+        return cast(EncodedT | None, get_script(keys=keys, args=build_get_args(update_ttl, ttl, hash_value, options)))
+
+    async def aget(
+        self,
+        redis_client: RedisClientT,
+        prefix: str,
+        name: str,
+        fn: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
+        *,
+        update_ttl: bool,
+        ttl: int,
+        options: Mapping[str, Any] | None = None,
+    ) -> EncodedT | None:
+        """Async version of :meth:`get`."""
+        keys, hash_value = self._locate(prefix, name, fn, args, kwds)
+        get_script, _ = self.scripts.register_scripts(redis_client)
+        return cast(
+            EncodedT | None, await get_script(keys=keys, args=build_get_args(update_ttl, ttl, hash_value, options))
+        )
+
+    def put(
+        self,
+        redis_client: RedisClientT,
+        prefix: str,
+        name: str,
+        fn: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
+        *,
+        value: EncodableT,
+        maxsize: int,
+        update_ttl: bool,
+        ttl: int,
+        field_ttl: int = 0,
+        options: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Store one call result: run the put Lua script for this call.
+
+        On reaching ``maxsize`` the script evicts items according to the policy
+        before inserting. The ARGV layout is built by
+        :func:`~redis_func_cache.scripts.build_put_args`; extra arguments from
+        :meth:`Scripts.calc_ext_args` start at ARGV[7] and the reserved options
+        JSON goes last — the Lua scripts rely on that fixed layout.
+
+        Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
+            fn: The function being cached.
+            args: Positional arguments.
+            kwds: Keyword arguments.
+            value: The serialized value to store.
+            maxsize: The maximum size of the cache.
+            update_ttl: Whether to refresh the TTL of the cache structures on this write.
+            ttl: Time-to-live of the cache in seconds.
+            field_ttl: Time-to-live of the hash field.
+            options: Reserved for future use.
+        """
+        keys, hash_value = self._locate(prefix, name, fn, args, kwds)
+        ext_args = self.scripts.calc_ext_args(fn, args, kwds)
+        _, put_script = self.scripts.register_scripts(redis_client)
+        put_script(
+            keys=keys,
+            args=build_put_args(maxsize, update_ttl, ttl, hash_value, value, field_ttl, ext_args, options),
+        )
+
+    async def aput(
+        self,
+        redis_client: RedisClientT,
+        prefix: str,
+        name: str,
+        fn: Callable | None = None,
+        args: tuple[Any, ...] | None = None,
+        kwds: dict[str, Any] | None = None,
+        *,
+        value: EncodableT,
+        maxsize: int,
+        update_ttl: bool,
+        ttl: int,
+        field_ttl: int = 0,
+        options: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Async version of :meth:`put`."""
+        keys, hash_value = self._locate(prefix, name, fn, args, kwds)
+        ext_args = self.scripts.calc_ext_args(fn, args, kwds)
+        _, put_script = self.scripts.register_scripts(redis_client)
+        await put_script(
+            keys=keys,
+            args=build_put_args(maxsize, update_ttl, ttl, hash_value, value, field_ttl, ext_args, options),
+        )
+
+    # --- maintenance --------------------------------------------------------
+
+    def _vacuum_pair(
+        self, redis_client: RedisSyncClientT, index_key: KeyNameT, value_key: KeyNameT, batch_size: int
+    ) -> int:
+        """Vacuum one (index, value) key pair; see :meth:`vacuum` for the semantics."""
+        script = cast(Script, self.scripts.register_vacuum_script(redis_client))
+        removed = 0
+        cursor: int | str | bytes = 0
+        while True:
+            cursor, removed_in_chunk = script(keys=(index_key, value_key), args=(cursor, batch_size))
+            removed += removed_in_chunk
+            if cursor in (0, b"0", "0"):
+                return removed
+
+    def vacuum(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+        """Remove index members whose hash fields have expired ("ghost" entries).
+
+        Ghost entries appear when a per-field TTL expires a hash field while the
+        matching index member survives. Every key pair of this policy is scanned
+        in batches; each script invocation performs one scan step plus the probe
+        and the removal atomically, and the loop runs until the cursor returns
+        to zero.
+
+        Args:
+            redis_client: A synchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
             batch_size: The number of members to fetch per scan step.
 
         Returns:
             The number of ghost entries removed.
-
-        Raises:
-            The client's sync/async nature is enforced statically; passing the
-            wrong kind is a type error, not a runtime one.
         """
-        script = cast(Script, self.vacuum_script(redis_client))
-        removed = 0
-        for index_key, value_key in self.iterate_key_pairs(redis_client):
-            cursor: int | str | bytes = 0
-            while True:
-                cursor, removed_in_chunk = script(keys=(index_key, value_key), args=(cursor, batch_size))
-                removed += removed_in_chunk
-                if cursor in (0, b"0", "0"):
-                    break
-        return removed
+        return sum(
+            self._vacuum_pair(redis_client, index_key, value_key, batch_size)
+            for index_key, value_key in self.iterate_key_pairs(redis_client, prefix, name)
+        )
 
-    async def avacuum(self, redis_client: RedisAsyncClientT, batch_size: int = 500) -> int:
+    async def _avacuum_pair(
+        self, redis_client: RedisAsyncClientT, index_key: KeyNameT, value_key: KeyNameT, batch_size: int
+    ) -> int:
+        """Async version of :meth:`_vacuum_pair`."""
+        script = cast(AsyncScript, self.scripts.register_vacuum_script(redis_client))
+        removed = 0
+        cursor: int | str | bytes = 0
+        while True:
+            cursor, removed_in_chunk = await script(keys=(index_key, value_key), args=(cursor, batch_size))
+            removed += removed_in_chunk
+            if cursor in (0, b"0", "0"):
+                return removed
+
+    async def avacuum(self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Async version of :meth:`vacuum`.
 
         Args:
             redis_client: An asynchronous redis client obtained from the bound cache.
+            prefix: The cache's key prefix.
+            name: The cache's name.
             batch_size: The number of members to fetch per scan step.
 
         Returns:
             The number of ghost entries removed.
-
-        Raises:
-            The client's sync/async nature is enforced statically.
         """
-        script = cast(AsyncScript, self.vacuum_script(redis_client))
         removed = 0
-        async for index_key, value_key in self.aiterate_key_pairs(redis_client):
-            cursor: int | str | bytes = 0
-            while True:
-                cursor, removed_in_chunk = await script(keys=(index_key, value_key), args=(cursor, batch_size))
-                removed += removed_in_chunk
-                if cursor in (0, b"0", "0"):
-                    break
+        async for index_key, value_key in self.aiterate_key_pairs(redis_client, prefix, name):
+            removed += await self._avacuum_pair(redis_client, index_key, value_key, batch_size)
         return removed

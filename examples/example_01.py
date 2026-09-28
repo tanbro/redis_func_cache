@@ -2,13 +2,13 @@ from time import sleep, time
 
 import redis
 
-from redis_func_cache import LruTPolicy, RedisFuncCache
+from redis_func_cache import RedisFuncCache, lru_t_policy
 
 # Create a redis client factory
 factory = lambda: redis.Redis.from_pool(redis.ConnectionPool.from_url("redis://"))
 
 # Create an lru cache, it connects Redis by previous created redis client
-lru_cache = RedisFuncCache(__name__, LruTPolicy, factory=factory)
+lru_cache = RedisFuncCache(__name__, lru_t_policy, factory=factory)
 
 
 @lru_cache  # Decorate a function to cache its result

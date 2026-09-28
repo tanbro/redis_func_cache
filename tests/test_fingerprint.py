@@ -73,14 +73,14 @@ def test_fingerprint_shared_between_mixin_and_policy():
 
     before = hash_fingerprint.cache_info().hits
     JsonMd5HexHasher().calc_hash(_echo, (1,), None)
-    policy.calc_key_pair(fn=_echo, args=(), kwds={})
+    policy.calc_key_pair(cache.prefix, cache.name, fn=_echo, args=(), kwds={})
     assert hash_fingerprint.cache_info().hits >= before + 1
 
 
 def test_multiple_policy_key_contains_b64_checksum():
     """The key pair must embed fullname#<base64 md5 fingerprint>, unpadded."""
     cache = MULTI_CACHES["lru"]
-    keys = cache.policy.calc_key_pair(fn=_echo, args=(), kwds={})
+    keys = cache.policy.calc_key_pair(cache.prefix, cache.name, fn=_echo, args=(), kwds={})
     fullname = calculate_callable_fullname(_echo)
     checksum = b64encode(_reference_fingerprint("md5", True, _echo)).rstrip(b"=").decode()
     for key in keys:

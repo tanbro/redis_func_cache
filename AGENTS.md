@@ -6,7 +6,9 @@ questions and examples there, never duplicate it here.
 
 ## Architecture (read this before touching src/)
 
-`Policy(keying, hasher, scripts)` — three orthogonal components composed into a policy:
+`Policy(keying, hasher, scripts)` — three orthogonal components composed into a policy. Ownership
+rule: **declaration lives in Scripts, actions live in Policy, the cache layer only talks to the
+Policy**:
 
 - **Keying** (`src/redis_func_cache/keying.py`): key naming. Four variants
   (`SingleKeying` / `MultipleKeying` / `ClusterSingleKeying` / `ClusterMultipleKeying`). Cluster
@@ -15,9 +17,18 @@ questions and examples there, never duplicate it here.
 - **Hasher** (`src/redis_func_cache/hashing.py`, `fingerprint.py`): computes the per-call sub-key
   from function + args via `HashConfig` (algorithm, serializer, `use_bytecode`). ~26 presets plus a
   `make_hasher` factory. The fingerprint is md5(fullname + bytecode); checksums are base64 digests.
-- **Scripts** (`src/redis_func_cache/scripts.py`): owns the get/put Lua files
-  (`src/redis_func_cache/lua/`), the index structure (`zset` for most policies, `set` for RR), and
-  `calc_ext_args` — extra ARGV values appended to put (MRU → `("mru",)`).
+- **Scripts** (`src/redis_func_cache/scripts.py`): pure **declaration + registration** — the
+  get/put Lua file names (`src/redis_func_cache/lua/`), the index structure
+  (`zset` for most policies, `set` for RR), `calc_ext_args` (extra ARGV values appended to put,
+  MRU → `("mru",)`), `register_scripts`/`register_vacuum_script` (per-client registration cached
+  in a `WeakKeyDictionary`), and the module-level ARGV builders `build_get_args`/`build_put_args`.
+  Scripts never invokes the scripts and never computes key names.
+- **Policy** (`src/redis_func_cache/policies/__init__.py`): the **single entry point to the Redis
+  side** — `get/put/aget/aput` (register + ARGV assembly + invoke), `vacuum/avacuum` (cursor loop),
+  `get_size/aget_size` (ZCARD/SCARD dispatch on the private `_index_structure` fact),
+  `purge/apurge`, `calc_key_pair`/`calc_hash`, `iterate_key_pairs`. Also stateless: `prefix` /
+  `name` are explicit parameters on every method that needs them (mirroring Keying), so preset
+  instances are shareable singletons — never copy a policy, never reintroduce `_bind`.
 - `policies/` holds presets only: `Policy` instances named `{Lru,LruT,Fifo,FifoT,Lfu,Mru,Rr} ×
   {(none),Multiple,Cluster,ClusterMultiple}`. Presets take **no arguments**; they are pre-composed.
 
@@ -27,10 +38,12 @@ atomic Lua scripts.
 
 ### Put ARGV contract
 
-`cache.py` put/aput build `args = chain((maxsize, int(update_ttl), ttl, hash_value, value,
-field_ttl), ext_args, (encoded_options,))`. So **`ext_args` must land on ARGV[7]** and the reserved
-options JSON goes last. `tests/test_golden.py::TestGoldenArgvLayout` pins this. If you reorder
-put arguments, Lua scripts and that test must change together.
+`build_put_args` in `scripts.py` builds
+`args = (maxsize, int(update_ttl), ttl, hash_value, value, field_ttl, *ext_args, encoded_options)`.
+So **`ext_args` must land on ARGV[7]** and the reserved options JSON goes last. `Policy.put`
+assembles it. `tests/test_golden.py::TestGoldenArgvLayout` pins this (both the pure functions and
+an end-to-end pass through every preset). If you reorder put arguments, Lua scripts and that test
+must change together.
 
 ## Hard API invariants (break = bug)
 
@@ -41,11 +54,12 @@ put arguments, Lua scripts and that test must change together.
   and fail at runtime.
 - Policies are argument-less instances passed positionally to the constructor. `maxsize`, `ttl`,
   `serializer` are `RedisFuncCache(...)` options; `cache.maxsize` is settable at runtime.
-- Since v0.9 the policy holds no reference to the cache — `prefix`/`name` are copied onto it at
-  construction (`_bind`). Do not reintroduce back-references (reference cycles).
+- The policy is stateless: no back-reference to the cache, no stored namespace. `prefix`/`name`
+  are explicit per-call parameters on Policy methods (the constructor stores the instance as-is,
+  no copy, no `_bind`). Presets are shared singletons; tests may assert `cache.policy is preset`.
 - Sync cache requires a sync client (`redis.Redis`), async requires `redis.asyncio.Redis`; mixing
-  raises `TypeError`. Exception convention: wrong-type arguments → `TypeError`; state problems
-  (e.g. unbound policy) → `RuntimeError`. Follow it for new guards.
+  raises `TypeError`. Exception convention: wrong-type arguments → `TypeError`; state problems →
+  `RuntimeError`. Follow it for new guards.
 - Bytecode is part of the default fingerprint by design — a Python upgrade invalidates stale keys
   (documented in `docs/usage/considerations.md`). Do not add an opt-out knob to built-in policies;
   users compose a custom policy instead.

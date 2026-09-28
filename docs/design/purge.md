@@ -82,16 +82,16 @@ would complicate both call sites for no reuse).
 
 ### Cache-level delegation
 
-`RedisFuncCache` gains `purge()` / `apurge()` as one-line delegations to the bound
+`RedisFuncCache` gains `purge()` / `apurge()` as one-line delegations to the
 policy — the same shape as the `vacuum()` / `avacuum()` delegations — so the public
 workflow is symmetric:
 
 ```python
 from redis import Redis
-from redis_func_cache import LruMultiplePolicy, RedisFuncCache
+from redis_func_cache import lru_multiple_policy, RedisFuncCache
 
 pool = Redis.ConnectionPool.from_url("redis://")
-cache = RedisFuncCache("my-cache", LruMultiplePolicy, factory=lambda: Redis.from_pool(pool))
+cache = RedisFuncCache("my-cache", lru_multiple_policy, factory=lambda: Redis.from_pool(pool))
 
 
 @cache
@@ -111,7 +111,7 @@ cache.purge()  # drop every structure this cache owns (each function's ZSET + HA
 
 - `cache.purge(batch_size=500)` deletes every key the cache owns and returns the
   number deleted. `cache.apurge()` is the async mirror; the policy-level
-  `cache.policy.purge(redis_client)` remains available — the policy-level signature takes the client explicitly, while the cache-level `cache.purge()` obtains it for you.
+  `cache.policy.purge(redis_client, prefix, name)` remains available — the policy-level signature takes the client and the key namespace explicitly, while the cache-level `cache.purge()` supplies both for you.
 - The `batch_size` parameter is new and keyword-friendly; the return value keeps its
   meaning (number of keys removed), so existing callers are unaffected.
 - The sync/async client guards and `RuntimeError` messages stay as they were.

@@ -14,16 +14,16 @@ from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from redis.connection import ConnectionPool
 
-from redis_func_cache import LruPolicy, RedisFuncCache
-from redis_func_cache.policies.lru import LruMultiplePolicy
-from redis_func_cache.policies.rr import RrPolicy
+from redis_func_cache import RedisFuncCache, lru_policy
+from redis_func_cache.policies.lru import lru_multiple_policy
+from redis_func_cache.policies.rr import rr_policy
 
 from ._catches import REDIS_URL, async_redis_pool_factory
 from ._mocks import patch_object
 
 # 回归说明：vacuum 脚本曾对 RR 策略的 SET 索引执行 ZSCAN 而报 WRONGTYPE，
-# RrPolicy 参数化覆盖该修复。
-POLICY_FACTORIES = [(LruPolicy,), (LruMultiplePolicy,), (RrPolicy,)]
+# rr_policy 参数化覆盖该修复。
+POLICY_FACTORIES = [(lru_policy,), (lru_multiple_policy,), (rr_policy,)]
 
 SYNC_POOL = ConnectionPool.from_url(REDIS_URL)
 
@@ -68,7 +68,7 @@ def test_vacuum_removes_ghosts(policy_factory):
     for v in values:
         assert decorated(v) == v
 
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     assert _index_size(client, index_key) == 3
 
     client.delete(hmap_key)  # 所有字段瞬间"过期"，全部成为幽灵
@@ -78,7 +78,7 @@ def test_vacuum_removes_ghosts(policy_factory):
 
 def test_vacuum_keeps_live_entries():
     """只清除过期字段对应的成员，活条目不受影响。"""
-    cache = make_sync_cache(LruPolicy)
+    cache = make_sync_cache(lru_policy)
     client = Redis.from_url(REDIS_URL)
 
     def echo(x):
@@ -88,7 +88,7 @@ def test_vacuum_keeps_live_entries():
     assert decorated("a") == "a"
     assert decorated("b") == "b"
 
-    zset_key, hmap_key = cache.policy.calc_key_pair(echo)
+    zset_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
     hash_b = cache.policy.calc_hash(echo, ("b",), {})
     client.hdel(hmap_key, hash_a)
@@ -100,17 +100,17 @@ def test_vacuum_keeps_live_entries():
 
 def test_vacuum_on_empty_cache():
     """空缓存上 vacuum 返回 0，且不创建任何键。"""
-    cache = make_sync_cache(LruPolicy)
+    cache = make_sync_cache(lru_policy)
     client = Redis.from_url(REDIS_URL)
 
     assert cache.vacuum() == 0
-    zset_key, hmap_key = cache.policy.calc_key_pair()
+    zset_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, cache.prefix, cache.name)
     assert client.exists(zset_key, hmap_key) == 0
 
 
 def test_vacuum_with_small_batch_size():
     """小 batch_size 时游标循环仍能清除全部幽灵。"""
-    cache = make_sync_cache(LruPolicy)
+    cache = make_sync_cache(lru_policy)
     client = Redis.from_url(REDIS_URL)
 
     def echo(x):
@@ -121,7 +121,7 @@ def test_vacuum_with_small_batch_size():
     for _ in range(count):
         assert decorated(uuid4().hex) is not None
 
-    zset_key, hmap_key = cache.policy.calc_key_pair(echo)
+    zset_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     client.delete(hmap_key)
 
     assert cache.vacuum(batch_size=5) == count
@@ -130,7 +130,7 @@ def test_vacuum_with_small_batch_size():
 
 def test_vacuum_guard_against_async_client():
     """同步 vacuum 遇到异步客户端时抛出 TypeError。"""
-    cache = make_async_cache(LruPolicy)
+    cache = make_async_cache(lru_policy)
     with pytest.raises(TypeError, match="synchronous"):
         cache.vacuum()
 
@@ -150,7 +150,7 @@ async def test_avacuum_removes_ghosts(policy_factory):
     for v in values:
         assert await decorated(v) == v
 
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     assert await _aindex_size(client, index_key) == 3
 
     await client.delete(hmap_key)
@@ -161,14 +161,14 @@ async def test_avacuum_removes_ghosts(policy_factory):
 @pytest.mark.asyncio(loop_scope="function")
 async def test_avacuum_guard_against_sync_client():
     """异步 avacuum 遇到同步客户端时抛出 TypeError。"""
-    cache = make_sync_cache(LruPolicy)
+    cache = make_sync_cache(lru_policy)
     with pytest.raises(TypeError, match="asynchronous"):
         await cache.avacuum()
 
 
 def test_multiple_policy_get_size():
     """多策略的 get_size 返回跨所有函数键对的条目总数。"""
-    cache = make_sync_cache(LruMultiplePolicy)
+    cache = make_sync_cache(lru_multiple_policy)
 
     def echo_a(x):
         return x
@@ -180,13 +180,13 @@ def test_multiple_policy_get_size():
         assert cache.decorate(ttl=600)(echo_a)(v) == v
     assert cache.decorate(ttl=600)(echo_b)("d") == "d"
 
-    assert cache.policy.get_size(redis_client=cache.get_redis_client()) == 4
+    assert cache.get_size() == 4
 
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_multiple_policy_aget_size():
     """``aget_size`` 的异步镜像测试。"""
-    cache = make_async_cache(LruMultiplePolicy)
+    cache = make_async_cache(lru_multiple_policy)
 
     async def echo_a(x):
         return x
@@ -198,7 +198,7 @@ async def test_multiple_policy_aget_size():
         assert await cache.decorate(ttl=600)(echo_a)(v) == v
     assert await cache.decorate(ttl=600)(echo_b)("c") == "c"
 
-    assert await cache.policy.aget_size(redis_client=cache.get_redis_client()) == 3
+    assert await cache.aget_size() == 3
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +210,7 @@ REAL_TTL = 1  # 字段 TTL（秒），最小可等待值
 EXPIRY_WAIT = 1.6  # 覆盖 TTL 到期 + 脚本执行间隔
 
 
-@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [lru_policy, rr_policy], ids=["lru", "rr"])
 def test_field_ttl_expiry_lazy_cleanup_on_miss(policy):
     """真实 HEXPIRE 到期后，get miss 的单条惰性清理逐个移除索引幽灵。"""
     cache = make_sync_cache(policy)
@@ -220,7 +220,7 @@ def test_field_ttl_expiry_lazy_cleanup_on_miss(policy):
 
     decorated = cache.decorate(ttl=REAL_TTL)(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
 
     assert decorated("a") == "a"
     assert decorated("b") == "b"
@@ -231,17 +231,17 @@ def test_field_ttl_expiry_lazy_cleanup_on_miss(policy):
     # 幽灵仍在索引中（get_size 计入），hash 字段已被 Redis 判定过期
     assert _index_size(client, index_key) == 2
 
-    with patch_object(cache, "put"):  # put 被拦截，不回写，以便观察清理
+    with patch_object(cache.policy, "put"):  # put 被拦截，不回写，以便观察清理
         assert decorated("a") == "a"  # miss：惰性清理移除幽灵 a
         assert _index_size(client, index_key) == 1
         assert decorated("b") == "b"  # miss：惰性清理移除幽灵 b
         assert _index_size(client, index_key) == 0
         assert client.hlen(hmap_key) == 0
 
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)
 
 
-@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [lru_policy, rr_policy], ids=["lru", "rr"])
 def test_field_ttl_expiry_vacuum_collects(policy):
     """真实 HEXPIRE 到期后，vacuum 一次性收走全部幽灵，get 随后重算。"""
     cache = make_sync_cache(policy)
@@ -251,7 +251,7 @@ def test_field_ttl_expiry_vacuum_collects(policy):
 
     decorated = cache.decorate(ttl=REAL_TTL)(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
 
     for v in ("a", "b", "c"):
         assert decorated(v) == v
@@ -268,11 +268,11 @@ def test_field_ttl_expiry_vacuum_collects(policy):
     assert _index_size(client, index_key) == 1
     assert client.hlen(hmap_key) == 1
 
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)
 
 
 @pytest.mark.asyncio(loop_scope="function")
-@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [lru_policy, rr_policy], ids=["lru", "rr"])
 async def test_async_field_ttl_expiry_lazy_cleanup_on_miss(policy):
     """真实字段过期 + 异步 miss 惰性清理。"""
     cache = make_async_cache(policy)
@@ -282,7 +282,7 @@ async def test_async_field_ttl_expiry_lazy_cleanup_on_miss(policy):
 
     decorated = cache.decorate(ttl=REAL_TTL)(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
 
     assert await decorated("a") == "a"
     assert await decorated("b") == "b"
@@ -292,18 +292,18 @@ async def test_async_field_ttl_expiry_lazy_cleanup_on_miss(policy):
 
     assert await _aindex_size(client, index_key) == 2
 
-    with patch_object(cache, "aput"):
+    with patch_object(cache.policy, "aput"):
         assert await decorated("a") == "a"
         assert await _aindex_size(client, index_key) == 1
         assert await decorated("b") == "b"
         assert await _aindex_size(client, index_key) == 0
         assert await client.hlen(hmap_key) == 0
 
-    await cache.policy.apurge(redis_client=client)
+    await cache.policy.apurge(client, cache.prefix, cache.name)
 
 
 @pytest.mark.asyncio(loop_scope="function")
-@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [lru_policy, rr_policy], ids=["lru", "rr"])
 async def test_async_field_ttl_expiry_vacuum_collects(policy):
     """真实字段过期 + ``avacuum`` 批量清理。"""
     cache = make_async_cache(policy)
@@ -313,7 +313,7 @@ async def test_async_field_ttl_expiry_vacuum_collects(policy):
 
     decorated = cache.decorate(ttl=REAL_TTL)(echo)
     client = cache.get_redis_client()
-    index_key, _ = cache.policy.calc_key_pair(echo)
+    index_key, _ = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
 
     for v in ("a", "b", "c"):
         assert await decorated(v) == v
@@ -327,4 +327,4 @@ async def test_async_field_ttl_expiry_vacuum_collects(policy):
     assert await decorated("a") == "a"
     assert await _aindex_size(client, index_key) == 1
 
-    await cache.policy.apurge(redis_client=client)
+    await cache.policy.apurge(client, cache.prefix, cache.name)

@@ -39,15 +39,16 @@ Here is a simple example:
    import asyncio
    from time import time
    import redis.asyncio as aioredis
-   from redis_func_cache import LruTPolicy, RedisFuncCache as Cache
+   from redis_func_cache import lru_t_policy, RedisFuncCache as Cache
 
     # Create a redis connection pool (simple example)
     pool = aioredis.ConnectionPool.from_url("redis://")
     # Preferred: provide a factory for production/concurrent use
     factory = lambda: aioredis.Redis.from_pool(pool)
 
-    # Create an LRU cache. Note: policy must be an instance and we prefer a factory.
-    cache = Cache(__name__, LruTPolicy, factory=factory)
+    # Create an LRU cache. Note: lru_t_policy is a pre-composed Policy instance
+    # (all presets are snake_case instances), and we prefer a factory.
+    cache = Cache(__name__, lru_t_policy, factory=factory)
 
     # Decorate a function to cache its result
     @cache
@@ -134,8 +135,8 @@ Here is an example showing how the *LRU* cache's eviction policy works (maximum 
 
 The [`RedisFuncCache`][] executes a decorated function with specified arguments and caches its result. Here's a breakdown of the steps:
 
-1. **Initialize Scripts**: Retrieve two Lua script objects for cache hit and update from `policy.lua_scripts`.
-1. **Calculate Keys and Hash**: Compute the cache key pair using `policy.calc_key_pair`, compute the hash value using `policy.calc_hash`, and compute any additional arguments using `policy.calc_ext_args`.
+1. **Initialize Scripts**: Register the policy's two Lua scripts (cache hit and update) against the Redis client, cached per client.
+1. **Calculate Keys and Hash**: Compute the cache key pair using `policy.calc_key_pair(prefix, name, ...)`, compute the hash value using `policy.calc_hash`, and compute any additional arguments using `policy.scripts.calc_ext_args`.
 1. **Attempt Cache Retrieval**: Attempt to retrieve a cached result. If a cache hit occurs, deserialize and return the cached result.
 1. **Execute User Function**: If no cache hit occurs, execute the decorated function with the provided arguments and keyword arguments.
 1. **Serialize Result and Cache**: Serialize the result of the user function and store it in Redis.
@@ -177,12 +178,12 @@ The library guarantees thread safety and concurrency security through the follow
 
    ```python
    import redis
-   from redis_func_cache import RedisFuncCache, LruPolicy
+   from redis_func_cache import RedisFuncCache, lru_policy
 
    redis_pool = redis.ConnectionPool(...)  # Use a pool, not a single client
    factory = lambda: redis.from_pool(redis_pool)  # Use factory, not a static client
 
-   cache = RedisFuncCache(__name__, LruPolicy, factory=factory)
+   cache = RedisFuncCache(__name__, lru_policy, factory=factory)
 
    @cache
    def your_concurrent_func(...):
@@ -249,7 +250,7 @@ See [docs/advanced-usage.md](docs/usage/advanced-usage.md) for details.
 
 ## Cache Maintenance
 
-Two explicit maintenance operations are available on both [`RedisFuncCache`][] and its policy (`cache.policy.vacuum` / `cache.policy.purge`):
+Two explicit maintenance operations are available on both [`RedisFuncCache`][] (`cache.vacuum` / `cache.purge`) and its policy (`policy.vacuum(redis_client, prefix, name)` / `policy.purge(redis_client, prefix, name)`):
 
 ### Vacuum: clean expired entries
 
@@ -427,15 +428,17 @@ classDiagram
     }
 
     class Policy {
+        <<stateless>>
         +keying: Keying
         +hasher: Hasher
         +scripts: Scripts
-        +calc_key_pair(f, args, kwds) -> Tuple[str, str]
+        +calc_key_pair(prefix, name, f) -> Tuple[str, str]
         +calc_hash(f, args, kwds) -> KeyT
-        +purge() -> int
-        +apurge() -> int
-        +get_size() -> int
-        +vacuum() -> int
+        +purge(client, prefix, name) -> int
+        +get_size(client, prefix, name) -> int
+        +vacuum(client, prefix, name) -> int
+        +get(client, prefix, name, f) -> bytes
+        +put(client, prefix, name, f, value) -> None
     }
 
     class Keying {
@@ -467,7 +470,7 @@ Composition of the three orthogonal dimensions (keying / hasher / scripts):
 
 ```mermaid
 classDiagram
-    class LruPolicy {
+    class lru_policy {
         Policy preset
     }
 
@@ -484,11 +487,11 @@ classDiagram
         __hash_config__ = ...
     }
 
-    LruPolicy --> SingleKeying
-    LruPolicy --> LruScripts
-    LruPolicy --> PickleMd5Hasher
+    lru_policy --> SingleKeying
+    lru_policy --> LruScripts
+    lru_policy --> PickleMd5Hasher
 
-    class FifoPolicy {
+    class fifo_policy {
         Policy preset
     }
 
@@ -497,9 +500,9 @@ classDiagram
         put_script = "fifo_put.lua"
     }
 
-    FifoPolicy --> SingleKeying
-    FifoPolicy --> FifoScripts
-    FifoPolicy --> PickleMd5Hasher
+    fifo_policy --> SingleKeying
+    fifo_policy --> FifoScripts
+    fifo_policy --> PickleMd5Hasher
 ```
 
 The four built-in keying variants:
@@ -574,25 +577,25 @@ classDiagram
 [`SingleKeying`]: redis_func_cache.keying.SingleKeying
 [`Hasher`]: redis_func_cache.hashing.Hasher
 
-[`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
-[`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
-[`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"
-[`MruPolicy`]: redis_func_cache.policies.mru.MruPolicy "Most Recently Used policy"
-[`RrPolicy`]: redis_func_cache.policies.rr.RrPolicy "Random Remove policy"
-[`LruTPolicy`]: redis_func_cache.policies.lru.LruTPolicy "Time based Least Recently Used policy."
+[`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
+[`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
+[`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
+[`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
+[`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
+[`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
 
-[`FifoMultiplePolicy`]: redis_func_cache.policies.fifo.FifoMultiplePolicy
-[`LfuMultiplePolicy`]: redis_func_cache.policies.lfu.LfuMultiplePolicy
-[`LruMultiplePolicy`]: redis_func_cache.policies.lru.LruMultiplePolicy
-[`MruMultiplePolicy`]: redis_func_cache.policies.mru.MruMultiplePolicy
-[`RrMultiplePolicy`]: redis_func_cache.policies.rr.RrMultiplePolicy
-[`LruTMultiplePolicy`]: redis_func_cache.policies.lru.LruTMultiplePolicy
+[`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
+[`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
+[`lru_multiple_policy`]: redis_func_cache.policies.lru.lru_multiple_policy
+[`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
+[`rr_multiple_policy`]: redis_func_cache.policies.rr.rr_multiple_policy
+[`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
 
-[`FifoClusterPolicy`]: redis_func_cache.policies.fifo.FifoClusterPolicy
-[`LfuClusterPolicy`]: redis_func_cache.policies.lfu.LfuClusterPolicy
-[`LruClusterPolicy`]: redis_func_cache.policies.lru.LruClusterPolicy
-[`MruClusterPolicy`]: redis_func_cache.policies.mru.MruClusterPolicy
-[`RrClusterPolicy`]: redis_func_cache.policies.rr.RrClusterPolicy
-[`LruTClusterPolicy`]: redis_func_cache.policies.lru.LruTClusterPolicy
+[`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
+[`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
+[`lru_cluster_policy`]: redis_func_cache.policies.lru.lru_cluster_policy
+[`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy
+[`rr_cluster_policy`]: redis_func_cache.policies.rr.rr_cluster_policy
+[`lru_t_cluster_policy`]: redis_func_cache.policies.lru.lru_t_cluster_policy
 
-[`LruTClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruTClusterMultiplePolicy
+[`lru_t_cluster_multiple_policy`]: redis_func_cache.policies.lru.lru_t_cluster_multiple_policy

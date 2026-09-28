@@ -5,13 +5,13 @@ from ..keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying,
 from ..scripts import MruScripts
 from . import Policy
 
-__all__ = ("MruClusterMultiplePolicy", "MruClusterPolicy", "MruMultiplePolicy", "MruPolicy")
+__all__ = ("mru_cluster_multiple_policy", "mru_cluster_policy", "mru_multiple_policy", "mru_policy")
 
 #: MRU eviction policy, single key pair shared by all decorated functions.
-MruPolicy = Policy(SingleKeying("mru"), PICKLE_MD5_HASHER, MruScripts())
+mru_policy = Policy(SingleKeying("mru"), PICKLE_MD5_HASHER, MruScripts())
 #: MRU eviction policy, one key pair per decorated function.
-MruMultiplePolicy = Policy(MultipleKeying("mru-m"), PICKLE_MD5_HASHER, MruScripts())
+mru_multiple_policy = Policy(MultipleKeying("mru-m"), PICKLE_MD5_HASHER, MruScripts())
 #: MRU eviction policy with Redis cluster support, single key pair.
-MruClusterPolicy = Policy(ClusterSingleKeying("mru-c"), PICKLE_MD5_HASHER, MruScripts())
+mru_cluster_policy = Policy(ClusterSingleKeying("mru-c"), PICKLE_MD5_HASHER, MruScripts())
 #: MRU eviction policy with Redis cluster support, one key pair per decorated function.
-MruClusterMultiplePolicy = Policy(ClusterMultipleKeying("mru-cm"), PICKLE_MD5_HASHER, MruScripts())
+mru_cluster_multiple_policy = Policy(ClusterMultipleKeying("mru-cm"), PICKLE_MD5_HASHER, MruScripts())

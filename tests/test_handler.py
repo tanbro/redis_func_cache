@@ -9,7 +9,7 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 
-from redis_func_cache import LruPolicy, RedisFuncCache
+from redis_func_cache import RedisFuncCache, lru_policy
 from redis_func_cache.handler import HandlerContext, HandlerProtocol
 
 from ._catches import ASYNC_REDIS_FACTORY, REDIS_FACTORY
@@ -100,33 +100,33 @@ class AsyncRecordingHandler:
 
 
 def _make_cache(handler=None) -> RedisFuncCache:
-    return RedisFuncCache("handler_test", LruPolicy, factory=REDIS_FACTORY, handler=handler)
+    return RedisFuncCache("handler_test", lru_policy, factory=REDIS_FACTORY, handler=handler)
 
 
 def _make_async_cache(handler=None) -> RedisFuncCache:
-    return RedisFuncCache("handler_test_async", LruPolicy, factory=ASYNC_REDIS_FACTORY, handler=handler)
+    return RedisFuncCache("handler_test_async", lru_policy, factory=ASYNC_REDIS_FACTORY, handler=handler)
 
 
 @pytest.fixture
 def cache():
     c = _make_cache()
     yield c
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 @pytest_asyncio.fixture
 async def async_cache():
     c = _make_async_cache()
     yield c
-    await c.policy.apurge(redis_client=c.get_redis_client())
+    await c.apurge()
 
 
 def _captured_put_value(cache: RedisFuncCache, invoke) -> Any:
     """Run ``invoke`` and return the value passed to ``cache.put``."""
-    with patch_object(cache, "put") as mock_put:
+    with patch_object(cache.policy, "put") as mock_put:
         invoke()
         mock_put.assert_called_once()
-        return mock_put.call_args[0][3]
+        return mock_put.call_args[1]["value"]
 
 
 def test_no_handler_unchanged(cache: RedisFuncCache):
@@ -154,7 +154,7 @@ def test_before_serialize_handled_false_uses_returned_value():
     # Caller always gets the original return value
     # (checked in test_write_path_returns_original_value)
     assert json.loads(stored) == {"replaced": True}
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_before_serialize_handled_true_skips_serialization_and_after():
@@ -171,7 +171,7 @@ def test_before_serialize_handled_true_skips_serialization_and_after():
     assert stored == raw
     # Symmetric short-circuit: after_serialize must not run when before handled
     assert "after_serialize" not in [name for name, _ in handler.calls]
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_after_serialize_replaces_bytes():
@@ -186,7 +186,7 @@ def test_after_serialize_replaces_bytes():
 
     stored = _captured_put_value(c, lambda: echo(1))
     assert stored == raw
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_before_deserialize_handled_true_returns_final_value():
@@ -208,7 +208,7 @@ def test_before_deserialize_handled_true_returns_final_value():
     # after_deserialize must NOT have been called on the handled path
     deserialize_calls = [name for name, _ in handler.calls if name == "after_deserialize"]
     assert deserialize_calls == []
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_before_deserialize_handled_false_replaces_bytes():
@@ -229,7 +229,7 @@ def test_before_deserialize_handled_false_replaces_bytes():
 
     assert echo(1) == {"value": 1}  # miss → write
     assert echo(1) == {"value": 42}  # hit → bytes replaced → deserialized to 42
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_after_deserialize_replaces_result():
@@ -245,7 +245,7 @@ def test_after_deserialize_replaces_result():
     assert echo(1) == {"value": 1}
     # Hit → after_deserialize replaces
     assert echo(1) == {"decorated": True}
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_write_path_returns_original_value():
@@ -262,7 +262,7 @@ def test_write_path_returns_original_value():
         return {"original": x}
 
     assert echo(7) == {"original": 7}
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_handler_subset_only_before_serialize():
@@ -291,7 +291,7 @@ def test_handler_subset_only_before_serialize():
 
     stored = _captured_put_value(c, lambda: echo(1))
     assert stored == b"only-before-serialize"
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_mode_write_false_skips_write_handler():
@@ -312,7 +312,7 @@ def test_mode_write_false_skips_write_handler():
 
     assert "before_serialize" not in [name for name, _ in handler.calls]
     assert "after_serialize" not in [name for name, _ in handler.calls]
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_mode_read_false_skips_read_handler():
@@ -335,7 +335,7 @@ def test_mode_read_false_skips_read_handler():
 
     assert "before_deserialize" not in [name for name, _ in handler.calls]
     assert "after_deserialize" not in [name for name, _ in handler.calls]
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_before_serialize_bad_shape_propagates():
@@ -349,7 +349,7 @@ def test_before_serialize_bad_shape_propagates():
 
     with pytest.raises((TypeError, ValueError), match="unpack"):
         echo(1)
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -388,7 +388,7 @@ async def test_async_handler_full_cycle(async_cache: RedisFuncCache):
     assert "before_deserialize" in names
     # after_deserialize is skipped when before_deserialize is handled
     assert "after_deserialize" not in names
-    await c.policy.apurge(redis_client=c.get_redis_client())
+    await c.apurge()
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -406,7 +406,7 @@ async def test_async_before_deserialize_handled_true(async_cache: RedisFuncCache
     assert await echo(1) == {"final": True}
 
     assert "after_deserialize" not in [name for name, _ in handler.calls]
-    await c.policy.apurge(redis_client=c.get_redis_client())
+    await c.apurge()
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -426,7 +426,7 @@ async def test_async_unsupported_boundary_raises_not_implemented(async_cache: Re
 
     with pytest.raises(NotImplementedError):
         await echo(1)
-    await c.policy.apurge(redis_client=c.get_redis_client())
+    await c.apurge()
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -444,7 +444,7 @@ async def test_async_after_deserialize_returns_value_not_tuple(async_cache: Redi
     result = await echo(1)
     assert result == "just-a-string"
     assert not isinstance(result, tuple)
-    await c.policy.apurge(redis_client=c.get_redis_client())
+    await c.apurge()
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -458,13 +458,13 @@ async def test_async_after_serialize_returns_bytes_not_tuple(async_cache: RedisF
         await asyncio.sleep(0)
         return {"value": x}
 
-    with patch_object(c, "aput") as mock_aput:
+    with patch_object(c.policy, "aput") as mock_aput:
         await echo(1)
         mock_aput.assert_called_once()
-        stored = mock_aput.call_args[0][3]
+        stored = mock_aput.call_args[1]["value"]
 
     assert stored == b"raw-bytes"
-    await c.policy.apurge(redis_client=c.get_redis_client())
+    await c.apurge()
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -480,7 +480,7 @@ async def test_async_before_serialize_bad_shape_propagates(async_cache: RedisFun
 
     with pytest.raises(TypeError, match="not unpackable|unpack"):
         await echo(1)
-    await c.policy.apurge(redis_client=c.get_redis_client())
+    await c.apurge()
 
 
 def test_handler_context_passed():
@@ -500,7 +500,7 @@ def test_handler_context_passed():
     assert ctx.func is add
     assert ctx.args == (1, 2)
     assert ctx.kwds == {}
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_handler_context_uses_bound_args_matching_key_computation():
@@ -520,9 +520,9 @@ def test_handler_context_uses_bound_args_matching_key_computation():
 
     # The same filtered args drive key computation: same effective args → same keys/hash
     assert ctx.func is raw_call
-    assert ctx.keys == c.policy.calc_key_pair(raw_call, (7,), {})
+    assert ctx.keys == c.policy.calc_key_pair(c.prefix, c.name, raw_call, (7,), {})
     assert ctx.hash_value == c.policy.calc_hash(raw_call, (7,), {})
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_per_function_handler_overrides_instance_handler():
@@ -538,7 +538,7 @@ def test_per_function_handler_overrides_instance_handler():
     stored = _captured_put_value(c, lambda: echo(1))
     assert stored == b"func-bytes"
     assert getattr(instance_handler, "calls") == []  # noqa: B009
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_per_function_handler_defaults_to_instance_handler():
@@ -553,7 +553,7 @@ def test_per_function_handler_defaults_to_instance_handler():
     stored = _captured_put_value(c, lambda: echo(1))
     assert stored == b"instance-bytes"
     assert instance_handler.calls
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()
 
 
 def test_before_deserialize_not_called_on_miss():
@@ -572,4 +572,4 @@ def test_before_deserialize_not_called_on_miss():
     assert echo(1) == {"value": 1}  # hit
     assert "before_deserialize" in [name for name, _ in handler.calls]
     assert "after_deserialize" in [name for name, _ in handler.calls]
-    c.policy.purge(redis_client=c.get_redis_client())
+    c.purge()

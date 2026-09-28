@@ -7,7 +7,7 @@ Control cache size and expiration:
 ```python
 cache = RedisFuncCache(
     "my-cache",
-    LruTPolicy,
+    lru_t_policy,
     redis_client=redis_client,
     maxsize=100,  # Maximum number of cached items
     ttl=300,  # Cache expires after 300 seconds of inactivity
@@ -52,14 +52,14 @@ The default serializer is [JSON][], which works with simple data types. For comp
 import pickle
 
 from redis import Redis
-from redis_func_cache import RedisFuncCache, LruTPolicy
+from redis_func_cache import RedisFuncCache, lru_t_policy
 
 pool = Redis.ConnectionPool.from_url("redis://")
 
 # Method 1: Set at cache instance level
 cache = RedisFuncCache(
     __name__,
-    LruTPolicy,
+    lru_t_policy,
     factory=lambda: Redis.from_pool(pool),
     serializer="pickle",  # or (pickle.dumps, pickle.loads)
 )
@@ -96,9 +96,9 @@ data2 = get_user_data(session2, user_id=123, config=config2)  # Cache hit
 By default, all decorated functions share the same Redis key pair. To give each function its own keys, use a "Multiple" policy:
 
 ```python
-from redis_func_cache import RedisFuncCache, LruTMultiplePolicy
+from redis_func_cache import RedisFuncCache, lru_t_multiple_policy
 
-cache = RedisFuncCache("my-cache", LruTMultiplePolicy, redis_client=redis_client)
+cache = RedisFuncCache("my-cache", lru_t_multiple_policy, redis_client=redis_client)
 
 
 @cache
@@ -112,25 +112,25 @@ def func2(x): ...
 # func1 and func2 have separate Redis key pairs
 ```
 
-Available multiple-key policies: [`FifoMultiplePolicy`][], [`LfuMultiplePolicy`][], [`LruMultiplePolicy`][], [`LruTMultiplePolicy`][], [`MruMultiplePolicy`][], [`RrMultiplePolicy`][].
+Available multiple-key policies: [`fifo_multiple_policy`][], [`lfu_multiple_policy`][], [`lru_multiple_policy`][], [`lru_t_multiple_policy`][], [`mru_multiple_policy`][], [`rr_multiple_policy`][].
 
 ## Redis Cluster
 
 For Redis Cluster deployments, use a Cluster-aware policy. These policies use hash tags `{...}` to ensure both keys are on the same cluster node:
 
 ```python
-from redis_func_cache import RedisFuncCache, LruTClusterPolicy
+from redis_func_cache import RedisFuncCache, lru_t_cluster_policy
 
-cache = RedisFuncCache("my-cache", LruTClusterPolicy, redis_client=redis_client)
+cache = RedisFuncCache("my-cache", lru_t_cluster_policy, redis_client=redis_client)
 
 
 @cache
 def my_func(x): ...
 ```
 
-Available cluster policies: [`FifoClusterPolicy`][], [`LfuClusterPolicy`][], [`LruClusterPolicy`][], [`LruTClusterPolicy`][], [`MruClusterPolicy`][], [`RrClusterPolicy`][].
+Available cluster policies: [`fifo_cluster_policy`][], [`lfu_cluster_policy`][], [`lru_cluster_policy`][], [`lru_t_cluster_policy`][], [`mru_cluster_policy`][], [`rr_cluster_policy`][].
 
-For per-function keys in cluster mode, use `*ClusterMultiplePolicy` variants: [`LruTClusterMultiplePolicy`][], etc.
+For per-function keys in cluster mode, use `*ClusterMultiplePolicy` variants: [`lru_t_cluster_multiple_policy`][], etc.
 
 ## Cache Maintenance
 
@@ -142,7 +142,7 @@ removed = cache.vacuum(batch_size=500)  # Returns the number of ghosts removed
 
 For async caches, use `await cache.avacuum()`. Each invocation scans incrementally (in `batch_size` chunks) and is atomic per step, so it is safe to run while the cache is serving traffic.
 
-Note on size reporting: `cache.policy.get_size()` returns the index structure cardinality — the same number the eviction script enforces `maxsize` against. Ghost entries keep it elevated until reclaimed; the count of live values is the HASH length (`HLEN`) of the second key from `cache.policy.calc_key_pair(fn)`.
+Note on size reporting: `cache.get_size()` returns the index structure cardinality — the same number the eviction script enforces `maxsize` against. Ghost entries keep it elevated until reclaimed; the count of live values is the HASH length (`HLEN`) of the second key from `cache.policy.calc_key_pair(cache.prefix, cache.name, fn)`.
 
 ## Cache Mode Control
 
@@ -191,25 +191,25 @@ with cache.disable_rw():
 [`SingleKeying`]: redis_func_cache.keying.SingleKeying
 [`Hasher`]: redis_func_cache.hashing.Hasher
 
-[`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
-[`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
-[`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"
-[`MruPolicy`]: redis_func_cache.policies.mru.MruPolicy "Most Recently Used policy"
-[`RrPolicy`]: redis_func_cache.policies.rr.RrPolicy "Random Remove policy"
-[`LruTPolicy`]: redis_func_cache.policies.lru.LruTPolicy "Time based Least Recently Used policy."
+[`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
+[`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
+[`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
+[`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
+[`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
+[`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
 
-[`FifoMultiplePolicy`]: redis_func_cache.policies.fifo.FifoMultiplePolicy
-[`LfuMultiplePolicy`]: redis_func_cache.policies.lfu.LfuMultiplePolicy
-[`LruMultiplePolicy`]: redis_func_cache.policies.lru.LruMultiplePolicy
-[`MruMultiplePolicy`]: redis_func_cache.policies.mru.MruMultiplePolicy
-[`RrMultiplePolicy`]: redis_func_cache.policies.rr.RrMultiplePolicy
-[`LruTMultiplePolicy`]: redis_func_cache.policies.lru.LruTMultiplePolicy
+[`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
+[`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
+[`lru_multiple_policy`]: redis_func_cache.policies.lru.lru_multiple_policy
+[`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
+[`rr_multiple_policy`]: redis_func_cache.policies.rr.rr_multiple_policy
+[`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
 
-[`FifoClusterPolicy`]: redis_func_cache.policies.fifo.FifoClusterPolicy
-[`LfuClusterPolicy`]: redis_func_cache.policies.lfu.LfuClusterPolicy
-[`LruClusterPolicy`]: redis_func_cache.policies.lru.LruClusterPolicy
-[`MruClusterPolicy`]: redis_func_cache.policies.mru.MruClusterPolicy
-[`RrClusterPolicy`]: redis_func_cache.policies.rr.RrClusterPolicy
-[`LruTClusterPolicy`]: redis_func_cache.policies.lru.LruTClusterPolicy
+[`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
+[`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
+[`lru_cluster_policy`]: redis_func_cache.policies.lru.lru_cluster_policy
+[`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy
+[`rr_cluster_policy`]: redis_func_cache.policies.rr.rr_cluster_policy
+[`lru_t_cluster_policy`]: redis_func_cache.policies.lru.lru_t_cluster_policy
 
-[`LruTClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruTClusterMultiplePolicy
+[`lru_t_cluster_multiple_policy`]: redis_func_cache.policies.lru.lru_t_cluster_multiple_policy

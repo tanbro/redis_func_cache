@@ -16,11 +16,11 @@ from ._catches import ASYNC_CACHES
 @pytest_asyncio.fixture(autouse=True)
 async def clean_async_caches():
     """自动清理异步缓存的夹具，在每个测试前后运行。"""
-    coros = (cache.policy.apurge(cache.get_redis_client()) for cache in ASYNC_CACHES.values())
+    coros = (cache.apurge() for cache in ASYNC_CACHES.values())
     await asyncio.gather(*coros)
     yield
     try:
-        coros = (cache.policy.apurge(cache.get_redis_client()) for cache in ASYNC_CACHES.values())
+        coros = (cache.apurge() for cache in ASYNC_CACHES.values())
         await asyncio.gather(*coros)
     except RuntimeError:
         pass
@@ -53,7 +53,7 @@ async def test_gather_distinct_keys():
         n = cache.maxsize * 2
         results = await asyncio.gather(*(echo(i) for i in range(n)))
         assert results == list(range(n))
-        assert await cache.policy.aget_size(cache.get_redis_client()) <= cache.maxsize
+        assert await cache.aget_size() <= cache.maxsize
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -87,7 +87,7 @@ async def _stampede_all_miss(cache):
 
     assert await task == [1] * 5
     assert counter[0] == 5  # 全部在场协程各自执行
-    assert await cache.policy.aget_size(cache.get_redis_client()) == 1
+    assert await cache.aget_size() == 1
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -101,4 +101,4 @@ async def test_gather_exception():
 
         results = await asyncio.gather(*(fail(i) for i in range(5)), return_exceptions=True)
         assert all(isinstance(r, ValueError) for r in results)
-        assert await cache.policy.aget_size(cache.get_redis_client()) == 0
+        assert await cache.aget_size() == 0

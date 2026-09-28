@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import pytest
 
-from redis_func_cache import LruPolicy, RedisFuncCache
+from redis_func_cache import RedisFuncCache, lru_policy
 from redis_func_cache.hashing import PICKLE_MD5_HASHER, HashConfig, Hasher, JsonMd5Hasher
 from redis_func_cache.keying import (
     ClusterMultipleKeying,
@@ -69,9 +69,9 @@ class TestScripts:
         assert LruScripts().calc_ext_args(_echo, (), {}) is None
 
     def test_index_structure_fact(self):
-        """The index structure is a fact on Scripts; get_size dispatches on it."""
-        assert LruScripts().index_structure == "zset"
-        assert RrScripts().index_structure == "set"
+        """The index structure is an internal fact on Scripts; count_index dispatches on it."""
+        assert LruScripts()._index_structure == "zset"
+        assert RrScripts()._index_structure == "set"
 
 
 class TestKeying:
@@ -97,16 +97,17 @@ class TestPolicy:
         r = repr(Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts()))
         assert r == "Policy(SingleKeying('lru'), PickleMd5Hasher(), LruScripts())"
 
-    def test_unbound_raises(self):
-        with pytest.raises(RuntimeError):
-            Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts()).calc_key_pair(_echo)
+    def test_namespace_is_an_argument(self):
+        """The policy is stateless: the namespace comes from the call, not from a binding."""
+        policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, LruScripts())
+        assert policy.calc_key_pair("p1:", "n1") == ("p1:n1:lru:0", "p1:n1:lru:1")
+        assert policy.calc_key_pair("p2:", "n2") == ("p2:n2:lru:0", "p2:n2:lru:1")
 
     def test_delegation(self, mocker):
         policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, MruScripts())
-        policy._bind("p:", "n")
-        assert policy.calc_ext_args(_echo) == ("mru",)
-        assert policy.calc_key_pair(_echo) == ("p:n:lru:0", "p:n:lru:1")
-        assert policy.scripts.index_structure == "zset"
+        assert policy.scripts.calc_ext_args(_echo) == ("mru",)
+        assert policy.calc_key_pair("p:", "n", _echo) == ("p:n:lru:0", "p:n:lru:1")
+        assert policy.scripts._index_structure == "zset"
 
     def test_base_key_is_the_public_override_point(self):
         class MyKeying(SingleKeying):
@@ -129,15 +130,26 @@ class TestPolicy:
             client.zcard.return_value = 1
             client.scard.return_value = 1
             policy = Policy(MultipleKeying("x"), PICKLE_MD5_HASHER, scripts)
-            policy._bind("p:", "n")
-            policy.get_size(client)
+            policy.get_size(client, "p:", "n")
             getattr(client, command).assert_called_once_with("k:0")
 
 
-class TestCachePolicySnapshot:
-    def test_cache_copies_the_policy(self):
-        """Two caches sharing one preset instance get independent policy objects."""
-        cache_a = RedisFuncCache(uuid4().hex, LruPolicy, factory=redis_factory)
-        cache_b = RedisFuncCache(uuid4().hex, LruPolicy, factory=redis_factory)
-        assert cache_a.policy is not cache_b.policy
-        assert cache_a.policy is not LruPolicy
+class TestCachePolicySharing:
+    def test_cache_shares_the_policy(self):
+        """Policies are stateless: caches sharing a preset share the same object."""
+        cache_a = RedisFuncCache(uuid4().hex, lru_policy, factory=redis_factory)
+        cache_b = RedisFuncCache(uuid4().hex, lru_policy, factory=redis_factory)
+        assert cache_a.policy is lru_policy
+        assert cache_b.policy is lru_policy
+
+    def test_shared_policy_keeps_namespaces_apart(self):
+        """Two caches on one preset instance produce distinct key namespaces."""
+        cache_a = RedisFuncCache(uuid4().hex, lru_policy, factory=redis_factory)
+        cache_b = RedisFuncCache(uuid4().hex, lru_policy, factory=redis_factory)
+
+        def echo(x):
+            return x
+
+        assert cache_a.policy.calc_key_pair(cache_a.prefix, cache_a.name, echo) != cache_b.policy.calc_key_pair(
+            cache_b.prefix, cache_b.name, echo
+        )

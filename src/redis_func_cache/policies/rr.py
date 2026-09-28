@@ -5,13 +5,13 @@ from ..keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying,
 from ..scripts import RrScripts
 from . import Policy
 
-__all__ = ("RrClusterMultiplePolicy", "RrClusterPolicy", "RrMultiplePolicy", "RrPolicy")
+__all__ = ("rr_cluster_multiple_policy", "rr_cluster_policy", "rr_multiple_policy", "rr_policy")
 
 #: Random replacement (RR) eviction policy, single key pair shared by all decorated functions.
-RrPolicy = Policy(SingleKeying("rr"), PICKLE_MD5_HASHER, RrScripts())
+rr_policy = Policy(SingleKeying("rr"), PICKLE_MD5_HASHER, RrScripts())
 #: Random replacement (RR) eviction policy, one key pair per decorated function.
-RrMultiplePolicy = Policy(MultipleKeying("rr-m"), PICKLE_MD5_HASHER, RrScripts())
+rr_multiple_policy = Policy(MultipleKeying("rr-m"), PICKLE_MD5_HASHER, RrScripts())
 #: Random replacement (RR) eviction policy with Redis cluster support, single key pair.
-RrClusterPolicy = Policy(ClusterSingleKeying("rr-c"), PICKLE_MD5_HASHER, RrScripts())
+rr_cluster_policy = Policy(ClusterSingleKeying("rr-c"), PICKLE_MD5_HASHER, RrScripts())
 #: Random replacement (RR) eviction policy with Redis cluster support, one key pair per function.
-RrClusterMultiplePolicy = Policy(ClusterMultipleKeying("rr-cm"), PICKLE_MD5_HASHER, RrScripts())
+rr_cluster_multiple_policy = Policy(ClusterMultipleKeying("rr-cm"), PICKLE_MD5_HASHER, RrScripts())

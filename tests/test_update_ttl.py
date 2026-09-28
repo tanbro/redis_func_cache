@@ -1,12 +1,11 @@
 import time
-from copy import copy
 from uuid import uuid4
 
 import pytest
 
 from redis_func_cache import RedisFuncCache
-from redis_func_cache.policies.lru import LruPolicy
-from redis_func_cache.policies.rr import RrPolicy
+from redis_func_cache.policies.lru import lru_policy
+from redis_func_cache.policies.rr import rr_policy
 from redis_func_cache.scripts import RrScripts
 
 from ._catches import CACHES, redis_factory
@@ -18,11 +17,11 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_redis_client())
+        cache.purge()
     yield
     # 测试后清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_redis_client())
+        cache.purge()
 
 
 def test_update_ttl_default_behavior():
@@ -31,12 +30,12 @@ def test_update_ttl_default_behavior():
         # 创建一个短TTL的缓存实例来测试
         short_ttl_cache = RedisFuncCache(
             __name__,
-            copy(cache.policy),
+            cache.policy,
             factory=redis_factory,
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL
         )
-        short_ttl_cache.policy.purge(redis_client=short_ttl_cache.get_redis_client())
+        short_ttl_cache.purge()
 
         @short_ttl_cache
         def echo(x):
@@ -51,7 +50,7 @@ def test_update_ttl_default_behavior():
         time.sleep(1)
 
         # 第二次调用，应该命中缓存并更新TTL
-        with patch_object(short_ttl_cache, "put") as mock_put:
+        with patch_object(short_ttl_cache.policy, "put") as mock_put:
             result2 = echo(val)
             assert result2 == val
             # 在update_ttl=True模式下，缓存命中不应该触发重新存储
@@ -61,13 +60,13 @@ def test_update_ttl_default_behavior():
         time.sleep(1.5)
 
         # 第三次调用，如果TTL被更新了，应该仍然命中缓存
-        with patch_object(short_ttl_cache, "put") as mock_put:
+        with patch_object(short_ttl_cache.policy, "put") as mock_put:
             result3 = echo(val)
             assert result3 == val
             # 在update_ttl=True模式下，即使过了初始TTL，也应该命中缓存
             mock_put.assert_not_called()
 
-        short_ttl_cache.policy.purge(redis_client=short_ttl_cache.get_redis_client())
+        short_ttl_cache.purge()
 
 
 def test_update_ttl_false_behavior():
@@ -76,13 +75,13 @@ def test_update_ttl_false_behavior():
         # 创建一个不更新TTL的缓存实例
         no_update_ttl_cache = RedisFuncCache(
             __name__,
-            copy(cache.policy),
+            cache.policy,
             factory=redis_factory,
             maxsize=cache.maxsize,
             ttl=2,  # 2秒TTL
             update_ttl=False,  # 不更新TTL
         )
-        no_update_ttl_cache.policy.purge(redis_client=no_update_ttl_cache.get_redis_client())
+        no_update_ttl_cache.purge()
 
         @no_update_ttl_cache
         def echo(x):
@@ -97,7 +96,7 @@ def test_update_ttl_false_behavior():
         time.sleep(1)
 
         # 第二次调用，应该命中缓存但不更新TTL
-        with patch_object(no_update_ttl_cache, "put") as mock_put:
+        with patch_object(no_update_ttl_cache.policy, "put") as mock_put:
             result2 = echo(val)
             assert result2 == val
             # 在update_ttl=False模式下，缓存命中不应该触发重新存储
@@ -107,13 +106,13 @@ def test_update_ttl_false_behavior():
         time.sleep(1.5)
 
         # 第三次调用，如果TTL没有被更新，应该触发重新计算
-        with patch_object(no_update_ttl_cache, "put") as mock_put:
+        with patch_object(no_update_ttl_cache.policy, "put") as mock_put:
             result3 = echo(val)
             assert result3 == val
             # 在update_ttl=False模式下，过了初始TTL应该触发重新存储
             mock_put.assert_called_once()
 
-        no_update_ttl_cache.policy.purge(redis_client=no_update_ttl_cache.get_redis_client())
+        no_update_ttl_cache.purge()
 
 
 def test_miss_does_not_slide_ttl():
@@ -124,20 +123,20 @@ def test_miss_does_not_slide_ttl():
     for cache in CACHES.values():
         ttl_cache = RedisFuncCache(
             __name__,
-            copy(cache.policy),
+            cache.policy,
             factory=redis_factory,
             maxsize=cache.maxsize,
             ttl=60,
             update_ttl=True,
         )
-        ttl_cache.policy.purge(redis_client=ttl_cache.get_redis_client())
+        ttl_cache.purge()
 
         def echo(x):
             return x
 
         decorated = ttl_cache.decorate()(echo)
         client = ttl_cache.get_redis_client()
-        index_key, hmap_key = ttl_cache.policy.calc_key_pair(echo)
+        index_key, hmap_key = ttl_cache.policy.calc_key_pair(ttl_cache.prefix, ttl_cache.name, echo)
 
         assert decorated("a") == "a"  # put：两侧 TTL 设为 60
 
@@ -155,7 +154,7 @@ def test_miss_does_not_slide_ttl():
         assert client.ttl(index_key) >= 58
         assert client.ttl(hmap_key) >= 58
 
-        ttl_cache.policy.purge(redis_client=ttl_cache.get_redis_client())
+        ttl_cache.purge()
 
 
 def _index_size(client, policy, index_key) -> int:
@@ -163,46 +162,46 @@ def _index_size(client, policy, index_key) -> int:
     return client.scard(index_key) if isinstance(policy.scripts, RrScripts) else client.zcard(index_key)
 
 
-@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [lru_policy, rr_policy], ids=["lru", "rr"])
 def test_miss_cleans_index_ghost(policy):
     """get miss 时做单条惰性清理：hash 字段"过期"后的索引幽灵成员被移除。
 
     patch 掉 put 以免清理后重新写入，从而能直接观察到清理效果。
     """
     cache = RedisFuncCache(__name__, policy, factory=redis_factory, maxsize=8)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
 
     def echo(x):
         return x
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
 
     assert decorated("a") == "a"
     client.hdel(hmap_key, hash_a)  # 模拟字段过期 → 索引幽灵
     assert _index_size(client, policy, index_key) == 1
 
-    with patch_object(cache, "put"):  # put 被拦截，不回写
+    with patch_object(cache.policy, "put"):  # put 被拦截，不回写
         assert decorated("a") == "a"  # miss：get 脚本清理幽灵
 
     assert _index_size(client, policy, index_key) == 0
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)
 
 
-@pytest.mark.parametrize("policy", [LruPolicy, RrPolicy], ids=["lru", "rr"])
+@pytest.mark.parametrize("policy", [lru_policy, rr_policy], ids=["lru", "rr"])
 def test_miss_cleans_orphan_hash_field(policy):
     """get miss 时做单条惰性清理：索引成员丢失后的孤儿 hash 字段被移除。"""
     cache = RedisFuncCache(__name__, policy, factory=redis_factory, maxsize=8)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
 
     def echo(x):
         return x
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
 
     assert decorated("a") == "a"
@@ -212,8 +211,8 @@ def test_miss_cleans_orphan_hash_field(policy):
         client.zrem(index_key, hash_a)
     assert client.hlen(hmap_key) == 1
 
-    with patch_object(cache, "put"):  # put 被拦截，不回写
+    with patch_object(cache.policy, "put"):  # put 被拦截，不回写
         assert decorated("a") == "a"  # miss：get 脚本清理孤儿字段
 
     assert client.hlen(hmap_key) == 0
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)

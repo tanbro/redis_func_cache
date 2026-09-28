@@ -16,16 +16,16 @@ def _echo(x):
 async def clean_async_caches():
     """自动清理异步缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
-    coros = (cache.policy.apurge(redis_client=cache.get_redis_client()) for cache in ASYNC_CACHES.values())
+    coros = (cache.apurge() for cache in ASYNC_CACHES.values())
     await asyncio.gather(*coros)
-    coros = (cache.policy.apurge(redis_client=cache.get_redis_client()) for cache in ASYNC_MULTI_CACHES.values())
+    coros = (cache.apurge() for cache in ASYNC_MULTI_CACHES.values())
     await asyncio.gather(*coros)
     yield
     # 测试后清理
     try:
-        coros = (cache.policy.apurge(redis_client=cache.get_redis_client()) for cache in ASYNC_CACHES.values())
+        coros = (cache.apurge() for cache in ASYNC_CACHES.values())
         await asyncio.gather(*coros)
-        coros = (cache.policy.apurge(redis_client=cache.get_redis_client()) for cache in ASYNC_MULTI_CACHES.values())
+        coros = (cache.apurge() for cache in ASYNC_MULTI_CACHES.values())
         await asyncio.gather(*coros)
     except RuntimeError:
         # 如果事件循环已关闭，忽略错误
@@ -85,7 +85,7 @@ async def test_async_simple():
             assert i == await echo(i)
             assert i == await echo(i)
 
-        assert cache.maxsize == await cache.policy.aget_size(redis_client=cache.get_redis_client())
+        assert cache.maxsize == await cache.aget_size()
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -126,13 +126,13 @@ async def test_async_multi_missing():
 
         n = randint(cache.maxsize // 2 + 1, cache.maxsize + 1)
         for i in range(n):
-            with patch_object(cache, "aget", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
-                with patch_object(cache, "aput") as mock_put:
+            with patch_object(cache.policy, "aget", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
+                with patch_object(cache.policy, "aput") as mock_put:
                     await echo1(i)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()
-            with patch_object(cache, "aget", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
-                with patch_object(cache, "aput") as mock_put:
+            with patch_object(cache.policy, "aget", return_value=cache.serialize(i)) as mock_get:  # noqa: SIM117
+                with patch_object(cache.policy, "aput") as mock_put:
                     await echo2(i)
                     mock_get.assert_called_once()
                     mock_put.assert_not_called()

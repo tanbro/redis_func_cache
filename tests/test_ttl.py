@@ -12,11 +12,11 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_redis_client())
+        cache.purge()
     yield
     # 测试后清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_redis_client())
+        cache.purge()
 
 
 def test_cache_ttl():
@@ -46,20 +46,20 @@ def test_cache_ttl():
         echo3(val3)
 
         # 验证缓存命中
-        with patch_object(cache, "get", return_value=cache.serialize(val1)) as mock_get:  # noqa: SIM117
-            with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "get", return_value=cache.serialize(val1)) as mock_get:  # noqa: SIM117
+            with patch_object(cache.policy, "put") as mock_put:
                 assert echo1(val1) == val1
                 mock_get.assert_called_once()
                 mock_put.assert_not_called()
 
-        with patch_object(cache, "get", return_value=cache.serialize(val2)) as mock_get:  # noqa: SIM117
-            with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "get", return_value=cache.serialize(val2)) as mock_get:  # noqa: SIM117
+            with patch_object(cache.policy, "put") as mock_put:
                 assert echo2(val2) == val2
                 mock_get.assert_called_once()
                 mock_put.assert_not_called()
 
-        with patch_object(cache, "get", return_value=cache.serialize(val3)) as mock_get:  # noqa: SIM117
-            with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "get", return_value=cache.serialize(val3)) as mock_get:  # noqa: SIM117
+            with patch_object(cache.policy, "put") as mock_put:
                 assert echo3(val3) == val3
                 mock_get.assert_called_once()
                 mock_put.assert_not_called()
@@ -68,19 +68,19 @@ def test_cache_ttl():
         time.sleep(min(ttl_values) + 1)
 
         # 验证已过期的缓存
-        with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "put") as mock_put:
             assert echo1(val1) == val1  # 应该触发重新计算
             mock_put.assert_called_once()  # 确认缓存已过期并重新写入
 
         # 验证其他缓存是否未过期
-        with patch_object(cache, "get", return_value=cache.serialize(val2)) as mock_get:  # noqa: SIM117
-            with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "get", return_value=cache.serialize(val2)) as mock_get:  # noqa: SIM117
+            with patch_object(cache.policy, "put") as mock_put:
                 assert echo2(val2) == val2  # 这个应该还未过期
                 mock_get.assert_called_once()
                 mock_put.assert_not_called()
 
-        with patch_object(cache, "get", return_value=cache.serialize(val3)) as mock_get:  # noqa: SIM117
-            with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "get", return_value=cache.serialize(val3)) as mock_get:  # noqa: SIM117
+            with patch_object(cache.policy, "put") as mock_put:
                 assert echo3(val3) == val3  # 这个应该还未过期
                 mock_get.assert_called_once()
                 mock_put.assert_not_called()
@@ -89,14 +89,14 @@ def test_cache_ttl():
         time.sleep(max(ttl_values) + 1)
 
         # 验证所有缓存都已过期
-        with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "put") as mock_put:
             assert echo1(val1) == val1  # 应该触发重新计算
             mock_put.assert_called_once()  # 确认缓存已过期并重新写入
 
-        with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "put") as mock_put:
             assert echo2(val2) == val2  # 应该触发重新计算
             mock_put.assert_called_once()
 
-        with patch_object(cache, "put") as mock_put:
+        with patch_object(cache.policy, "put") as mock_put:
             assert echo3(val3) == val3  # 应该触发重新计算
             mock_put.assert_called_once()

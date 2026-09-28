@@ -11,10 +11,10 @@ from redis import Redis
 from redis.asyncio.cluster import RedisCluster as AsyncRedisCluster
 from redis.connection import ConnectionPool
 
-from redis_func_cache import LruPolicy, RedisFuncCache
-from redis_func_cache.policies.fifo import FifoClusterMultiplePolicy, FifoClusterPolicy
-from redis_func_cache.policies.lru import LruClusterMultiplePolicy, LruClusterPolicy, LruMultiplePolicy
-from redis_func_cache.policies.rr import RrClusterMultiplePolicy, RrClusterPolicy
+from redis_func_cache import RedisFuncCache, lru_policy
+from redis_func_cache.policies.fifo import fifo_cluster_multiple_policy, fifo_cluster_policy
+from redis_func_cache.policies.lru import lru_cluster_multiple_policy, lru_cluster_policy, lru_multiple_policy
+from redis_func_cache.policies.rr import rr_cluster_multiple_policy, rr_cluster_policy
 
 from ._catches import (
     ASYNC_CACHES,
@@ -61,15 +61,15 @@ def _norm_pair(pair) -> tuple[str, str]:
 
 def test_single_iterate_key_pairs():
     """单策略 iterate 返回唯一的静态键对，且与 calc_key_pair 一致。"""
-    cache = make_sync_cache(LruPolicy)
+    cache = make_sync_cache(lru_policy)
 
     def echo(x):
         return x
 
     cache.decorate(echo)("a")
 
-    pairs = {_norm_pair(p) for p in cache.policy.iterate_key_pairs(cache.get_redis_client())}
-    assert pairs == {_norm_pair(cache.policy.calc_key_pair(echo))}
+    pairs = {_norm_pair(p) for p in cache.policy.iterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)}
+    assert pairs == {_norm_pair(cache.policy.calc_key_pair(cache.prefix, cache.name, echo))}
 
 
 def test_multiple_iterate_key_pairs():
@@ -81,40 +81,40 @@ def test_multiple_iterate_key_pairs():
     def echo_b(x):
         return x
 
-    cache = make_sync_cache(LruMultiplePolicy)
+    cache = make_sync_cache(lru_multiple_policy)
     cache.decorate(echo_a)("a")
     cache.decorate(echo_b)("b")
 
-    pairs = {_norm(k) for k, _ in cache.policy.iterate_key_pairs(cache.get_redis_client())}
+    pairs = {_norm(k) for k, _ in cache.policy.iterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)}
     assert pairs == {
-        cache.policy.calc_key_pair(echo_a)[0],
-        cache.policy.calc_key_pair(echo_b)[0],
+        cache.policy.calc_key_pair(cache.prefix, cache.name, echo_a)[0],
+        cache.policy.calc_key_pair(cache.prefix, cache.name, echo_b)[0],
     }
 
     # purge 之后不再枚举到任何键对
-    cache.policy.purge(cache.get_redis_client())
-    assert list(cache.policy.iterate_key_pairs(cache.get_redis_client())) == []
+    cache.policy.purge(cache.get_redis_client(), cache.prefix, cache.name)
+    assert list(cache.policy.iterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)) == []
 
 
 def test_iterate_key_pairs_accept_any_client_type():
     """keying 层不做运行时 guard（静态窄类型负责）；基类实现不触碰客户端。"""
-    cache = make_sync_cache(LruPolicy)
+    cache = make_sync_cache(lru_policy)
     # 同步客户端走同步 iterate 正常返回
-    assert list(cache.policy.iterate_key_pairs(cache.get_redis_client()))
+    assert list(cache.policy.iterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name))
 
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_single_aiterate_key_pairs():
     """单策略 aiterate 的异步镜像测试。"""
-    cache = make_async_cache(LruPolicy)
+    cache = make_async_cache(lru_policy)
 
     async def echo(x):
         return x
 
     await cache.decorate(echo)("a")
 
-    pairs = {_norm_pair(p) for p in cache.policy.iterate_key_pairs(cache.get_redis_client())}
-    assert pairs == {_norm_pair(cache.policy.calc_key_pair(echo))}
+    pairs = {_norm_pair(p) for p in cache.policy.iterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)}
+    assert pairs == {_norm_pair(cache.policy.calc_key_pair(cache.prefix, cache.name, echo))}
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -127,18 +127,20 @@ async def test_multiple_aiterate_key_pairs():
     async def echo_b(x):
         return x
 
-    cache = make_async_cache(LruMultiplePolicy)
+    cache = make_async_cache(lru_multiple_policy)
     await cache.decorate(echo_a)("a")
     await cache.decorate(echo_b)("b")
 
-    pairs = {_norm(k) async for k, _ in cache.policy.aiterate_key_pairs(cache.get_redis_client())}
+    pairs = {
+        _norm(k) async for k, _ in cache.policy.aiterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)
+    }
     assert pairs == {
-        cache.policy.calc_key_pair(echo_a)[0],
-        cache.policy.calc_key_pair(echo_b)[0],
+        cache.policy.calc_key_pair(cache.prefix, cache.name, echo_a)[0],
+        cache.policy.calc_key_pair(cache.prefix, cache.name, echo_b)[0],
     }
 
-    await cache.policy.apurge(cache.get_redis_client())
-    assert [p async for p in cache.policy.aiterate_key_pairs(cache.get_redis_client())] == []
+    await cache.apurge()
+    assert [p async for p in cache.policy.aiterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)] == []
 
 
 @pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
@@ -152,10 +154,12 @@ def test_cluster_iterate_key_pairs(cache_name):
 
     cache.decorate(echo)("a")
     try:
-        pairs = {_norm_pair(p) for p in cache.policy.iterate_key_pairs(cache.get_redis_client())}
-        assert pairs == {_norm_pair(cache.policy.calc_key_pair(echo))}
+        pairs = {
+            _norm_pair(p) for p in cache.policy.iterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)
+        }
+        assert pairs == {_norm_pair(cache.policy.calc_key_pair(cache.prefix, cache.name, echo))}
     finally:
-        cache.policy.purge(cache.get_redis_client())
+        cache.policy.purge(cache.get_redis_client(), cache.prefix, cache.name)
 
 
 @pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
@@ -173,13 +177,15 @@ def test_cluster_multiple_iterate_key_pairs(cache_name):
     cache.decorate(echo_a)("a")
     cache.decorate(echo_b)("b")
     try:
-        pairs = {_norm(k) for k, _ in cache.policy.iterate_key_pairs(cache.get_redis_client())}
+        pairs = {
+            _norm(k) for k, _ in cache.policy.iterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)
+        }
         assert pairs == {
-            cache.policy.calc_key_pair(echo_a)[0],
-            cache.policy.calc_key_pair(echo_b)[0],
+            cache.policy.calc_key_pair(cache.prefix, cache.name, echo_a)[0],
+            cache.policy.calc_key_pair(cache.prefix, cache.name, echo_b)[0],
         }
     finally:
-        cache.policy.purge(cache.get_redis_client())
+        cache.policy.purge(cache.get_redis_client(), cache.prefix, cache.name)
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -194,9 +200,12 @@ async def test_async_single_aget_size_and_aiterate():
         for i in range(3):
             assert i == await echo(i)
 
-        assert await cache.policy.aget_size(cache.get_redis_client()) == 3
-        pairs = {_norm_pair(p) async for p in cache.policy.aiterate_key_pairs(cache.get_redis_client())}
-        assert pairs == {_norm_pair(cache.policy.calc_key_pair(echo))}
+        assert await cache.aget_size() == 3
+        pairs = {
+            _norm_pair(p)
+            async for p in cache.policy.aiterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)
+        }
+        assert pairs == {_norm_pair(cache.policy.calc_key_pair(cache.prefix, cache.name, echo))}
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -214,17 +223,22 @@ async def test_async_multiple_aget_size_and_aiterate():
             assert i == await cache.decorate(echo_a)(i)
             assert i == await cache.decorate(echo_b)(i)
 
-        assert await cache.policy.aget_size(cache.get_redis_client()) == 6
-        pairs = {_norm(k) async for k, _ in cache.policy.aiterate_key_pairs(cache.get_redis_client())}
+        assert await cache.aget_size() == 6
+        pairs = {
+            _norm(k)
+            async for k, _ in cache.policy.aiterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)
+        }
         assert pairs == {
-            cache.policy.calc_key_pair(echo_a)[0],
-            cache.policy.calc_key_pair(echo_b)[0],
+            cache.policy.calc_key_pair(cache.prefix, cache.name, echo_a)[0],
+            cache.policy.calc_key_pair(cache.prefix, cache.name, echo_b)[0],
         }
 
 
 @pytest.mark.asyncio(loop_scope="function")
 @pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
-@pytest.mark.parametrize("policy", [LruClusterPolicy, RrClusterPolicy, FifoClusterPolicy], ids=["lru", "rr", "fifo"])
+@pytest.mark.parametrize(
+    "policy", [lru_cluster_policy, rr_cluster_policy, fifo_cluster_policy], ids=["lru", "rr", "fifo"]
+)
 async def test_async_cluster_single_keying(policy):
     """异步集群单策略：写入、aget_size、aiterate 全链路。"""
     cache = make_async_cluster_cache(policy)
@@ -237,18 +251,22 @@ async def test_async_cluster_single_keying(policy):
     for i in range(3):
         assert i == await cached_echo(i)
 
-    assert await cache.policy.aget_size(cache.get_redis_client()) == 4
-    pairs = {_norm_pair(p) async for p in cache.policy.aiterate_key_pairs(cache.get_redis_client())}
-    assert pairs == {_norm_pair(cache.policy.calc_key_pair(echo))}
+    assert await cache.aget_size() == 4
+    pairs = {
+        _norm_pair(p) async for p in cache.policy.aiterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)
+    }
+    assert pairs == {_norm_pair(cache.policy.calc_key_pair(cache.prefix, cache.name, echo))}
 
-    assert await cache.policy.apurge(cache.get_redis_client()) == 2
-    assert await cache.policy.aget_size(cache.get_redis_client()) == 0
+    assert await cache.apurge() == 2
+    assert await cache.aget_size() == 0
 
 
 @pytest.mark.asyncio(loop_scope="function")
 @pytest.mark.skipif(not REDIS_CLUSTER_NODES, reason="REDIS_CLUSTER_NODES environment variable is not set")
 @pytest.mark.parametrize(
-    "policy", [LruClusterMultiplePolicy, RrClusterMultiplePolicy, FifoClusterMultiplePolicy], ids=["lru", "rr", "fifo"]
+    "policy",
+    [lru_cluster_multiple_policy, rr_cluster_multiple_policy, fifo_cluster_multiple_policy],
+    ids=["lru", "rr", "fifo"],
 )
 async def test_async_cluster_multiple_keying(policy):
     """异步集群多策略：写入、aget_size、aiterate、apurge 全链路。"""
@@ -264,13 +282,15 @@ async def test_async_cluster_multiple_keying(policy):
         assert i == await cache.decorate(echo_a)(i)
         assert i == await cache.decorate(echo_b)(i)
 
-    assert await cache.policy.aget_size(cache.get_redis_client()) == 6
+    assert await cache.aget_size() == 6
 
-    pairs = {_norm(k) async for k, _ in cache.policy.aiterate_key_pairs(cache.get_redis_client())}
+    pairs = {
+        _norm(k) async for k, _ in cache.policy.aiterate_key_pairs(cache.get_redis_client(), cache.prefix, cache.name)
+    }
     assert pairs == {
-        cache.policy.calc_key_pair(echo_a)[0],
-        cache.policy.calc_key_pair(echo_b)[0],
+        cache.policy.calc_key_pair(cache.prefix, cache.name, echo_a)[0],
+        cache.policy.calc_key_pair(cache.prefix, cache.name, echo_b)[0],
     }
 
-    assert await cache.policy.apurge(cache.get_redis_client()) == 4
-    assert await cache.policy.aget_size(cache.get_redis_client()) == 0
+    assert await cache.apurge() == 4
+    assert await cache.aget_size() == 0

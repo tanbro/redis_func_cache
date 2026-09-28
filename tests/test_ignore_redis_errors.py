@@ -12,7 +12,7 @@ from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from redis_func_cache import LruPolicy, RedisFuncCache
+from redis_func_cache import RedisFuncCache, lru_policy
 
 
 def _boom_sync(*args, **kwargs):
@@ -32,11 +32,11 @@ async def _miss_async(*args, **kwargs):
 
 
 def make_sync_cache(**kwargs) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, LruPolicy, factory=Redis, **kwargs)
+    return RedisFuncCache(uuid4().hex, lru_policy, factory=Redis, **kwargs)
 
 
 def make_async_cache(**kwargs) -> RedisFuncCache:
-    return RedisFuncCache(uuid4().hex, LruPolicy, factory=AsyncRedis, **kwargs)
+    return RedisFuncCache(uuid4().hex, lru_policy, factory=AsyncRedis, **kwargs)
 
 
 class TestSyncExec:
@@ -49,7 +49,7 @@ class TestSyncExec:
         def echo(x):
             return x
 
-        monkeypatch.setattr(cache, "get", _boom_sync)
+        monkeypatch.setattr(cache.policy, "get", _boom_sync)
         with cache.stats_context() as stats, pytest.raises(RedisConnectionError):
             echo("v")
 
@@ -69,8 +69,8 @@ class TestSyncExec:
             return x
 
         # 读失败后降级为未命中；随后写也失败，同样被忽略
-        monkeypatch.setattr(cache, "get", _boom_sync)
-        monkeypatch.setattr(cache, "put", _boom_sync)
+        monkeypatch.setattr(cache.policy, "get", _boom_sync)
+        monkeypatch.setattr(cache.policy, "put", _boom_sync)
         with cache.stats_context() as stats:
             assert echo("v") == "v"
 
@@ -89,8 +89,8 @@ class TestSyncExec:
         def echo(x):
             return x
 
-        monkeypatch.setattr(cache, "get", _miss_sync)
-        monkeypatch.setattr(cache, "put", _boom_sync)
+        monkeypatch.setattr(cache.policy, "get", _miss_sync)
+        monkeypatch.setattr(cache.policy, "put", _boom_sync)
         with cache.stats_context() as stats, pytest.raises(RedisConnectionError):
             echo("v")
 
@@ -107,8 +107,8 @@ class TestSyncExec:
         def echo(x):
             return x
 
-        monkeypatch.setattr(cache, "get", _miss_sync)
-        monkeypatch.setattr(cache, "put", _boom_sync)
+        monkeypatch.setattr(cache.policy, "get", _miss_sync)
+        monkeypatch.setattr(cache.policy, "put", _boom_sync)
         with cache.stats_context() as stats:
             assert echo("v") == "v"
 
@@ -129,7 +129,7 @@ class TestSyncExec:
         def tolerant(x):
             return x
 
-        monkeypatch.setattr(cache, "get", _boom_sync)
+        monkeypatch.setattr(cache.policy, "get", _boom_sync)
         with pytest.raises(RedisConnectionError):
             strict("v")
         assert tolerant("v") == "v"
@@ -140,7 +140,7 @@ class TestSyncExec:
         def f(x):
             return x
 
-        monkeypatch.setattr(cache, "get", _boom_sync)
+        monkeypatch.setattr(cache.policy, "get", _boom_sync)
         # 直接调用 exec 时，未显式传参则回退到实例级设置
         assert cache.exec(f, ("v",), {}) == "v"
 
@@ -160,7 +160,7 @@ class TestAsyncAexec:
         async def echo(x):
             return x
 
-        monkeypatch.setattr(cache, "aget", _boom_async)
+        monkeypatch.setattr(cache.policy, "aget", _boom_async)
         with cache.stats_context() as stats, pytest.raises(RedisConnectionError):
             await echo("v")
 
@@ -181,8 +181,8 @@ class TestAsyncAexec:
             return x
 
         # 读失败后降级为未命中；随后写也失败，同样被忽略
-        monkeypatch.setattr(cache, "aget", _boom_async)
-        monkeypatch.setattr(cache, "aput", _boom_async)
+        monkeypatch.setattr(cache.policy, "aget", _boom_async)
+        monkeypatch.setattr(cache.policy, "aput", _boom_async)
         with cache.stats_context() as stats:
             assert await echo("v") == "v"
 
@@ -202,8 +202,8 @@ class TestAsyncAexec:
         async def echo(x):
             return x
 
-        monkeypatch.setattr(cache, "aget", _miss_async)
-        monkeypatch.setattr(cache, "aput", _boom_async)
+        monkeypatch.setattr(cache.policy, "aget", _miss_async)
+        monkeypatch.setattr(cache.policy, "aput", _boom_async)
         with cache.stats_context() as stats, pytest.raises(RedisConnectionError):
             await echo("v")
 
@@ -221,8 +221,8 @@ class TestAsyncAexec:
         async def echo(x):
             return x
 
-        monkeypatch.setattr(cache, "aget", _miss_async)
-        monkeypatch.setattr(cache, "aput", _boom_async)
+        monkeypatch.setattr(cache.policy, "aget", _miss_async)
+        monkeypatch.setattr(cache.policy, "aput", _boom_async)
         with cache.stats_context() as stats:
             assert await echo("v") == "v"
 
@@ -244,7 +244,7 @@ class TestAsyncAexec:
         async def tolerant(x):
             return x
 
-        monkeypatch.setattr(cache, "aget", _boom_async)
+        monkeypatch.setattr(cache.policy, "aget", _boom_async)
         with pytest.raises(RedisConnectionError):
             await strict("v")
         assert await tolerant("v") == "v"

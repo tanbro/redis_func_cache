@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable, Coroutine, Generator, Iterable, Mapping, Sequence
+from collections.abc import Callable, Coroutine, Generator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from copy import copy
 from dataclasses import dataclass, replace
 from functools import wraps
 from inspect import BoundArguments, iscoroutinefunction, signature
-from itertools import chain
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 from warnings import warn
 
 from redis import RedisError
-from redis.commands.core import AsyncScript, Script
 from redis.typing import EncodableT, EncodedT
 
 from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
@@ -27,7 +25,6 @@ from .serializers import (
     SerializerSetterValueT,
     SerializerT,
     _serializers,
-    json_encode,
 )
 from .typing import (
     CallableTV,
@@ -36,9 +33,7 @@ from .typing import (
     RedisClientTV,
     RedisSyncClientT,
     is_redis_async_client,
-    is_redis_async_script,
     is_redis_sync_client,
-    is_redis_sync_script,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -64,13 +59,13 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         ::
 
             import redis.asyncio as aioredis
-            from redis_func_cache import LruTPolicy, RedisFuncCache
+            from redis_func_cache import lru_t_policy, RedisFuncCache
 
             pool = aioredis.ConnectionPool.from_url("redis://")
             factory = lambda: aioredis.from_pool(pool)
 
             # supply a client instance by a factory
-            cache = RedisFuncCache(__name__, LruTPolicy(), factory=factory)
+            cache = RedisFuncCache(__name__, lru_t_policy(), factory=factory)
 
 
             @cache
@@ -150,16 +145,18 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
             policy: A pre-instantiated :class:`Policy` instance to use for
                     eviction and key/hash calculation.
 
-                    The provided policy instance will be bound to this cache by
-                    copying the key namespace (``prefix`` and ``name``) onto it — a
-                    plain value copy, so no reference cycle exists between the two.
-                    If you need a fresh policy instance per cache, create a new policy
-                    object and pass it here. Reusing the same policy instance across
-                    multiple caches is discouraged as policies commonly hold
-                    cache-specific state.
+                    Policies are stateless: the key namespace (``prefix`` and
+                    ``name``) is passed to the policy's methods at every call,
+                    so the instance is stored as-is — never copied, never bound.
+                    Built-in preset instances (``lru_policy``, ...) are safe to
+                    share across any number of caches.
 
                 .. versionchanged:: 0.7
                     The ``policy`` argument now accepts a pre-instantiated policy instance, **NOT a class**.
+
+                .. versionchanged:: 1.0
+                    The policy is no longer copied or namespace-bound; policies
+                    are stateless and preset instances are shareable.
 
             redis_client: Optional Redis client instance to use.
 
@@ -291,14 +288,12 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         self.ttl = ttl
         self.update_ttl = update_ttl
         self.ignore_redis_errors = ignore_redis_errors
-        # Only accept a policy instance, then copy the key namespace onto it so
-        # policy methods can build key names without referencing this cache.
-        # Built-in policies are shared module-level presets; snapshot-copy the
-        # instance so caches never mutate each other's bound namespace.
+        # Only accept a policy instance. Policies are stateless: the key
+        # namespace is passed to policy methods per call, so the instance is
+        # stored as-is and built-in presets can be shared across caches.
         if not isinstance(policy, Policy):
             raise TypeError("policy must be an instance of Policy")
-        self._policy = copy(policy)
-        self._policy._bind(self.prefix, self.name)
+        self._policy = policy
         # Accept both a concrete client instance and an optional factory.
         # Prefer `factory` when present. Keep compatibility for callers that
         # accidentally passed a callable as `client` by emitting a DeprecationWarning
@@ -331,8 +326,6 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         if not value:
             raise ValueError("name must be a non-empty string")
         self._name = value
-        if getattr(self, "_policy", None) is not None:
-            self._policy._bind(self.prefix, value)
 
     @property
     def prefix(self) -> str:
@@ -345,8 +338,6 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         if not value:
             raise ValueError("prefix must be a non-empty string")
         self._prefix = value
-        if getattr(self, "_policy", None) is not None:
-            self._policy._bind(value, self.name)
 
     @property
     def maxsize(self) -> int:
@@ -422,7 +413,8 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         """Instance of the caching policy.
 
         Note:
-            The property returns the policy instance bound to this cache.
+            Policies are stateless — the returned instance is exactly the one
+            passed to the constructor, and may be shared with other caches.
         """
         return self._policy
 
@@ -482,113 +474,6 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         return self._deserializer(data)
 
     @classmethod
-    def get(
-        cls,
-        script: Script,
-        keys: tuple[KeyT, KeyT],
-        hash_value: HashValueT,
-        update_ttl: bool,
-        ttl: int,
-        options: Mapping[str, Any] | None = None,
-        ext_args: Iterable[EncodableT] | None = None,
-    ) -> EncodedT | None:
-        """Execute the given Redis Lua script with the provided arguments.
-
-        Args:
-            script: Redis Lua script to be evaluated, which should attempt to retrieve the return value from the cache using the given keys and hash.
-            keys: The key name pair of the Redis set and hash-map data structure used by the cache.
-            hash_value: The member of the Redis key and also the field name of the Redis hash map.
-            update_ttl: Whether to refresh the TTL of the cache structures on this access.
-            ttl: Time-to-live of the cache in seconds.
-            options: Reserved for future use.
-            ext_args: Extra arguments passed to the Lua script.
-
-        Returns:
-            The hit return value, or :data:`None` if the value is missing.
-        """
-        encoded_options = json_encode(options) if options is not None else b"{}"
-        ext_args = ext_args or ()
-        return script(keys=keys, args=chain((int(update_ttl), ttl, hash_value, encoded_options), ext_args))
-
-    @classmethod
-    async def aget(
-        cls,
-        script: AsyncScript,
-        keys: tuple[KeyT, KeyT],
-        hash_: HashValueT,
-        update_ttl: bool,
-        ttl: int,
-        options: Mapping[str, Any] | None = None,
-        ext_args: Iterable[EncodableT] | None = None,
-    ) -> EncodedT | None:
-        """Async version of :meth:`get`"""
-        encoded_options = json_encode(options) if options is not None else b"{}"
-        ext_args = ext_args or ()
-        return await script(keys=keys, args=chain((int(update_ttl), ttl, hash_, encoded_options), ext_args))
-
-    @classmethod
-    def put(
-        cls,
-        script: Script,
-        keys: tuple[KeyT, KeyT],
-        hash_value: HashValueT,
-        value: EncodableT,
-        maxsize: int,
-        update_ttl: bool,
-        ttl: int,
-        field_ttl: int = 0,
-        options: Mapping[str, Any] | None = None,
-        ext_args: Iterable[EncodableT] | None = None,
-    ):
-        """Execute the given Redis Lua script with the provided arguments.
-
-        Args:
-            script: Redis Lua script to be evaluated, which shall store the return value in the cache.
-            keys: The key name pair of the Redis set and hash-map data structure used by the cache.
-            hash_value: The member of the Redis key and also the field name of the Redis hash map.
-            value: The value to be stored in the hash map.
-            maxsize: The maximum size of the cache.
-            update_ttl: Whether to refresh the TTL of the cache structures on this write.
-            ttl: Time-to-live of the cache in seconds.
-            field_ttl: Time-to-live of the field name of the Redis hash map.
-            options: Reserved for future use.
-            ext_args: Extra arguments passed to the Lua script.
-
-        If the cache reaches its :attr:`maxsize`, it will remove one item according to its :attr:`policy` before inserting the new item.
-        """
-        encoded_options = json_encode(options) if options is not None else b"{}"
-        ext_args = ext_args or ()
-        script(
-            keys=keys,
-            # ext_args must land on ARGV[7]: policies (e.g. MRU) and the Lua
-            # scripts rely on that fixed position; the reserved options JSON goes last.
-            args=chain((maxsize, int(update_ttl), ttl, hash_value, value, field_ttl), ext_args, (encoded_options,)),
-        )
-
-    @classmethod
-    async def aput(
-        cls,
-        script: AsyncScript,
-        keys: tuple[KeyT, KeyT],
-        hash_: HashValueT,
-        value: EncodableT,
-        maxsize: int,
-        update_ttl: bool,
-        ttl: int,
-        field_ttl: int = 0,
-        options: Mapping[str, Any] | None = None,
-        ext_args: Iterable[EncodableT] | None = None,
-    ):
-        """Async version of :meth:`put`"""
-        encoded_options = json_encode(options) if options is not None else b"{}"
-        ext_args = ext_args or ()
-        await script(
-            keys=keys,
-            # Keep ARGV[7] as the first ext_args entry, mirroring put().
-            args=chain((maxsize, int(update_ttl), ttl, hash_, value, field_ttl), ext_args, (encoded_options,)),
-        )
-
-    @classmethod
     def make_bound(
         cls,
         user_func: Callable,
@@ -615,15 +500,19 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         user_args: tuple[Any, ...],
         user_kwds: dict[str, Any],
         bound: BoundArguments | None = None,
-    ) -> tuple[tuple[KeyT, KeyT], HashValueT, Iterable[EncodableT]]:
+    ) -> tuple[tuple[KeyT, KeyT], HashValueT]:
+        """Compute the ``(key pair, hash value)`` locating this call in the cache.
+
+        Used for the handler context; the policy recomputes the same values
+        internally when it invokes the scripts.
+        """
         if bound is None:
             args, kwds = user_args, user_kwds
         else:
             args, kwds = bound.args, bound.kwargs
-        keys = self.policy.calc_key_pair(user_function, args, kwds)
+        keys = self.policy.calc_key_pair(self.prefix, self.name, user_function, args, kwds)
         hash_value = self.policy.calc_hash(user_function, args, kwds)
-        ext_args = self.policy.calc_ext_args(user_function, args, kwds) or ()
-        return keys, hash_value, ext_args
+        return keys, hash_value
 
     def exec(
         self,
@@ -681,21 +570,28 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         if ignore_redis_errors is None:
             ignore_redis_errors = self.ignore_redis_errors
         redis_client = self.get_redis_client()
-        script_0, script_1 = self.policy.lua_scripts(redis_client)
-        if not is_redis_sync_script(script_0) or not is_redis_sync_script(script_1):
-            raise TypeError("Redis lua script must be in synchronous mode on a non async function")
         if stats:
             stats.count += 1
         handler = self._handler if handler is None else handler
         # Effective arguments: the ones the key/hash are computed from, also
         # exposed to handlers so references built from them stay consistent.
         args, kwds = (bound.args, bound.kwargs) if bound else (user_args, user_kwds)
-        keys, hash_value, ext_args = self.prepare(user_function, args, kwds)
+        keys, hash_value = self.prepare(user_function, args, kwds)
         ctx = HandlerContext(keys=keys, hash_value=hash_value, func=user_function, args=args, kwds=kwds)
         # Only attempt to get from cache if mode has READ flag
         if mode.read:
             try:
-                cached = self.get(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
+                cached = self.policy.get(
+                    redis_client,
+                    self.prefix,
+                    self.name,
+                    user_function,
+                    args,
+                    kwds,
+                    update_ttl=self.update_ttl,
+                    ttl=self.ttl,
+                    options=options,
+                )
             except RedisError as redis_error:
                 if stats:
                     stats.err += 1
@@ -757,17 +653,19 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                 if handler is not None:
                     user_retval_serialized = cast(EncodableT, handler.after_serialize(user_retval_serialized, ctx=ctx))
             try:
-                self.put(
-                    script_1,
-                    keys,
-                    hash_value,
-                    user_retval_serialized,
-                    self.maxsize,
-                    self.update_ttl,
-                    self.ttl,
-                    0 if field_ttl is None else field_ttl,
-                    options,
-                    ext_args,
+                self.policy.put(
+                    redis_client,
+                    self.prefix,
+                    self.name,
+                    user_function,
+                    args,
+                    kwds,
+                    value=user_retval_serialized,
+                    maxsize=self.maxsize,
+                    update_ttl=self.update_ttl,
+                    ttl=self.ttl,
+                    field_ttl=0 if field_ttl is None else field_ttl,
+                    options=options,
                 )
             except RedisError as redis_error:
                 if stats:
@@ -800,21 +698,28 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         if ignore_redis_errors is None:
             ignore_redis_errors = self.ignore_redis_errors
         redis_client = self.get_redis_client()
-        script_0, script_1 = self.policy.lua_scripts(redis_client)
-        if not is_redis_async_script(script_0) or not is_redis_async_script(script_1):
-            raise TypeError("Redis lua script must be in asynchronous mode on an async function")
         if stats:
             stats.count += 1
         handler = handler if handler is not None else self._handler
         # Effective arguments: the ones the key/hash are computed from, also
         # exposed to handlers so references built from them stay consistent.
         args, kwds = (bound.args, bound.kwargs) if bound else (user_args, user_kwds)
-        keys, hash_value, ext_args = self.prepare(user_function, args, kwds)
+        keys, hash_value = self.prepare(user_function, args, kwds)
         ctx = HandlerContext(keys=keys, hash_value=hash_value, func=user_function, args=args, kwds=kwds)
         # Only attempt to get from cache if mode has READ flag
         if mode.read:
             try:
-                cached = await self.aget(script_0, keys, hash_value, self.update_ttl, self.ttl, options, ext_args)
+                cached = await self.policy.aget(
+                    redis_client,
+                    self.prefix,
+                    self.name,
+                    user_function,
+                    args,
+                    kwds,
+                    update_ttl=self.update_ttl,
+                    ttl=self.ttl,
+                    options=options,
+                )
             except RedisError as redis_error:
                 if stats:
                     stats.err += 1
@@ -878,17 +783,19 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
                         EncodableT, await handler.after_serialize_async(user_retval_serialized, ctx=ctx)
                     )
             try:
-                await self.aput(
-                    script_1,
-                    keys,
-                    hash_value,
-                    user_retval_serialized,
-                    self.maxsize,
-                    self.update_ttl,
-                    self.ttl,
-                    0 if field_ttl is None else field_ttl,
-                    options,
-                    ext_args,
+                await self.policy.aput(
+                    redis_client,
+                    self.prefix,
+                    self.name,
+                    user_function,
+                    args,
+                    kwds,
+                    value=user_retval_serialized,
+                    maxsize=self.maxsize,
+                    update_ttl=self.update_ttl,
+                    ttl=self.ttl,
+                    field_ttl=0 if field_ttl is None else field_ttl,
+                    options=options,
                 )
             except RedisError as redis_error:
                 if stats:
@@ -1274,7 +1181,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         client = self.get_redis_client() if redis_client is None else redis_client
         if not is_redis_sync_client(client):
             raise TypeError("`redis_client` must be a synchronous Redis client")
-        return self.policy.purge(client, batch_size)
+        return self.policy.purge(client, self.prefix, self.name, batch_size)
 
     async def apurge(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`purge`.
@@ -1284,7 +1191,38 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         client = self.get_redis_client() if redis_client is None else redis_client
         if not is_redis_async_client(client):
             raise TypeError("`redis_client` must be an asynchronous Redis client")
-        return await self.policy.apurge(client, batch_size)
+        return await self.policy.apurge(client, self.prefix, self.name, batch_size)
+
+    def get_size(self, redis_client: RedisSyncClientT | None = None) -> int:
+        """Get the number of items in the cache synchronously.
+
+        A convenience delegating to :meth:`Policy.get_size
+        <redis_func_cache.policies.Policy.get_size>`, which contains
+        the full description.
+
+        Args:
+            redis_client: Optional synchronous Redis client; obtained from the
+                cache when omitted.
+
+        Returns:
+            Number of items in the cache.
+
+        .. versionadded:: 1.0
+        """
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if not is_redis_sync_client(client):
+            raise TypeError("`redis_client` must be a synchronous Redis client")
+        return self.policy.get_size(client, self.prefix, self.name)
+
+    async def aget_size(self, redis_client: RedisAsyncClientT | None = None) -> int:
+        """Async version of :meth:`get_size`.
+
+        .. versionadded:: 1.0
+        """
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if not is_redis_async_client(client):
+            raise TypeError("`redis_client` must be an asynchronous Redis client")
+        return await self.policy.aget_size(client, self.prefix, self.name)
 
     def vacuum(self, batch_size: int = 500, redis_client: RedisSyncClientT | None = None) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
@@ -1304,7 +1242,7 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         client = self.get_redis_client() if redis_client is None else redis_client
         if not is_redis_sync_client(client):
             raise TypeError("Can not perform a synchronous operation with an asynchronous redis client")
-        return self.policy.vacuum(client, batch_size)
+        return self.policy.vacuum(client, self.prefix, self.name, batch_size)
 
     async def avacuum(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`vacuum`.
@@ -1314,4 +1252,4 @@ class RedisFuncCache(Generic[RedisClientTV, PolicyTV]):
         client = self.get_redis_client() if redis_client is None else redis_client
         if not is_redis_async_client(client):
             raise TypeError("Can not perform an asynchronous operation with a synchronous redis client")
-        return await self.policy.avacuum(client, batch_size)
+        return await self.policy.avacuum(client, self.prefix, self.name, batch_size)

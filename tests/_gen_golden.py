@@ -53,11 +53,10 @@ def main() -> None:
             policy = getattr(module, attr)
             if not isinstance(policy, Policy):
                 continue
-            policy._bind(PREFIX, NAME)
             golden[attr] = {
-                "keys_a": [template(k) for k in policy.calc_key_pair(fn_a, ARGS, KWDS)],
-                "keys_b": [template(k) for k in policy.calc_key_pair(fn_b, ARGS, KWDS)],
-                "ext_args": list(policy.calc_ext_args(fn_a, ARGS, KWDS) or ()),
+                "keys_a": [template(k) for k in policy.calc_key_pair(PREFIX, NAME, fn_a, ARGS, KWDS)],
+                "keys_b": [template(k) for k in policy.calc_key_pair(PREFIX, NAME, fn_b, ARGS, KWDS)],
+                "ext_args": list(policy.scripts.calc_ext_args(fn_a, ARGS, KWDS) or ()),
                 "scripts": [policy.scripts.get_script, policy.scripts.put_script],
             }
     out = Path(__file__).with_name("_golden.json")

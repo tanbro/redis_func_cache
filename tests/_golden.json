@@ -1,5 +1,5 @@
 {
-  "FifoClusterMultiplePolicy": {
+  "fifo_cluster_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:fifo-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
@@ -14,7 +14,7 @@
       "fifo_put.lua"
     ]
   },
-  "FifoClusterPolicy": {
+  "fifo_cluster_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:{gn:fifo-c}:0",
@@ -29,7 +29,7 @@
       "fifo_put.lua"
     ]
   },
-  "FifoMultiplePolicy": {
+  "fifo_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:fifo-m:tests._golden_fns:fn_a#{checksum_a}:0",
@@ -44,7 +44,7 @@
       "fifo_put.lua"
     ]
   },
-  "FifoPolicy": {
+  "fifo_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:fifo:0",
@@ -59,7 +59,7 @@
       "fifo_put.lua"
     ]
   },
-  "FifoTClusterMultiplePolicy": {
+  "fifo_t_cluster_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:fifo_t-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
@@ -74,7 +74,7 @@
       "fifo_t_put.lua"
     ]
   },
-  "FifoTClusterPolicy": {
+  "fifo_t_cluster_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:{gn:fifo_t-c}:0",
@@ -89,7 +89,7 @@
       "fifo_t_put.lua"
     ]
   },
-  "FifoTMultiplePolicy": {
+  "fifo_t_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:fifo_t-m:tests._golden_fns:fn_a#{checksum_a}:0",
@@ -104,7 +104,7 @@
       "fifo_t_put.lua"
     ]
   },
-  "FifoTPolicy": {
+  "fifo_t_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:fifo_t:0",
@@ -119,7 +119,7 @@
       "fifo_t_put.lua"
     ]
   },
-  "LfuClusterMultiplePolicy": {
+  "lfu_cluster_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lfu-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
@@ -134,7 +134,7 @@
       "lfu_put.lua"
     ]
   },
-  "LfuClusterPolicy": {
+  "lfu_cluster_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:{gn:lfu-c}:0",
@@ -149,7 +149,7 @@
       "lfu_put.lua"
     ]
   },
-  "LfuMultiplePolicy": {
+  "lfu_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lfu-m:tests._golden_fns:fn_a#{checksum_a}:0",
@@ -164,7 +164,7 @@
       "lfu_put.lua"
     ]
   },
-  "LfuPolicy": {
+  "lfu_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lfu:0",
@@ -179,7 +179,7 @@
       "lfu_put.lua"
     ]
   },
-  "LruClusterMultiplePolicy": {
+  "lru_cluster_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lru-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
@@ -194,7 +194,7 @@
       "lru_put.lua"
     ]
   },
-  "LruClusterPolicy": {
+  "lru_cluster_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:{gn:lru-c}:0",
@@ -209,7 +209,7 @@
       "lru_put.lua"
     ]
   },
-  "LruMultiplePolicy": {
+  "lru_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lru-m:tests._golden_fns:fn_a#{checksum_a}:0",
@@ -224,7 +224,7 @@
       "lru_put.lua"
     ]
   },
-  "LruPolicy": {
+  "lru_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lru:0",
@@ -239,7 +239,7 @@
       "lru_put.lua"
     ]
   },
-  "LruTClusterMultiplePolicy": {
+  "lru_t_cluster_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lru_t-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
@@ -254,7 +254,7 @@
       "lru_t_put.lua"
     ]
   },
-  "LruTClusterPolicy": {
+  "lru_t_cluster_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:{gn:lru_t-c}:0",
@@ -269,7 +269,7 @@
       "lru_t_put.lua"
     ]
   },
-  "LruTMultiplePolicy": {
+  "lru_t_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lru_t-m:tests._golden_fns:fn_a#{checksum_a}:0",
@@ -284,7 +284,7 @@
       "lru_t_put.lua"
     ]
   },
-  "LruTPolicy": {
+  "lru_t_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:lru_t:0",
@@ -299,7 +299,7 @@
       "lru_t_put.lua"
     ]
   },
-  "MruClusterMultiplePolicy": {
+  "mru_cluster_multiple_policy": {
     "ext_args": [
       "mru"
     ],
@@ -316,7 +316,7 @@
       "lru_put.lua"
     ]
   },
-  "MruClusterPolicy": {
+  "mru_cluster_policy": {
     "ext_args": [
       "mru"
     ],
@@ -333,7 +333,7 @@
       "lru_put.lua"
     ]
   },
-  "MruMultiplePolicy": {
+  "mru_multiple_policy": {
     "ext_args": [
       "mru"
     ],
@@ -350,7 +350,7 @@
       "lru_put.lua"
     ]
   },
-  "MruPolicy": {
+  "mru_policy": {
     "ext_args": [
       "mru"
     ],
@@ -367,7 +367,7 @@
       "lru_put.lua"
     ]
   },
-  "RrClusterMultiplePolicy": {
+  "rr_cluster_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:rr-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
@@ -382,7 +382,7 @@
       "rr_put.lua"
     ]
   },
-  "RrClusterPolicy": {
+  "rr_cluster_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:{gn:rr-c}:0",
@@ -397,7 +397,7 @@
       "rr_put.lua"
     ]
   },
-  "RrMultiplePolicy": {
+  "rr_multiple_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:rr-m:tests._golden_fns:fn_a#{checksum_a}:0",
@@ -412,7 +412,7 @@
       "rr_put.lua"
     ]
   },
-  "RrPolicy": {
+  "rr_policy": {
     "ext_args": [],
     "keys_a": [
       "gp:gn:rr:0",

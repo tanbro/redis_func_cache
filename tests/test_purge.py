@@ -13,12 +13,12 @@ from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from redis.connection import ConnectionPool
 
-from redis_func_cache import LruPolicy, RedisFuncCache
-from redis_func_cache.policies.lru import LruMultiplePolicy
+from redis_func_cache import RedisFuncCache, lru_policy
+from redis_func_cache.policies.lru import lru_multiple_policy
 
 from ._catches import REDIS_URL, async_redis_pool_factory
 
-POLICY_FACTORIES = [(LruPolicy,), (LruMultiplePolicy,)]
+POLICY_FACTORIES = [(lru_policy,), (lru_multiple_policy,)]
 
 SYNC_POOL = ConnectionPool.from_url(REDIS_URL)
 
@@ -33,7 +33,7 @@ def make_async_cache(policy) -> RedisFuncCache:
 
 def test_single_policy_purge():
     """单策略 purge 删除两个静态键，返回 2，之后重新计算。"""
-    cache = make_sync_cache(LruPolicy)
+    cache = make_sync_cache(lru_policy)
     client = Redis.from_url(REDIS_URL)
 
     def echo(x):
@@ -42,7 +42,7 @@ def test_single_policy_purge():
     decorated = cache.decorate(echo)
     assert decorated("a") == "a"
 
-    zset_key, hmap_key = cache.policy.calc_key_pair(echo)
+    zset_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     assert cache.purge() == 2
     assert client.exists(zset_key, hmap_key) == 0
     assert decorated("a") == "a"  # 缓存已清空，重新执行
@@ -50,7 +50,7 @@ def test_single_policy_purge():
 
 def test_multiple_policy_purge():
     """多策略 purge 经 SCAN 枚举删除所有函数的键对，返回键数。"""
-    cache = make_sync_cache(LruMultiplePolicy)
+    cache = make_sync_cache(lru_multiple_policy)
     client = Redis.from_url(REDIS_URL)
 
     def echo_a(x):
@@ -62,14 +62,14 @@ def test_multiple_policy_purge():
     cache.decorate(echo_a)("a")
     cache.decorate(echo_b)("b")
 
-    assert cache.policy.purge(redis_client=cache.get_redis_client()) == 4  # 每个函数一个 ZSET + 一个 HASH
+    assert cache.purge() == 4  # 每个函数一个 ZSET + 一个 HASH
     pat = f"{cache.prefix}{cache.name}:*"
     assert list(client.scan_iter(match=pat)) == []
 
 
 def test_multiple_policy_purge_with_small_batch_size():
     """batch_size=1 时分批 UNLINK 仍删除全部键，计数准确。"""
-    cache = make_sync_cache(LruMultiplePolicy)
+    cache = make_sync_cache(lru_multiple_policy)
     client = Redis.from_url(REDIS_URL)
 
     def echo_a(x):
@@ -81,20 +81,20 @@ def test_multiple_policy_purge_with_small_batch_size():
     cache.decorate(echo_a)("a")
     cache.decorate(echo_b)("b")
 
-    assert cache.policy.purge(redis_client=cache.get_redis_client(), batch_size=1) == 4
+    assert cache.purge(batch_size=1) == 4
     pat = f"{cache.prefix}{cache.name}:*"
     assert list(client.scan_iter(match=pat)) == []
 
 
 def test_purge_on_empty_cache():
     """从未写入的缓存 purge 返回 0。"""
-    cache = make_sync_cache(LruMultiplePolicy)
+    cache = make_sync_cache(lru_multiple_policy)
     assert cache.purge() == 0
 
 
 def test_purge_guard_against_async_client():
     """同步 purge 遇到异步客户端时抛出 TypeError。"""
-    cache = make_async_cache(LruPolicy)
+    cache = make_async_cache(lru_policy)
     with pytest.raises(TypeError, match="synchronous"):
         cache.purge()
 
@@ -120,6 +120,6 @@ async def test_apurge(policy_factory):
 @pytest.mark.asyncio(loop_scope="function")
 async def test_apurge_guard_against_sync_client():
     """异步 apurge 遇到同步客户端时抛出 TypeError。"""
-    cache = make_sync_cache(LruPolicy)
+    cache = make_sync_cache(lru_policy)
     with pytest.raises(TypeError, match="asynchronous"):
         await cache.apurge()

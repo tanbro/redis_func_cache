@@ -1,11 +1,11 @@
 import pytest
 
-from redis_func_cache import LruPolicy, RedisFuncCache
-from redis_func_cache.policies.fifo import FifoPolicy, FifoTPolicy
-from redis_func_cache.policies.lfu import LfuPolicy
-from redis_func_cache.policies.lru import LruMultiplePolicy, LruTPolicy
-from redis_func_cache.policies.mru import MruPolicy
-from redis_func_cache.policies.rr import RrPolicy
+from redis_func_cache import RedisFuncCache, lru_policy
+from redis_func_cache.policies.fifo import fifo_policy, fifo_t_policy
+from redis_func_cache.policies.lfu import lfu_policy
+from redis_func_cache.policies.lru import lru_multiple_policy, lru_t_policy
+from redis_func_cache.policies.mru import mru_policy
+from redis_func_cache.policies.rr import rr_policy
 
 from ._catches import CACHES, redis_factory
 from ._mocks import patch_object
@@ -17,7 +17,7 @@ def _echo(x):
 
 def _make_cache(policy, maxsize=8, **kwargs):
     cache = RedisFuncCache(__name__, policy, factory=redis_factory, maxsize=maxsize, **kwargs)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
     return cache
 
 
@@ -26,18 +26,18 @@ def clean_caches():
     """自动清理缓存的夹具，在每个测试前后运行。"""
     # 测试前清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_redis_client())
+        cache.purge()
     yield
     # 测试后清理
     for cache in CACHES.values():
-        cache.policy.purge(redis_client=cache.get_redis_client())
+        cache.purge()
 
 
 def test_lru_order_correctness():
     """测试LRU缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache = RedisFuncCache(__name__, lru_policy, factory=redis_factory, maxsize=maxsize)
+    cache.purge()
 
     @cache
     def echo(x):
@@ -55,26 +55,29 @@ def test_lru_order_correctness():
 
     # 验证缓存中包含正确的元素: 0, 2, 3
     # 通过再次访问这些元素应该命中缓存来验证
-    with patch_object(cache, "put") as mock_put:
+    with patch_object(cache.policy, "put") as mock_put:
         assert echo(0) == 0  # 应该命中
         assert echo(2) == 2  # 应该命中
         assert echo(3) == 3  # 应该命中
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素1应该未命中
-    with patch_object(cache, "get", return_value=None) as mock_get, patch_object(cache, "put") as mock_put:
+    with (
+        patch_object(cache.policy, "get", return_value=None) as mock_get,
+        patch_object(cache.policy, "put") as mock_put,
+    ):
         assert echo(1) == 1  # 应该未命中
         mock_get.assert_called_once()
         mock_put.assert_called_once()
 
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
 
 
 def test_fifo_order_correctness():
     """测试FIFO缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, FifoPolicy, factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache = RedisFuncCache(__name__, fifo_policy, factory=redis_factory, maxsize=maxsize)
+    cache.purge()
 
     @cache
     def echo(x):
@@ -92,26 +95,29 @@ def test_fifo_order_correctness():
     assert echo(maxsize) == maxsize
 
     # 验证缓存中包含正确的元素: 1, 2, 3
-    with patch_object(cache, "put") as mock_put:
+    with patch_object(cache.policy, "put") as mock_put:
         assert echo(1) == 1  # 应该命中
         assert echo(2) == 2  # 应该命中
         assert echo(3) == 3  # 应该命中
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素0应该未命中
-    with patch_object(cache, "get", return_value=None) as mock_get, patch_object(cache, "put") as mock_put:
+    with (
+        patch_object(cache.policy, "get", return_value=None) as mock_get,
+        patch_object(cache.policy, "put") as mock_put,
+    ):
         assert echo(0) == 0  # 应该未命中
         mock_get.assert_called_once()
         mock_put.assert_called_once()
 
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
 
 
 def test_lfu_order_correctness():
     """测试LFU缓存顺序的正确性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LfuPolicy, factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache = RedisFuncCache(__name__, lfu_policy, factory=redis_factory, maxsize=maxsize)
+    cache.purge()
 
     @cache
     def echo(x):
@@ -130,26 +136,29 @@ def test_lfu_order_correctness():
     assert echo(maxsize) == maxsize
 
     # 验证缓存中包含正确的元素: 0, 1, 3
-    with patch_object(cache, "put") as mock_put:
+    with patch_object(cache.policy, "put") as mock_put:
         assert echo(0) == 0  # 应该命中
         assert echo(1) == 1  # 应该命中
         assert echo(3) == 3  # 应该命中
         mock_put.assert_not_called()
 
     # 访问已淘汰的元素2应该未命中
-    with patch_object(cache, "get", return_value=None) as mock_get, patch_object(cache, "put") as mock_put:
+    with (
+        patch_object(cache.policy, "get", return_value=None) as mock_get,
+        patch_object(cache.policy, "put") as mock_put,
+    ):
         assert echo(2) == 2  # 应该未命中
         mock_get.assert_called_once()
         mock_put.assert_called_once()
 
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
 
 
 def test_eviction_edge_cases():
     """测试缓存淘汰的边界情况。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache = RedisFuncCache(__name__, lru_policy, factory=redis_factory, maxsize=maxsize)
+    cache.purge()
 
     @cache
     def echo(x):
@@ -161,21 +170,21 @@ def test_eviction_edge_cases():
     # 测试缓存刚好满载情况
     for i in range(2, maxsize + 1):  # 从2开始，因为1已经添加了
         assert echo(i) == i
-    assert cache.policy.get_size(redis_client=cache.get_redis_client()) == maxsize
+    assert cache.get_size() == maxsize
 
     # 测试大量元素连续淘汰
     for i in range(maxsize + 1, maxsize * 3):
         assert echo(i) == i
-        assert cache.policy.get_size(redis_client=cache.get_redis_client()) == maxsize
+        assert cache.get_size() == maxsize
 
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
 
 
 def test_mru_eviction():
     """测试MRU淘汰策略。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, MruPolicy, factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache = RedisFuncCache(__name__, mru_policy, factory=redis_factory, maxsize=maxsize)
+    cache.purge()
 
     @cache
     def echo(x):
@@ -185,7 +194,7 @@ def test_mru_eviction():
     for i in range(maxsize):
         assert echo(i) == i
 
-    assert cache.policy.get_size(redis_client=cache.get_redis_client()) == maxsize
+    assert cache.get_size() == maxsize
 
     # 访问第一个元素，使其变为最近使用
     assert echo(0) == 0
@@ -195,19 +204,22 @@ def test_mru_eviction():
     assert result == maxsize
 
     # 验证缓存大小仍然正确
-    assert cache.policy.get_size(redis_client=cache.get_redis_client()) == maxsize
+    assert cache.get_size() == maxsize
 
     # 验证0已被淘汰，其他元素仍在缓存中
-    with patch_object(cache, "get", return_value=None) as mock_get, patch_object(cache, "put") as mock_put:
+    with (
+        patch_object(cache.policy, "get", return_value=None) as mock_get,
+        patch_object(cache.policy, "put") as mock_put,
+    ):
         assert echo(0) == 0  # 应该未命中，因为已被淘汰
         mock_get.assert_called_once()
         mock_put.assert_called_once()
 
     # 对于剩下的元素(1, 2, 3)，我们需要检查它们是否在缓存中
     # 但由于MRU的行为可能比较复杂，我们简化测试只验证缓存大小
-    assert cache.policy.get_size(redis_client=cache.get_redis_client()) == maxsize
+    assert cache.get_size() == maxsize
 
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
 
 
 def test_mru_eviction_direction():
@@ -217,14 +229,14 @@ def test_mru_eviction_direction():
     'mru' 标志（它在 ext_args 里，实际位于 ARGV[8]），MRU 静默退化为 LRU。
     在成员级别断言驱逐方向（现有 test_mru_eviction 因 mock 强制 miss 无法区分）。
     """
-    cache = _make_cache(MruPolicy, maxsize=2)
+    cache = _make_cache(mru_policy, maxsize=2)
 
     def echo(x):
         return _echo(x)
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, _ = cache.policy.calc_key_pair(echo)
+    index_key, _ = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     hash_0 = cache.policy.calc_hash(echo, (0,), {})
     hash_1 = cache.policy.calc_hash(echo, (1,), {})
 
@@ -238,7 +250,7 @@ def test_mru_eviction_direction():
     assert client.zscore(index_key, hash_0) is not None  # 0（最旧）仍在
     assert client.zscore(index_key, hash_1) is None  # 1（最近写入）已被驱逐
 
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)
 
 
 def test_maxsize_shrink_mass_eviction():
@@ -248,14 +260,14 @@ def test_maxsize_shrink_mass_eviction():
     中途失败，留下永久性的孤儿 hash 字段。
     """
     total = 10000
-    cache = _make_cache(LruPolicy, maxsize=total)
+    cache = _make_cache(lru_policy, maxsize=total)
 
     def echo(x):
         return _echo(x)
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
 
     # 直接用 pipeline 灌入 total 条，绕过装饰器
     pipe = client.pipeline(transaction=False)
@@ -273,16 +285,16 @@ def test_maxsize_shrink_mass_eviction():
 
     assert client.zcard(index_key) == 10
     assert client.hlen(hmap_key) == 10
-    assert cache.policy.get_size(redis_client=client) == 10
+    assert cache.policy.get_size(client, cache.prefix, cache.name) == 10
 
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)
 
 
 def test_cache_data_consistency():
     """测试缓存数据的一致性。"""
     maxsize = 3
-    cache = RedisFuncCache(__name__, LruPolicy, factory=redis_factory, maxsize=maxsize)
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache = RedisFuncCache(__name__, lru_policy, factory=redis_factory, maxsize=maxsize)
+    cache.purge()
 
     @cache
     def echo(x):
@@ -300,7 +312,7 @@ def test_cache_data_consistency():
         if i in values:
             assert echo(i) == values[i]
 
-    cache.policy.purge(redis_client=cache.get_redis_client())
+    cache.purge()
 
 
 def test_rr_eviction_count_consistency():
@@ -310,14 +322,14 @@ def test_rr_eviction_count_consistency():
     hash 集合内且有对应字段（无幽灵/孤儿）。
     """
     maxsize = 4
-    cache = _make_cache(RrPolicy, maxsize=maxsize)
+    cache = _make_cache(rr_policy, maxsize=maxsize)
 
     def echo(x):
         return _echo(x)
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, hmap_key = cache.policy.calc_key_pair(echo)
+    index_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
 
     total = maxsize * 2
     for i in range(total):
@@ -334,19 +346,19 @@ def test_rr_eviction_count_consistency():
         assert member in written  # 索引成员来自写入集合（无幽灵）
         assert client.hexists(hmap_key, member)  # 每个成员有对应字段（无孤儿）
 
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)
 
 
 def test_lru_t_eviction_direction():
     """LruT（成员级 TTL 变体，lru_t 脚本）与 LRU 同方向：驱逐最久未用。"""
-    cache = _make_cache(LruTPolicy, maxsize=2)
+    cache = _make_cache(lru_t_policy, maxsize=2)
 
     def echo(x):
         return _echo(x)
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, _ = cache.policy.calc_key_pair(echo)
+    index_key, _ = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     hash_0 = cache.policy.calc_hash(echo, (0,), {})
     hash_1 = cache.policy.calc_hash(echo, (1,), {})
 
@@ -359,19 +371,19 @@ def test_lru_t_eviction_direction():
     assert client.zscore(index_key, hash_0) is not None
     assert client.zscore(index_key, hash_1) is None
 
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)
 
 
 def test_fifo_t_eviction_direction():
     """FifoT（成员级 TTL 变体）与 FIFO 同方向：重访不改变顺序，驱逐最早插入。"""
-    cache = _make_cache(FifoTPolicy, maxsize=2)
+    cache = _make_cache(fifo_t_policy, maxsize=2)
 
     def echo(x):
         return _echo(x)
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, _ = cache.policy.calc_key_pair(echo)
+    index_key, _ = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     hash_0 = cache.policy.calc_hash(echo, (0,), {})
     hash_1 = cache.policy.calc_hash(echo, (1,), {})
 
@@ -385,19 +397,19 @@ def test_fifo_t_eviction_direction():
     assert client.zscore(index_key, hash_0) is None
     assert client.zscore(index_key, hash_1) is not None
 
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)
 
 
 def test_lru_multiple_eviction_direction():
     """multiple keying 变体只改键名，驱逐方向与单键一致。"""
-    cache = _make_cache(LruMultiplePolicy, maxsize=2)
+    cache = _make_cache(lru_multiple_policy, maxsize=2)
 
     def echo(x):
         return _echo(x)
 
     decorated = cache.decorate()(echo)
     client = cache.get_redis_client()
-    index_key, _ = cache.policy.calc_key_pair(echo)
+    index_key, _ = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     hash_0 = cache.policy.calc_hash(echo, (0,), {})
     hash_1 = cache.policy.calc_hash(echo, (1,), {})
 
@@ -410,4 +422,4 @@ def test_lru_multiple_eviction_direction():
     assert client.zscore(index_key, hash_0) is not None
     assert client.zscore(index_key, hash_1) is None
 
-    cache.policy.purge(redis_client=client)
+    cache.policy.purge(client, cache.prefix, cache.name)

@@ -1,38 +1,46 @@
-"""Scripts: the *Redis operations* dimension of a policy.
+"""Scripts: the *declarations* dimension of a policy.
 
-A :class:`Scripts` object owns everything a policy does against Redis that is
-not key naming or hashing:
+A :class:`Scripts` object declares everything needed to *state* what a policy
+runs against Redis — it does not invoke anything:
 
-- which Lua script files implement the get/put operations,
-- which Redis structure the index is (sorted set vs set) — a fact
-  :meth:`Policy.get_size <redis_func_cache.policies.Policy.get_size>`
-  dispatches on when counting,
-- any extra ARGV entries the scripts expect (e.g. the MRU flag on ARGV[7]),
-- registering the scripts against a client.
+- which Lua script files implement the get/put/vacuum operations,
+- which Redis structure the index is (sorted set vs set),
+- any extra ARGV entries the scripts expect (e.g. the MRU flag on ARGV[7]).
+
+Its only actions are :meth:`Scripts.register_scripts` and
+:meth:`Scripts.register_vacuum_script`, which bind the declared files to a
+client. All invocation lives on
+:class:`~redis_func_cache.policies.Policy`, the single entry point to the
+Redis side; the ARGV layout shared by the scripts is encoded by the
+module-level :func:`build_get_args` / :func:`build_put_args` helpers.
 
 It is one of the three orthogonal components composed into a
 :class:`~redis_func_cache.policies.Policy`:
 
 - :class:`~redis_func_cache.keying.Keying` — how Redis keys are named
 - :class:`~redis_func_cache.hashing.Hasher` — how each call is hashed to a sub-key
-- :class:`Scripts` — which Lua scripts run and how they talk to Redis
+- :class:`Scripts` — which Lua scripts run and what they expect
 
 .. versionchanged:: 1.0
-    Replaces the ``mixins.scripts`` mixin classes.
+    Replaces the ``mixins.scripts`` mixin classes; invocation moved to Policy.
 """
 
 from __future__ import annotations
 
 from abc import ABC
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, cast
+from weakref import WeakKeyDictionary
 
 from redis.commands.core import AsyncScript, Script
 
+from .serializers import json_encode
 from .typing import RedisClientT
 from .utils import read_lua_file
 
 if TYPE_CHECKING:  # pragma: no cover
+    from typing import Literal
+
     from redis.typing import EncodableT, ScriptTextT
 
 __all__ = (
@@ -44,29 +52,97 @@ __all__ = (
     "MruScripts",
     "RrScripts",
     "Scripts",
+    "build_get_args",
+    "build_put_args",
 )
 
 
+def build_get_args(
+    update_ttl: bool,
+    ttl: int,
+    hash_value: EncodableT,
+    options: Mapping[str, Any] | None = None,
+) -> list[EncodableT]:
+    """Assemble the ARGV list of the get Lua scripts.
+
+    Layout: ``ARGV[1]=update_ttl, ARGV[2]=ttl, ARGV[3]=hash_value,
+    ARGV[4]=options JSON``. The options JSON is serialized here; pass
+    :data:`None` for the reserved slot.
+
+    Args:
+        update_ttl: Whether to refresh the TTL of the cache structures.
+        ttl: Time-to-live of the cache in seconds.
+        hash_value: The hash of this call (index member / hash field).
+        options: Reserved options mapping, or None.
+
+    Returns:
+        The ARGV list expected by the get scripts.
+    """
+    encoded_options = json_encode(options) if options is not None else b"{}"
+    return [int(update_ttl), ttl, hash_value, encoded_options]
+
+
+def build_put_args(
+    maxsize: int,
+    update_ttl: bool,
+    ttl: int,
+    hash_value: EncodableT,
+    value: EncodableT,
+    field_ttl: int,
+    ext_args: Iterable[EncodableT] | None = None,
+    options: Mapping[str, Any] | None = None,
+) -> list[EncodableT]:
+    """Assemble the ARGV list of the put Lua scripts.
+
+    The core arguments occupy ARGV[1..6]; any extra arguments (e.g. the MRU
+    flag) start at ARGV[7]; the reserved options JSON always goes last —
+    the Lua scripts rely on that fixed layout.
+
+    Args:
+        maxsize: The maximum size of the cache.
+        update_ttl: Whether to refresh the TTL of the cache structures.
+        ttl: Time-to-live of the cache in seconds.
+        hash_value: The hash of this call (index member / hash field).
+        value: The serialized value to store.
+        field_ttl: Time-to-live of the hash field.
+        ext_args: Extra arguments from :meth:`Scripts.calc_ext_args`.
+        options: Reserved options mapping, or None.
+
+    Returns:
+        The ARGV list expected by the put scripts.
+    """
+    encoded_options = json_encode(options) if options is not None else b"{}"
+    return [maxsize, int(update_ttl), ttl, hash_value, value, field_ttl, *(ext_args or ()), encoded_options]
+
+
 class Scripts(ABC):
-    """Own the Lua scripts and Redis-structure facts of a policy.
+    """Declare the Lua scripts and Redis-structure facts of a policy.
 
     Subclasses set :attr:`get_script` / :attr:`put_script` /
-    :attr:`index_structure` and may override :meth:`calc_ext_args`
-    (extra ARGV entries).
+    :attr:`vacuum_script` / ``_index_structure`` and may override
+    :meth:`calc_ext_args` (extra ARGV entries). Invoking the scripts is the
+    policy's job, not this class's.
     """
 
     get_script: str
     """File name of the Lua script implementing the cache read."""
     put_script: str
     """File name of the Lua script implementing the cache write."""
-    index_structure: Literal["zset", "set"] = "zset"
+    vacuum_script: str = "vacuum.lua"
+    """File name of the Lua script implementing vacuum."""
+    _index_structure: Literal["zset", "set"] = "zset"
     """The Redis structure of the index (``KEYS[1]`` of the scripts).
 
-    ``"zset"`` (default) for the sorted-set based policies, ``"set"`` for the
-    RR family. :meth:`Policy.get_size
-    <redis_func_cache.policies.Policy.get_size>` uses this to pick
-    ``ZCARD`` or ``SCARD`` when counting.
+    Internal dispatch fact for counting: ``"zset"`` (default) means the
+    sorted-set based policies, ``"set"`` the RR family (``SCARD``). Consumed
+    by :meth:`Policy.get_size`.
     """
+
+    def __init__(self) -> None:
+        self._registered: WeakKeyDictionary[Any, tuple[Script, Script] | tuple[AsyncScript, AsyncScript]] = (
+            WeakKeyDictionary()
+        )
+        self._registered_vacuum: WeakKeyDictionary[Any, Script | AsyncScript] = WeakKeyDictionary()
 
     def calc_ext_args(
         self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
@@ -92,15 +168,16 @@ class Scripts(ABC):
 
     def read_vacuum_script(self) -> str:
         """Read and clean the vacuum Lua script from package resources."""
-        return read_lua_file("vacuum.lua")
+        return read_lua_file(self.vacuum_script)
 
-    def lua_scripts(self, redis_client: RedisClientT) -> tuple[Script, Script] | tuple[AsyncScript, AsyncScript]:
-        """Register the get/put Lua scripts against the given client and return them.
+    def register_scripts(self, redis_client: RedisClientT) -> tuple[Script, Script] | tuple[AsyncScript, AsyncScript]:
+        """Register the get/put Lua scripts against the given client.
 
-        Registration is a local operation (the script SHA is computed, no server
-        round trip), so it is repeated per call against the *current* client: with
-        a ``factory``, each call may receive a different client instance, and the
-        returned Script objects must follow it.
+        Registration is a local operation (the script SHA is computed, no
+        server round trip). Results are cached per client instance: with a
+        ``factory``, each call may receive a different client, and the returned
+        Script objects must follow it. Clients that cannot be weak-referenced
+        are registered afresh on every call.
 
         Args:
             redis_client: The redis client to register the scripts with.
@@ -108,22 +185,27 @@ class Scripts(ABC):
         Returns:
             Tuple of registered Script or AsyncScript objects (get, put).
         """
-        script_texts = self.read_lua_scripts()
-        # Which side of the union applies follows the client; callers narrow via
-        # the existing sync/async script checks.
-        return cast(
-            "tuple[Script, Script] | tuple[AsyncScript, AsyncScript]",
-            (
-                redis_client.register_script(script_texts[0]),
-                redis_client.register_script(script_texts[1]),
-            ),
-        )
+        registered: tuple[Script, Script] | tuple[AsyncScript, AsyncScript] | None
+        try:
+            registered = self._registered.get(redis_client)
+        except TypeError:  # unhashable or non-weakrefable client
+            registered = None
+        if registered is None:
+            script_texts = self.read_lua_scripts()
+            registered = cast(
+                "tuple[Script, Script] | tuple[AsyncScript, AsyncScript]",
+                (redis_client.register_script(script_texts[0]), redis_client.register_script(script_texts[1])),
+            )
+            try:
+                self._registered[redis_client] = registered
+            except TypeError:
+                pass
+        return registered
 
-    def vacuum_script(self, redis_client: RedisClientT) -> Script | AsyncScript:
-        """Register the vacuum Lua script against the given client and return it.
+    def register_vacuum_script(self, redis_client: RedisClientT) -> Script | AsyncScript:
+        """Register the vacuum Lua script against the given client.
 
-        Mirrors :meth:`lua_scripts`: registration is local and repeated per call
-        against the *current* client.
+        Mirrors :meth:`register_scripts`, including the per-client cache.
 
         Args:
             redis_client: The redis client to register the script with.
@@ -131,7 +213,18 @@ class Scripts(ABC):
         Returns:
             The registered vacuum Script or AsyncScript object.
         """
-        return redis_client.register_script(self.read_vacuum_script())
+        registered: Script | AsyncScript | None
+        try:
+            registered = self._registered_vacuum.get(redis_client)
+        except TypeError:
+            registered = None
+        if registered is None:
+            registered = cast("Script | AsyncScript", redis_client.register_script(self.read_vacuum_script()))
+            try:
+                self._registered_vacuum[redis_client] = registered
+            except TypeError:
+                pass
+        return registered
 
 
 class FifoScripts(Scripts):
@@ -194,4 +287,4 @@ class RrScripts(Scripts):
 
     get_script = "rr_get.lua"
     put_script = "rr_put.lua"
-    index_structure = "set"
+    _index_structure = "set"

@@ -29,11 +29,11 @@ In-process caches like the standard library's `functools.cache` are private to a
 
 ```python
 from redis import Redis
-from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
+from redis_func_cache import RedisFuncCache as Cache, lru_t_policy
 
 pool = Redis.ConnectionPool.from_url("redis://")
 factory = lambda: Redis.from_pool(pool)
-cache = Cache("quickstart", LruTPolicy, maxsize=128, ttl=300, factory=factory)
+cache = Cache("quickstart", lru_t_policy, maxsize=128, ttl=300, factory=factory)
 
 
 @cache
@@ -47,7 +47,7 @@ get_exchange_rate("USD", "CNY")  # cache miss: the function executes, the line i
 get_exchange_rate("USD", "CNY")  # cache hit: served from Redis, nothing is printed
 ```
 
-We create a [Redis][] client (via a `factory`, recommended for concurrent use), then a [`RedisFuncCache`][] instance with an [`LruTPolicy`][], and decorate `get_exchange_rate` with it.
+We create a [Redis][] client (via a `factory`, recommended for concurrent use), then a [`RedisFuncCache`][] instance with an [`lru_t_policy`][], and decorate `get_exchange_rate` with it.
 The first call executes the function and stores its result in Redis; the second call with the same arguments is served from Redis — the function body never runs.
 
 It works almost the same as the standard library's `functools.lru_cache`, except that the cache lives in [Redis][] and is therefore shared by every process and machine connecting to the same Redis.
@@ -60,11 +60,11 @@ To decorate async functions, supply an async [Redis][] client via the `factory` 
 import asyncio
 
 from redis.asyncio import Redis as AsyncRedis
-from redis_func_cache import RedisFuncCache as Cache, LruTPolicy
+from redis_func_cache import RedisFuncCache as Cache, lru_t_policy
 
 pool = AsyncRedis.ConnectionPool.from_url("redis://")
 factory = lambda: AsyncRedis.from_pool(pool)
-cache = Cache("quickstart-async", LruTPolicy, maxsize=128, ttl=300, factory=factory)
+cache = Cache("quickstart-async", lru_t_policy, maxsize=128, ttl=300, factory=factory)
 
 
 @cache
@@ -94,29 +94,29 @@ The library supports multiple cache eviction policies. You can specify a policy 
 
 ```python
 from redis import Redis
-from redis_func_cache import RedisFuncCache, FifoPolicy, LruTPolicy, LfuPolicy, RrPolicy
+from redis_func_cache import RedisFuncCache, fifo_policy, lru_t_policy, lfu_policy, rr_policy
 
 pool = Redis.ConnectionPool.from_url("redis://")
 factory = lambda: Redis.from_pool(pool)
 
 # FIFO (First In, First Out)
-fifo_cache = RedisFuncCache("my-fifo-cache", FifoPolicy, factory=factory)
+fifo_cache = RedisFuncCache("my-fifo-cache", fifo_policy, factory=factory)
 
 # LFU (Least Frequently Used)
-lfu_cache = RedisFuncCache("my-lfu-cache", LfuPolicy, factory=factory)
+lfu_cache = RedisFuncCache("my-lfu-cache", lfu_policy, factory=factory)
 
 # Random Replacement
-rr_cache = RedisFuncCache("my-rr-cache", RrPolicy, factory=factory)
+rr_cache = RedisFuncCache("my-rr-cache", rr_policy, factory=factory)
 ```
 
 Available policies:
 
-- **[`LruTPolicy`][]** (Recommended): Time-based LRU, offers the best balance of performance and accuracy for most use cases.
-- [`FifoPolicy`][]: First in, first out
-- [`LfuPolicy`][]: Least frequently used
-- [`LruPolicy`][]: Least recently used (more precise but slower than LRU-T)
-- [`MruPolicy`][]: Most recently used
-- [`RrPolicy`][]: Random remove
+- **[`lru_t_policy`][]** (Recommended): Time-based LRU, offers the best balance of performance and accuracy for most use cases.
+- [`fifo_policy`][]: First in, first out
+- [`lfu_policy`][]: Least frequently used
+- [`lru_policy`][]: Least recently used (more precise but slower than LRU-T)
+- [`mru_policy`][]: Most recently used
+- [`rr_policy`][]: Random remove
 
 > ℹ️ **Info:**\
 > Explore the source code in the directory `src/redis_func_cache/policies` for more details.
@@ -140,25 +140,25 @@ Available policies:
 [`SingleKeying`]: redis_func_cache.keying.SingleKeying
 [`Hasher`]: redis_func_cache.hashing.Hasher
 
-[`FifoPolicy`]: redis_func_cache.policies.fifo.FifoPolicy "First In First Out policy"
-[`LfuPolicy`]: redis_func_cache.policies.lfu.LfuPolicy "Least Frequently Used policy"
-[`LruPolicy`]: redis_func_cache.policies.lru.LruPolicy "Least Recently Used policy"
-[`MruPolicy`]: redis_func_cache.policies.mru.MruPolicy "Most Recently Used policy"
-[`RrPolicy`]: redis_func_cache.policies.rr.RrPolicy "Random Remove policy"
-[`LruTPolicy`]: redis_func_cache.policies.lru.LruTPolicy "Time based Least Recently Used policy."
+[`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
+[`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
+[`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
+[`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
+[`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
+[`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
 
-[`FifoMultiplePolicy`]: redis_func_cache.policies.fifo.FifoMultiplePolicy
-[`LfuMultiplePolicy`]: redis_func_cache.policies.lfu.LfuMultiplePolicy
-[`LruMultiplePolicy`]: redis_func_cache.policies.lru.LruMultiplePolicy
-[`MruMultiplePolicy`]: redis_func_cache.policies.mru.MruMultiplePolicy
-[`RrMultiplePolicy`]: redis_func_cache.policies.rr.RrMultiplePolicy
-[`LruTMultiplePolicy`]: redis_func_cache.policies.lru.LruTMultiplePolicy
+[`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
+[`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
+[`lru_multiple_policy`]: redis_func_cache.policies.lru.lru_multiple_policy
+[`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
+[`rr_multiple_policy`]: redis_func_cache.policies.rr.rr_multiple_policy
+[`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
 
-[`FifoClusterPolicy`]: redis_func_cache.policies.fifo.FifoClusterPolicy
-[`LfuClusterPolicy`]: redis_func_cache.policies.lfu.LfuClusterPolicy
-[`LruClusterPolicy`]: redis_func_cache.policies.lru.LruClusterPolicy
-[`MruClusterPolicy`]: redis_func_cache.policies.mru.MruClusterPolicy
-[`RrClusterPolicy`]: redis_func_cache.policies.rr.RrClusterPolicy
-[`LruTClusterPolicy`]: redis_func_cache.policies.lru.LruTClusterPolicy
+[`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
+[`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
+[`lru_cluster_policy`]: redis_func_cache.policies.lru.lru_cluster_policy
+[`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy
+[`rr_cluster_policy`]: redis_func_cache.policies.rr.rr_cluster_policy
+[`lru_t_cluster_policy`]: redis_func_cache.policies.lru.lru_t_cluster_policy
 
-[`LruTClusterMultiplePolicy`]: redis_func_cache.policies.lru.LruTClusterMultiplePolicy
+[`lru_t_cluster_multiple_policy`]: redis_func_cache.policies.lru.lru_t_cluster_multiple_policy
