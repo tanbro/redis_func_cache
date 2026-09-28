@@ -197,6 +197,8 @@ Practical guidance for the `factory` argument:
 
 - **Cache Stampede Risk:** Under high concurrency, multiple requests with identical arguments may simultaneously execute the decorated function when the cache is empty or expired. This is a **known limitation** by design—concurrency control is the responsibility of the application layer. See [Important Considerations - Cache Stampede Risk](#important-considerations) for mitigation strategies and code examples.
 
+- **LRU-T eviction ordering is second-granular.** The default policy ([`lru_t_policy`][]) scores entries with second-resolution timestamps, so many writes within the same second are evicted in arbitrary order among themselves. This is the trade-off for timestamp scores that keep eviction and structure TTL coherent; use [`lru_policy`][] if you need strict recency ordering.
+
 - Generator functions are not supported.
 
 - If there are multiple [`RedisFuncCache`][] instances with the same name, they may share the same cache data.

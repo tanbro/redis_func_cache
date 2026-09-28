@@ -36,13 +36,15 @@ Policy**:
   `name` are explicit parameters on every method that needs them (mirroring Keying), so preset
   instances are shareable singletons — never copy a policy, never reintroduce `_bind`.
 - **Naming rule for maintenance methods**: suffixes (`_all_pairs`/`_one_pair`) appear only on the
-  layer where the granularity contrast exists — the policy has both granularities; the cache
+  layer where the granularity contrast exists — the policy and its keying component both use the
+  explicit names (`Keying.purge_all_pairs` is the semantic source; `Policy.purge_all_pairs` is a
+  thin forwarder); the cache
   facades keep the short names `purge`/`vacuum` (whole-cache granularity only; no one-pair cache
   facade by design — a fn-keyed one-pair op would be a false promise under `MultipleKeying`,
   whose entries span several pairs).
 - **IO ownership follows each component's abstraction** (Redis IO is *not* exclusive to Policy):
   Keying owns key-lifecycle IO (enumerating/deleting the key pairs it names — only it knows the
-  layout, e.g. `MultipleKeying.purge`'s SCAN+UNLINK); Policy owns entry-level IO (get/put/vacuum/
+  layout, e.g. `MultipleKeying.purge_all_pairs`'s SCAN+UNLINK); Policy owns entry-level IO (get/put/vacuum/
   get_size — it orchestrates keying + hasher + scripts); Hasher and Scripts are pure. "Single entry
   point" means the cache layer only talks to Policy — not that only Policy touches Redis.
 - `policies/` holds presets only: `Policy` instances named `{Lru,LruT,Fifo,FifoT,Lfu,Mru,Rr} ×
@@ -63,7 +65,7 @@ must change together.
 
 ## Hard API invariants (break = bug)
 
-- `RedisFuncCache(name, policy, *, redis_client=None, factory=None, maxsize=DEFAULT_MAXSIZE,
+- `RedisFuncCache(name, policy=lru_t_policy, *, redis_client=None, factory=None, maxsize=DEFAULT_MAXSIZE,
   ttl=DEFAULT_TTL, update_ttl=True, ignore_redis_errors=False, prefix=DEFAULT_PREFIX,
   serializer="json", handler=None)` (see `cache.py:128`). The decorator returned by `cache(...)` accepts only `serializer`, `excludes`, `ttl`,
   `update_ttl`, `write_only`, and never `policy` — unknown kwargs are forwarded to the Lua script

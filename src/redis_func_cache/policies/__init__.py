@@ -228,7 +228,7 @@ class Policy:
         Returns:
             Number of keys deleted.
         """
-        return self.keying.purge(redis_client, prefix, name, batch_size)
+        return self.keying.purge_all_pairs(redis_client, prefix, name, batch_size)
 
     async def apurge_all_pairs(
         self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500
@@ -244,7 +244,7 @@ class Policy:
         Returns:
             Number of keys deleted.
         """
-        return await self.keying.apurge(redis_client, prefix, name, batch_size)
+        return await self.keying.apurge_all_pairs(redis_client, prefix, name, batch_size)
 
     def purge_one_pair(self, redis_client: RedisSyncClientT, index_key: KeyNameT, value_key: KeyNameT) -> int:
         """Delete one (index, value) key pair outright.

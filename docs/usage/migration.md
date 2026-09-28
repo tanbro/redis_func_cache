@@ -123,7 +123,7 @@ v0.7 introduced breaking changes to the `RedisFuncCache` constructor:
 ## Summary of Changes
 
 - The Redis client parameters renamed to `client` and `factory`. `factory` is preferred for concurrent/production use.
-- The `policy` parameter must now be an **instance** (e.g., `lru_t_policy`), not a class.
+- The `policy` parameter must now be an **instance** (e.g., `lru_t_policy`), not a class. Since 1.0 it is also optional, defaulting to `lru_t_policy`.
 - Passing a callable as the `client` positional argument is deprecated. Use `factory=` instead.
 
 ## Migration Example

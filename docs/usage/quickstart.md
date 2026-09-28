@@ -29,11 +29,11 @@ In-process caches like the standard library's `functools.cache` are private to a
 
 ```python
 from redis import Redis
-from redis_func_cache import RedisFuncCache as Cache, lru_t_policy
+from redis_func_cache import RedisFuncCache as Cache
 
 pool = Redis.ConnectionPool.from_url("redis://")
 factory = lambda: Redis.from_pool(pool)
-cache = Cache("quickstart", lru_t_policy, maxsize=128, ttl=300, factory=factory)
+cache = Cache("quickstart", maxsize=128, ttl=300, factory=factory)
 
 
 @cache
@@ -47,7 +47,7 @@ get_exchange_rate("USD", "CNY")  # cache miss: the function executes, the line i
 get_exchange_rate("USD", "CNY")  # cache hit: served from Redis, nothing is printed
 ```
 
-We create a [Redis][] client (via a `factory`, recommended for concurrent use), then a [`RedisFuncCache`][] instance with an [`lru_t_policy`][], and decorate `get_exchange_rate` with it.
+We create a [Redis][] client (via a `factory`, recommended for concurrent use), then a [`RedisFuncCache`][] instance — no `policy` argument, so it uses the default [`lru_t_policy`][] (time-based LRU) — and decorate `get_exchange_rate` with it.
 The first call executes the function and stores its result in Redis; the second call with the same arguments is served from Redis — the function body never runs.
 
 It works almost the same as the standard library's `functools.lru_cache`, except that the cache lives in [Redis][] and is therefore shared by every process and machine connecting to the same Redis.
@@ -60,11 +60,11 @@ To decorate async functions, supply an async [Redis][] client via the `factory` 
 import asyncio
 
 from redis.asyncio import Redis as AsyncRedis
-from redis_func_cache import RedisFuncCache as Cache, lru_t_policy
+from redis_func_cache import RedisFuncCache as Cache
 
 pool = AsyncRedis.ConnectionPool.from_url("redis://")
 factory = lambda: AsyncRedis.from_pool(pool)
-cache = Cache("quickstart-async", lru_t_policy, maxsize=128, ttl=300, factory=factory)
+cache = Cache("quickstart-async", maxsize=128, ttl=300, factory=factory)
 
 
 @cache
@@ -90,11 +90,11 @@ with asyncio.Runner() as runner:
 
 ## Choosing an Eviction Policy
 
-The library supports multiple cache eviction policies. You can specify a policy when creating the cache:
+The default policy suits most caches, but you can specify any built-in policy when creating the cache:
 
 ```python
 from redis import Redis
-from redis_func_cache import RedisFuncCache, fifo_policy, lru_t_policy, lfu_policy, rr_policy
+from redis_func_cache import RedisFuncCache, fifo_policy, lfu_policy, rr_policy
 
 pool = Redis.ConnectionPool.from_url("redis://")
 factory = lambda: Redis.from_pool(pool)
@@ -111,7 +111,7 @@ rr_cache = RedisFuncCache("my-rr-cache", rr_policy, factory=factory)
 
 Available policies:
 
-- **[`lru_t_policy`][]** (Recommended): Time-based LRU, offers the best balance of performance and accuracy for most use cases.
+- **[`lru_t_policy`][]** (Default, recommended): Time-based LRU, offers the best balance of performance and accuracy for most use cases. It is the default when the `policy` argument is omitted.
 - [`fifo_policy`][]: First in, first out
 - [`lfu_policy`][]: Least frequently used
 - [`lru_policy`][]: Least recently used (more precise but slower than LRU-T)

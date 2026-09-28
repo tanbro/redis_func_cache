@@ -39,16 +39,17 @@ Here is a simple example:
    import asyncio
    from time import time
    import redis.asyncio as aioredis
-   from redis_func_cache import lru_t_policy, RedisFuncCache as Cache
+   from redis_func_cache import RedisFuncCache as Cache
 
     # Create a redis connection pool (simple example)
     pool = aioredis.ConnectionPool.from_url("redis://")
     # Preferred: provide a factory for production/concurrent use
     factory = lambda: aioredis.Redis.from_pool(pool)
 
-    # Create an LRU cache. Note: lru_t_policy is a pre-composed Policy instance
-    # (all presets are snake_case instances), and we prefer a factory.
-    cache = Cache(__name__, lru_t_policy, factory=factory)
+    # Create a cache. The policy argument is omitted, so the default
+    # lru_t_policy (time-based LRU) applies; presets are pre-composed
+    # Policy instances, and we prefer a factory.
+    cache = Cache(__name__, factory=factory)
 
     # Decorate a function to cache its result
     @cache
@@ -78,12 +79,12 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 
 ## Features
 
-- Built on [redis-py][], the official Python client for [Redis][].
+- Built on [redis-py][], the official Python client for [Redis][] — which is also the **only** runtime dependency (plus `typing-extensions` on Python < 3.12); the optional serialization formats are extras, and each is used only if its package is installed and selected.
 - Simple [decorator][] syntax supporting both **`async`** and common functions, **asynchronous** and synchronous I/O.
-- Support [Redis][] **cluster**.
+- Support [Redis][] **Cluster**.
 - Multiple caching policies: LRU, FIFO, LFU, RR ...
 - Serialization formats: JSON, Pickle, Dill, MsgPack, YAML, BSON, CBOR, cloudpickle ...
-- Optional **handler** extension around the four serialization boundaries — async-aware (`*_async` methods), settable per cache or per function, for patterns like offloading large values to object storage while Redis stores only a small reference.
+- Optional **handler** extension around the four serialization boundaries — async-aware, settable per cache or per function, for patterns like offloading large values to object storage while Redis stores only a small reference.
 - Per-item TTL (Redis ≥ 7.4).
 - Maintenance operations: `vacuum` to clean expired entries, `purge` to drop all cache structures — both without blocking Redis.
 
@@ -111,7 +112,7 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 
 The library supports [hiredis](https://github.com/redis/hiredis) which is strongly **recommended**. Installing it can significantly improve performance. It is an optional dependency and can be installed by running: `pip install redis_func_cache[hiredis]`.
 
-If [Pygments](https://pygments.org/) is installed, the library will automatically remove comments and empty lines from Lua scripts evaluated on the [Redis](https://redis.io/) server, which can slightly improve performance. *Pygments* is also an optional dependency and can be installed by running: `pip install redis_func_cache[pygments]`.
+If [Pygments](https://pygments.org/) is installed, the library will automatically remove comments and empty lines from Lua scripts evaluated on the [Redis][] server, which can slightly improve performance. *Pygments* is also an optional dependency and can be installed by running: `pip install redis_func_cache[pygments]`.
 
 ## Data structure
 
@@ -221,7 +222,7 @@ More documentation is available in the [`docs`](https://github.com/tanbro/redis_
 - [Advanced Usage](docs/usage/advanced-usage.md) — custom serializers, the handler extension, custom key formats and hash algorithms
 - [Configuration](docs/usage/configuration.md) — cache size & TTL, per-item TTL, serialization, `excludes`, multiple key pairs, cluster policies, cache mode control
 - [Important Considerations](docs/usage/considerations.md) — cache stampede risk, known issues and limitations
-- [Migration Guide (v0.6 → v0.7)](docs/usage/migration.md)
+- [Migration Guide](docs/usage/migration.md) — 0.x → 1.0 breaking changes and migration
 
 ## Getting Started
 
@@ -238,10 +239,10 @@ See [docs/considerations.md](docs/usage/considerations.md) for details.
 Cache size & TTL, per-item TTL, serialization, handling non-serializable arguments, multiple key pairs, Redis cluster policies, and cache mode control.
 See [docs/configuration.md](docs/usage/configuration.md) for details.
 
-## Migration Guide (v0.6 → v0.7)
+## Migration Guide
 
-v0.7 introduced breaking changes to the `RedisFuncCache` constructor.
-See [docs/migration.md](docs/usage/migration.md) for the summary and migration examples.
+Breaking changes and step-by-step migration from any 0.x release to 1.0:
+see [docs/migration.md](docs/usage/migration.md).
 
 ## Advanced Usage
 

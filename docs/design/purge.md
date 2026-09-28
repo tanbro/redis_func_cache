@@ -6,7 +6,7 @@
 policy shapes differ structurally:
 
 - **Single policies** own exactly one static key pair (`...:0` ZSET + `...:1`
-  HASH). `Keying.purge` calls `DEL` on the two names from `calc_key_pair()` —
+  HASH). `Keying.purge_all_pairs` calls `DEL` on the two names from `calc_key_pair()` —
   two keys, one command, no enumeration. This variant is already correct and needs no
   change.
 - **Multiple policies** own one key pair *per decorated function*, discovered at

@@ -144,7 +144,7 @@ class Keying(ABC):
         """Async version of :meth:`iterate_key_pairs`."""
         yield self.calc_key_pair(prefix, name)
 
-    def purge(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+    def purge_all_pairs(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Delete all Redis keys owned by this policy (sync).
 
         Args:
@@ -158,8 +158,10 @@ class Keying(ABC):
         """
         return redis_client.delete(*self.calc_key_pair(prefix, name))
 
-    async def apurge(self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
-        """Async version of :meth:`purge`."""
+    async def apurge_all_pairs(
+        self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500
+    ) -> int:
+        """Async version of :meth:`purge_all_pairs`."""
         return await redis_client.delete(*self.calc_key_pair(prefix, name))
 
 
@@ -217,7 +219,7 @@ class MultipleKeying(Keying):
             yield k, _hash_key_of(k)
 
     @override
-    def purge(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+    def purge_all_pairs(self, redis_client: RedisSyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
         """Enumerate keys with ``SCAN`` and delete them in batches with ``UNLINK``."""
         pat = f"{prefix}{name}:{self.key}:*"
         removed = 0
@@ -232,7 +234,9 @@ class MultipleKeying(Keying):
         return removed
 
     @override
-    async def apurge(self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500) -> int:
+    async def apurge_all_pairs(
+        self, redis_client: RedisAsyncClientT, prefix: str, name: str, batch_size: int = 500
+    ) -> int:
         pat = f"{prefix}{name}:{self.key}:*"
         removed = 0
         batch: list[KeyNameT] = []

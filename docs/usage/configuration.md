@@ -7,7 +7,6 @@ Control cache size and expiration:
 ```python
 cache = RedisFuncCache(
     "my-cache",
-    lru_t_policy,
     redis_client=redis_client,
     maxsize=100,  # Maximum number of cached items
     ttl=300,  # Cache expires after 300 seconds of inactivity
@@ -52,14 +51,13 @@ The default serializer is [JSON][], which works with simple data types. For comp
 import pickle
 
 from redis import Redis
-from redis_func_cache import RedisFuncCache, lru_t_policy
+from redis_func_cache import RedisFuncCache
 
 pool = Redis.ConnectionPool.from_url("redis://")
 
 # Method 1: Set at cache instance level
 cache = RedisFuncCache(
     __name__,
-    lru_t_policy,
     factory=lambda: Redis.from_pool(pool),
     serializer="pickle",  # or (pickle.dumps, pickle.loads)
 )

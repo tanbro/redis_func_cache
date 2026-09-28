@@ -2,7 +2,7 @@ from random import randint
 
 import pytest
 
-from redis_func_cache import RedisFuncCache, lru_policy
+from redis_func_cache import RedisFuncCache, lru_policy, lru_t_policy
 from redis_func_cache.utils import calculate_callable_fullname, get_callable_bytecode
 
 from ._catches import CACHES, MAXSIZE, MULTI_CACHES, redis_factory
@@ -369,3 +369,9 @@ def test_eviction_count_accuracy():
     assert lru_cache.get_size() == maxsize
 
     lru_cache.purge()
+
+
+def test_default_policy_is_lru_t():
+    """不传 ``policy`` 时默认使用 ``lru_t_policy``（无状态单例，直接共享）。"""
+    cache = RedisFuncCache("default-policy-test", factory=redis_factory)
+    assert cache.policy is lru_t_policy

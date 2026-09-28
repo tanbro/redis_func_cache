@@ -19,6 +19,7 @@ from .constants import DEFAULT_MAXSIZE, DEFAULT_PREFIX, DEFAULT_TTL
 from .exceptions import CacheMissError
 from .handler import HandlerContext
 from .policies import Policy
+from .policies.lru import lru_t_policy
 from .serializers import (
     DeserializerT,
     SerializerPairT,
@@ -118,7 +119,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def __init__(
         self,
         name: str,
-        policy: Policy,
+        policy: Policy = lru_t_policy,
         *,
         redis_client: RedisSyncClientT | None = None,
         factory: Callable[[], RedisClientTV] | None = None,
@@ -140,6 +141,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
             policy: A pre-instantiated :class:`Policy` instance to use for
                     eviction and key/hash calculation.
 
+                    Defaults to ``lru_t_policy`` (LRU-T: timestamp-scored pseudo
+                    LRU, single key pair). Note that its eviction ordering is
+                    second-granular — writes within the same second are evicted
+                    in arbitrary order.
+
                     Policies are stateless: the key namespace (``prefix`` and
                     ``name``) is passed to the policy's methods at every call,
                     so the instance is stored as-is — never copied, never bound.
@@ -152,6 +158,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 .. versionchanged:: 1.0
                     The policy is no longer copied or namespace-bound; policies
                     are stateless and preset instances are shareable.
+
+                .. versionchanged:: 1.0
+                    The argument became optional, defaulting to ``lru_t_policy``.
 
             redis_client: Optional Redis client instance to use.
 
@@ -258,11 +267,9 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                       my_cache = RedisFuncCache(
                           __name__,
-                          MyPolicy(),
                           redis_client=redis_client,
                           # here pass two callbacks to serializer
                           serializer=(my_serializer, my_deserializer),
-                          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                       )
 
                 This argument is assigned to property :attr:`serializer`.
