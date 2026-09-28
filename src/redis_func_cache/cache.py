@@ -492,9 +492,8 @@ class RedisFuncCache(Generic[RedisClientTV]):
     def prepare(
         self,
         user_function: Callable,
-        user_args: tuple[Any, ...],
-        user_kwds: dict[str, Any],
-        bound: BoundArguments | None = None,
+        args: tuple[Any, ...],
+        kwds: dict[str, Any],
     ) -> tuple[tuple[KeyT, KeyT], HashValueT]:
         """Compute the ``(key pair, hash value)`` locating this call in the cache.
 
@@ -502,10 +501,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         policy's get/put call via ``located`` so it is computed exactly once
         per invocation.
         """
-        if bound is None:
-            args, kwds = user_args, user_kwds
-        else:
-            args, kwds = bound.args, bound.kwargs
         return self.policy.locate(self.prefix, self.name, user_function, args, kwds)
 
     def exec(

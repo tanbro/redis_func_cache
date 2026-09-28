@@ -246,13 +246,13 @@ class Policy:
 
     def _fetch_index_size(self, redis_client: RedisSyncClientT, index_key: KeyNameT) -> int:
         """Cardinality of one index structure — ``ZCARD``, or ``SCARD`` for the RR family."""
-        if self.scripts._index_structure == "set":
+        if self.scripts.index_structure == "set":
             return redis_client.scard(index_key)
         return redis_client.zcard(index_key)
 
     async def _afetch_index_size(self, redis_client: RedisAsyncClientT, index_key: KeyNameT) -> int:
         """Async version of :meth:`_fetch_index_size`."""
-        if self.scripts._index_structure == "set":
+        if self.scripts.index_structure == "set":
             return await redis_client.scard(index_key)
         return await redis_client.zcard(index_key)
 
@@ -260,8 +260,9 @@ class Policy:
         """Get the number of items in the cache synchronously.
 
         Reports the sum of the index structure cardinalities (``ZCARD``, or
-        ``SCARD`` for the set-based RR family, selected via the private
-        ``Scripts._index_structure`` fact), which is the same number the eviction
+        ``SCARD`` for the set-based RR family, selected via
+        :attr:`Scripts.index_structure <redis_func_cache.scripts.Scripts.index_structure>`),
+        which is the same number the eviction
         script enforces ``maxsize`` against. With per-item TTL, expired-but-not-
         yet-vacuumed entries ("ghosts") keep this number elevated; the count of
         live values is the HASH length (``HLEN``) of the second key.
@@ -325,7 +326,7 @@ class Policy:
         .. versionadded:: 1.0
         """
         key_pair = self.calc_key_pair(prefix, name, fn, args, kwds)
-        return (key_pair[0], key_pair[1]), self.calc_hash(fn, args, kwds)
+        return key_pair, self.calc_hash(fn, args, kwds)
 
     def get(
         self,

@@ -119,7 +119,7 @@ class Scripts(ABC):
     """Declare the Lua scripts and Redis-structure facts of a policy.
 
     Subclasses set :attr:`get_script` / :attr:`put_script` /
-    :attr:`vacuum_script` / ``_index_structure`` and may override
+    :attr:`vacuum_script` / :attr:`index_structure` and may override
     :meth:`calc_ext_args` (extra ARGV entries). Invoking the scripts is the
     policy's job, not this class's.
     """
@@ -130,12 +130,12 @@ class Scripts(ABC):
     """File name of the Lua script implementing the cache write."""
     vacuum_script: str = "vacuum.lua"
     """File name of the Lua script implementing vacuum."""
-    _index_structure: Literal["zset", "set"] = "zset"
+    index_structure: Literal["zset", "set"] = "zset"
     """The Redis structure of the index (``KEYS[1]`` of the scripts).
 
-    Internal dispatch fact for counting: ``"zset"`` (default) means the
-    sorted-set based policies, ``"set"`` the RR family (``SCARD``). Consumed
-    by :meth:`Policy.get_size`.
+    ``"zset"`` (default) means the sorted-set based policies, ``"set"`` the
+    RR family. Consumed by :meth:`Policy.get_size` to dispatch between
+    ``ZCARD`` and ``SCARD`` when counting entries.
     """
 
     def __init__(self) -> None:
@@ -273,4 +273,4 @@ class RrScripts(Scripts):
 
     get_script = "rr_get.lua"
     put_script = "rr_put.lua"
-    _index_structure = "set"
+    index_structure = "set"

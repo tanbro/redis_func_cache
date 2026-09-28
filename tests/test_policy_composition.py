@@ -68,10 +68,10 @@ class TestScripts:
         assert s.calc_ext_args(_echo, (), {}) == ("mru",)
         assert LruScripts().calc_ext_args(_echo, (), {}) is None
 
-    def test_index_structure_fact(self):
+    def testindex_structure_fact(self):
         """The index structure is an internal fact on Scripts; count_index dispatches on it."""
-        assert LruScripts()._index_structure == "zset"
-        assert RrScripts()._index_structure == "set"
+        assert LruScripts().index_structure == "zset"
+        assert RrScripts().index_structure == "set"
 
 
 class TestKeying:
@@ -107,7 +107,7 @@ class TestPolicy:
         policy = Policy(SingleKeying("lru"), PICKLE_MD5_HASHER, MruScripts())
         assert policy.scripts.calc_ext_args(_echo) == ("mru",)
         assert policy.calc_key_pair("p:", "n", _echo) == ("p:n:lru:0", "p:n:lru:1")
-        assert policy.scripts._index_structure == "zset"
+        assert policy.scripts.index_structure == "zset"
 
     def test_base_key_is_the_public_override_point(self):
         class MyKeying(SingleKeying):
@@ -122,7 +122,7 @@ class TestPolicy:
         with pytest.raises(NotImplementedError):
             Incomplete().calc_key_pair("p:", "n")
 
-    def test_get_size_dispatches_by_index_structure(self, mocker):
+    def test_get_size_dispatches_byindex_structure(self, mocker):
         """get_size picks SCARD vs ZCARD from scripts.index_structure."""
         for scripts, command in ((LruScripts(), "zcard"), (RrScripts(), "scard")):
             client = mocker.Mock()
