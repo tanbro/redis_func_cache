@@ -136,7 +136,7 @@ Here is an example showing how the *LRU* cache's eviction policy works (maximum 
 The [`RedisFuncCache`][] executes a decorated function with specified arguments and caches its result. Here's a breakdown of the steps:
 
 1. **Initialize Scripts**: Register the policy's two Lua scripts (cache hit and update) against the Redis client, cached per client.
-1. **Calculate Keys and Hash**: Compute the cache key pair using `policy.calc_key_pair(prefix, name, ...)`, compute the hash value using `policy.calc_hash`, and compute any additional arguments using `policy.scripts.calc_ext_args`.
+1. **Locate the Call**: Compute the call identity — key pair and hash value — once via `policy.locate(prefix, name, ...)`; the same identity is shared by the handler context and the get/put script invocation. Any additional script arguments come from `policy.scripts.calc_ext_args`.
 1. **Attempt Cache Retrieval**: Attempt to retrieve a cached result. If a cache hit occurs, deserialize and return the cached result.
 1. **Execute User Function**: If no cache hit occurs, execute the decorated function with the provided arguments and keyword arguments.
 1. **Serialize Result and Cache**: Serialize the result of the user function and store it in Redis.

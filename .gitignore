@@ -273,3 +273,9 @@ cline.json
 # Replit AI Development
 .replit
 replit.nix
+
+# APM dependencies
+apm.yml
+apm.yaml
+apm.lock.*
+apm_modules/

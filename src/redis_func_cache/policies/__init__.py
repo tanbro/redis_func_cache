@@ -8,11 +8,21 @@ multiple-inheritance hierarchy:
 - :class:`~redis_func_cache.hashing.Hasher` — how each call is hashed to a sub-key
 - :class:`~redis_func_cache.scripts.Scripts` — which Lua scripts run and what they expect
 
-The policy itself is the **single entry point to the Redis side**: it computes
+The policy is the **single entry point from the cache layer**: it computes
 hashes and key pairs, invokes the Lua scripts (via the ARGV helpers in
-:mod:`~redis_func_cache.scripts`), and orchestrates the cross-key-pair
-maintenance operations (``purge`` / ``vacuum`` / ``get_size``). Higher layers
-never talk to :attr:`scripts` directly.
+:mod:`~redis_func_cache.scripts`), and owns the cross-key-pair maintenance
+operations (``purge`` / ``vacuum`` / ``get_size``). Higher layers never talk
+to :attr:`scripts` directly.
+
+IO ownership follows each component's abstraction — Redis IO is *not*
+exclusive to the policy:
+
+- :class:`~redis_func_cache.keying.Keying` owns key-lifecycle IO (enumerating
+  and deleting the key pairs it names — only it knows the layout);
+- the policy owns entry-level IO (get/put/vacuum/size — it must orchestrate
+  keying, hasher and scripts);
+- :class:`~redis_func_cache.scripts.Scripts` stays pure declaration (script
+  names, ARGV builders) plus per-client script registration.
 
 Like :class:`~redis_func_cache.keying.Keying`, a policy is **completely
 stateless**: it holds no namespace, no client and no cache reference. The key
@@ -119,7 +129,7 @@ class Policy:
         keying = type(self.keying).__name__
         hasher = type(self.hasher).__name__
         scripts = type(self.scripts).__name__
-        return f"Policy({keying}({self.keying.key!r}), {hasher}(), {scripts}())"
+        return f"{self.__class__.__name__}({keying}({self.keying.key!r}), {hasher}(), {scripts}())"
 
     # --- hash dimension ---------------------------------------------------
 
@@ -172,7 +182,10 @@ class Policy:
     ) -> Iterator[tuple[KeyNameT, KeyNameT]]:
         """Iterate over the (index key, value key) pairs owned by this policy.
 
-        Streams lazily — nothing is materialized. See
+        The read-only twin of :meth:`purge`: used internally by
+        :meth:`vacuum` / :meth:`get_size`, and part of the policy's user
+        introspection surface for building custom maintenance or inspection
+        tools. Streams lazily — nothing is materialized. See
         :meth:`Keying.iterate_key_pairs <redis_func_cache.keying.Keying.iterate_key_pairs>`.
 
         Args:
@@ -282,7 +295,7 @@ class Policy:
             total += await self._afetch_index_size(redis_client, index_key)
         return total
 
-    # --- script invocation (the single entry point to the Redis side) ------
+    # --- entry-level IO: script invocation and per-pair maintenance ---------
 
     def locate(
         self,
@@ -326,11 +339,12 @@ class Policy:
         update_ttl: bool,
         ttl: int,
         options: Mapping[str, Any] | None = None,
+        located: tuple[tuple[KeyT, KeyT], HashValueT] | None = None,
     ) -> EncodedT | None:
         """Attempt one cache read: run the get Lua script for this call.
 
-        Computes the hash and key pair, registers the script against the given
-        client (cached per client) and invokes it with the ARGV layout built by
+        Registers the get script against the given client (cached per client)
+        and invokes it with the ARGV layout built by
         :func:`~redis_func_cache.scripts.build_get_args`.
 
         Args:
@@ -343,11 +357,17 @@ class Policy:
             update_ttl: Whether to refresh the TTL of the cache structures on this access.
             ttl: Time-to-live of the cache in seconds.
             options: Reserved for future use.
+            located: Pre-computed ``(key pair, hash value)`` from
+                :meth:`locate`. When omitted it is computed here; callers that
+                already located the call (e.g. to build a handler context)
+                pass it in so the identity is computed once per call.
 
         Returns:
             The serialized hit value, or :data:`None` on a miss.
         """
-        keys, hash_value = self.locate(prefix, name, fn, args, kwds)
+        if located is None:
+            located = self.locate(prefix, name, fn, args, kwds)
+        keys, hash_value = located
         get_script, _ = self.scripts.register_scripts(redis_client)
         return cast(EncodedT | None, get_script(keys=keys, args=build_get_args(update_ttl, ttl, hash_value, options)))
 
@@ -363,9 +383,12 @@ class Policy:
         update_ttl: bool,
         ttl: int,
         options: Mapping[str, Any] | None = None,
+        located: tuple[tuple[KeyT, KeyT], HashValueT] | None = None,
     ) -> EncodedT | None:
-        """Async version of :meth:`get`."""
-        keys, hash_value = self.locate(prefix, name, fn, args, kwds)
+        """Async version of :meth:`get`; see it for the semantics of ``located``."""
+        if located is None:
+            located = self.locate(prefix, name, fn, args, kwds)
+        keys, hash_value = located
         get_script, _ = self.scripts.register_scripts(redis_client)
         return cast(
             EncodedT | None, await get_script(keys=keys, args=build_get_args(update_ttl, ttl, hash_value, options))
@@ -386,6 +409,7 @@ class Policy:
         ttl: int,
         field_ttl: int = 0,
         options: Mapping[str, Any] | None = None,
+        located: tuple[tuple[KeyT, KeyT], HashValueT] | None = None,
     ) -> None:
         """Store one call result: run the put Lua script for this call.
 
@@ -408,8 +432,16 @@ class Policy:
             ttl: Time-to-live of the cache in seconds.
             field_ttl: Time-to-live of the hash field.
             options: Reserved for future use.
+            located: Pre-computed ``(key pair, hash value)`` from
+                :meth:`locate`. When omitted it is computed here; callers that
+                already located the call (e.g. to build a handler context)
+                pass it in so the identity is computed once per call. Note
+                ``fn`` / ``args`` / ``kwds`` are still used for
+                :meth:`Scripts.calc_ext_args`.
         """
-        keys, hash_value = self.locate(prefix, name, fn, args, kwds)
+        if located is None:
+            located = self.locate(prefix, name, fn, args, kwds)
+        keys, hash_value = located
         ext_args = self.scripts.calc_ext_args(fn, args, kwds)
         _, put_script = self.scripts.register_scripts(redis_client)
         put_script(
@@ -432,9 +464,12 @@ class Policy:
         ttl: int,
         field_ttl: int = 0,
         options: Mapping[str, Any] | None = None,
+        located: tuple[tuple[KeyT, KeyT], HashValueT] | None = None,
     ) -> None:
-        """Async version of :meth:`put`."""
-        keys, hash_value = self.locate(prefix, name, fn, args, kwds)
+        """Async version of :meth:`put`; see it for the semantics of ``located``."""
+        if located is None:
+            located = self.locate(prefix, name, fn, args, kwds)
+        keys, hash_value = located
         ext_args = self.scripts.calc_ext_args(fn, args, kwds)
         _, put_script = self.scripts.register_scripts(redis_client)
         await put_script(

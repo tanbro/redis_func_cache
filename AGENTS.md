@@ -17,18 +17,27 @@ Policy**:
 - **Hasher** (`src/redis_func_cache/hashing.py`, `fingerprint.py`): computes the per-call sub-key
   from function + args via `HashConfig` (algorithm, serializer, `use_bytecode`). ~26 presets plus a
   `make_hasher` factory. The fingerprint is md5(fullname + bytecode); checksums are base64 digests.
+  Pure computation — no Redis IO.
 - **Scripts** (`src/redis_func_cache/scripts.py`): pure **declaration + registration** — the
   get/put Lua file names (`src/redis_func_cache/lua/`), the index structure
   (`zset` for most policies, `set` for RR), `calc_ext_args` (extra ARGV values appended to put,
   MRU → `("mru",)`), `register_scripts`/`register_vacuum_script` (per-client registration cached
   in a `WeakKeyDictionary`), and the module-level ARGV builders `build_get_args`/`build_put_args`.
   Scripts never invokes the scripts and never computes key names.
-- **Policy** (`src/redis_func_cache/policies/__init__.py`): the **single entry point to the Redis
-  side** — `get/put/aget/aput` (register + ARGV assembly + invoke), `vacuum/avacuum` (cursor loop),
+- **Policy** (`src/redis_func_cache/policies/__init__.py`): the **single entry point from the cache
+  layer** — `get/put/aget/aput` (register + ARGV assembly + invoke), `vacuum/avacuum` (cursor loop),
   `get_size/aget_size` (ZCARD/SCARD dispatch on the private `_index_structure` fact),
-  `purge/apurge`, `calc_key_pair`/`calc_hash`, `iterate_key_pairs`. Also stateless: `prefix` /
+  `purge/apurge`, `calc_key_pair`/`calc_hash`, `iterate_key_pairs` (the last three are the user
+  introspection surface; the cache layer itself only calls `locate` — the single identity-assembly
+  point — plus get/put and the maintenance methods, reusing the located identity via the `located`
+  kwarg). Also stateless: `prefix` /
   `name` are explicit parameters on every method that needs them (mirroring Keying), so preset
   instances are shareable singletons — never copy a policy, never reintroduce `_bind`.
+- **IO ownership follows each component's abstraction** (Redis IO is *not* exclusive to Policy):
+  Keying owns key-lifecycle IO (enumerating/deleting the key pairs it names — only it knows the
+  layout, e.g. `MultipleKeying.purge`'s SCAN+UNLINK); Policy owns entry-level IO (get/put/vacuum/
+  get_size — it orchestrates keying + hasher + scripts); Hasher and Scripts are pure. "Single entry
+  point" means the cache layer only talks to Policy — not that only Policy touches Redis.
 - `policies/` holds presets only: `Policy` instances named `{Lru,LruT,Fifo,FifoT,Lfu,Mru,Rr} ×
   {(none),Multiple,Cluster,ClusterMultiple}`. Presets take **no arguments**; they are pre-composed.
 

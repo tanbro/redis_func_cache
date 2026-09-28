@@ -498,16 +498,15 @@ class RedisFuncCache(Generic[RedisClientTV]):
     ) -> tuple[tuple[KeyT, KeyT], HashValueT]:
         """Compute the ``(key pair, hash value)`` locating this call in the cache.
 
-        Used for the handler context; the policy recomputes the same values
-        internally when it invokes the scripts.
+        Used for the handler context; the same identity is passed to the
+        policy's get/put call via ``located`` so it is computed exactly once
+        per invocation.
         """
         if bound is None:
             args, kwds = user_args, user_kwds
         else:
             args, kwds = bound.args, bound.kwargs
-        keys = self.policy.calc_key_pair(self.prefix, self.name, user_function, args, kwds)
-        hash_value = self.policy.calc_hash(user_function, args, kwds)
-        return keys, hash_value
+        return self.policy.locate(self.prefix, self.name, user_function, args, kwds)
 
     def exec(
         self,
@@ -586,6 +585,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     update_ttl=self.update_ttl,
                     ttl=self.ttl,
                     options=options,
+                    located=(keys, hash_value),
                 )
             except RedisError as redis_error:
                 if stats:
@@ -661,6 +661,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     ttl=self.ttl,
                     field_ttl=0 if field_ttl is None else field_ttl,
                     options=options,
+                    located=(keys, hash_value),
                 )
             except RedisError as redis_error:
                 if stats:
@@ -714,6 +715,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     update_ttl=self.update_ttl,
                     ttl=self.ttl,
                     options=options,
+                    located=(keys, hash_value),
                 )
             except RedisError as redis_error:
                 if stats:
@@ -791,6 +793,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     ttl=self.ttl,
                     field_ttl=0 if field_ttl is None else field_ttl,
                     options=options,
+                    located=(keys, hash_value),
                 )
             except RedisError as redis_error:
                 if stats:
