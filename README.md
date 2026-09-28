@@ -5,7 +5,7 @@
 [![readthedocs](https://readthedocs.org/projects/redis-func-cache/badge/)](https://redis-func-cache.readthedocs.io/)
 [![pypi-version](https://img.shields.io/pypi/v/redis_func_cache.svg)](https://pypi.org/project/redis_func_cache/)
 
-> *A Python library that provides decorators for caching function results in Redis, supporting multiple serialization formats and caching strategies, as well as asynchronous operations.*
+> _A Python library that provides decorators for caching function results in Redis, supporting multiple serialization formats and caching strategies, as well as asynchronous operations._
 
 ## Introduction
 
@@ -92,27 +92,27 @@ We can see that the second call to `a_slow_func()` is served from the cache, whi
 
 - Install from PyPI:
 
-    ```bash
-    pip install redis_func_cache[hiredis]
-    ```
+  ```bash
+  pip install redis_func_cache[hiredis]
+  ```
 
 - Install from source in a editable / development mode:
 
-    ```bash
-    git clone https://github.com/tanbro/redis_func_cache.git
-    cd redis_func_cache
-    pip install --editable --group dev .
-    ```
+  ```bash
+  git clone https://github.com/tanbro/redis_func_cache.git
+  cd redis_func_cache
+  pip install --editable --group dev .
+  ```
 
 - Or install from Github directly:
 
-    ```bash
-    pip install git+https://github.com/tanbro/redis_func_cache.git@main
-    ```
+  ```bash
+  pip install git+https://github.com/tanbro/redis_func_cache.git@main
+  ```
 
 The library supports [hiredis](https://github.com/redis/hiredis) which is strongly **recommended**. Installing it can significantly improve performance. It is an optional dependency and can be installed by running: `pip install redis_func_cache[hiredis]`.
 
-If [Pygments](https://pygments.org/) is installed, the library will automatically remove comments and empty lines from Lua scripts evaluated on the [Redis][] server, which can slightly improve performance. *Pygments* is also an optional dependency and can be installed by running: `pip install redis_func_cache[pygments]`.
+If [Pygments](https://pygments.org/) is installed, the library will automatically remove comments and empty lines from Lua scripts evaluated on the [Redis][] server, which can slightly improve performance. _Pygments_ is also an optional dependency and can be installed by running: `pip install redis_func_cache[pygments]`.
 
 ## Data structure
 
@@ -120,7 +120,7 @@ The library combines a pair of [Redis][] data structures to manage cache data:
 
 - The first is a sorted set, which stores the hash values of the decorated function calls along with a score for each item.
 
-    When the cache reaches its maximum size, the score is used to determine which item to evict.
+  When the cache reaches its maximum size, the score is used to determine which item to evict.
 
 - The second is a hash map, which stores the hash values of the function calls and their corresponding return values.
 
@@ -130,7 +130,7 @@ This can be visualized as follows:
 
 The main idea of the eviction policy is that the cache keys are stored in a set, and the cache values are stored in a hash map. Eviction is performed by removing the lowest-scoring item from the set, and then deleting the corresponding field and value from the hash map.
 
-Here is an example showing how the *LRU* cache's eviction policy works (maximum size is 3):
+Here is an example showing how the _LRU_ cache's eviction policy works (maximum size is 3):
 
 ![eviction_example](images/eviction_example.svg)
 
@@ -277,6 +277,7 @@ print(f"deleted {n} keys")
 
 - For "multiple" policies — one key pair per decorated function — the keys are enumerated with `SCAN` (never the blocking `KEYS`) and deleted in batches of `batch_size` (default 500) with `UNLINK`, so a large purge never stalls the server.
 - For "single" policies, the static key pair is deleted with one command.
+
 ## Known Issues
 
 See [docs/considerations.md](docs/usage/considerations.md#known-issues) for the full list of known issues and limitations.
@@ -330,23 +331,23 @@ We can use either the traditional method (`venv` and `pip`) of standard library 
 
      - On Unix-like systems:
 
-        ```bash
-        python -m venv .venv
-        source .venv/bin/activate
-        ```
+       ```bash
+       python -m venv .venv
+       source .venv/bin/activate
+       ```
 
-        > 💡 **Tip:** \
-        > On some older systems, `python` may be a symbolic link to `python2`. In such cases, you can use `python3` instead.
+       > 💡 **Tip:** \
+       > On some older systems, `python` may be a symbolic link to `python2`. In such cases, you can use `python3` instead.
 
      - On Windows:
 
-        ```powershell
-        python -m venv .venv
-        .venv\Scripts\Activate
-        ```
+       ```powershell
+       python -m venv .venv
+       .venv\Scripts\Activate
+       ```
 
-        > 💡 **Tip:** \
-        > On Windows, the command-line executable for Python may be either `python`, `python3` or `py`, depending on your installation method.
+       > 💡 **Tip:** \
+       > On Windows, the command-line executable for Python may be either `python`, `python3` or `py`, depending on your installation method.
 
   1. Install the project with all extras and its development group dependencies:
 
@@ -546,41 +547,33 @@ classDiagram
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
-
 [decorator]: https://docs.python.org/glossary.html#term-decorator "A function returning another function, usually applied as a function transformation using the @wrapper syntax"
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
-
 [bson]: https://bsonspec.org/ "BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments."
 [msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
-
 [uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
-
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
 [`Policy`]: redis_func_cache.policies.Policy
 [`SingleKeying`]: redis_func_cache.keying.SingleKeying
 [`Hasher`]: redis_func_cache.hashing.Hasher
-
 [`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
 [`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
 [`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
 [`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
 [`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
 [`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
-
 [`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
 [`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
 [`lru_multiple_policy`]: redis_func_cache.policies.lru.lru_multiple_policy
 [`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
 [`rr_multiple_policy`]: redis_func_cache.policies.rr.rr_multiple_policy
 [`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
-
 [`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
 [`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
 [`lru_cluster_policy`]: redis_func_cache.policies.lru.lru_cluster_policy
 [`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy
 [`rr_cluster_policy`]: redis_func_cache.policies.rr.rr_cluster_policy
 [`lru_t_cluster_policy`]: redis_func_cache.policies.lru.lru_t_cluster_policy
-
 [`lru_t_cluster_multiple_policy`]: redis_func_cache.policies.lru.lru_t_cluster_multiple_policy
