@@ -89,6 +89,34 @@ data1 = get_user_data(session1, user_id=123, config=config1)
 data2 = get_user_data(session2, user_id=123, config=config2)  # Cache hit
 ```
 
+Both filters apply to the bound arguments (`signature(fn).bind(*args, **kwds)`) and are independent — an argument hit by either one does not take part in the cache key.
+
+`excludes` matches by name:
+
+- Any named parameter, including positional-only and keyword-only ones.
+- Keys collected by a `**kwargs` catch-all (those names are outside the signature, so they can never clash with a named parameter).
+
+```python
+@cache(excludes=["conn"])
+def search(**kwds):
+    ...  # kwds["conn"] does not take part in the cache key
+```
+
+`excludes_positional` indexes the **expanded positional stream** — the positional parameters actually bound (whether passed by position or by keyword) followed by the elements of a `*args` catch-all. Keyword-only parameters never occupy an index:
+
+```python
+@cache(excludes_positional=[0])
+def get_data(conn, *args):
+    ...  # conn is excluded; each element of *args has its own index (1, 2, ...)
+
+
+@cache(excludes_positional=[0])
+def search(conn, *, book_id: int):
+    ...  # index 0 is conn; the keyword-only book_id has no positional index
+```
+
+Two misuses fail fast with `TypeError` instead of silently corrupting cache keys: excluding the catch-all parameter itself (`excludes=["args"]` — it would collapse every call onto one key), and an `excludes_positional` index beyond the positional stream.
+
 ## Multiple Key Pairs
 
 By default, all decorated functions share the same Redis key pair. To give each function its own keys, use a "Multiple" policy:

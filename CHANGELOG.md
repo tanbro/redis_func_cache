@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- 🐞 **Bug Fixes:**
+  - `excludes` / `excludes_positional` on `cache(...)` silently corrupted cache keys for functions with `*args` / `**kwargs` signatures. `signature(fn).bind(...)` folds such calls into a single `args`/`kwds` entry, so a positional exclusion deleted the whole varargs tuple — every call then hashed identically and **wrong cached results were returned** for different arguments. Both filters are now defined on the bound arguments: `excludes` matches named parameters (including positional-only and keyword-only ones) and keys collected by a `**kwargs` catch-all; `excludes_positional` indexes the expanded positional stream (bound positional slots plus `*args` elements; keyword-only parameters never occupy an index), so `excludes_positional=[1]` on `f(conn, *args)` excludes `args[0]`, not the entire tuple. Two misuses now fail fast with `TypeError` instead of silently collapsing every call onto one hash: excluding the catch-all parameter itself (`excludes=["args"]`), and an out-of-range positional index. One deliberate semantic correction: a keyword-only parameter no longer occupies an `excludes_positional` index.
+
 ## v1.0.a2
 
 > 📅 2026-09-28

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Callable, Coroutine, Generator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from copy import copy
 from dataclasses import dataclass, replace
 from functools import wraps
-from inspect import BoundArguments, iscoroutinefunction, signature
+from inspect import BoundArguments, Parameter, iscoroutinefunction, signature
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Generic, cast
 from warnings import warn
@@ -484,16 +483,78 @@ class RedisFuncCache(Generic[RedisClientTV]):
         excludes: Sequence[str] | None = None,
         excludes_positional: Sequence[int] | None = None,
     ) -> BoundArguments | None:
+        """Build the bound arguments whose values take part in the hash computation.
+
+        Both filters apply to ``signature(user_func).bind(*user_args, **user_kwds)``;
+        they are independent and their effect is a union.
+
+        - ``excludes`` matches named parameters (including positional-only and
+          keyword-only ones) and, since the ``**kwargs`` catch-all receives names
+          outside the signature, also keys collected by it. The catch-all
+          parameters themselves (``*args`` / ``**kwargs``) cannot be excluded as
+          a whole — that would collapse every call onto one hash — and raise
+          :class:`TypeError`.
+        - ``excludes_positional`` indexes the expanded positional stream
+          (``bound.args``): the positional slots actually bound (regardless of
+          being passed by position or by keyword) plus the elements of a
+          ``*args`` catch-all. Keyword-only parameters never occupy an index.
+          An out-of-range index raises :class:`TypeError`.
+
+        Returns :data:`None` when no filter is requested, so functions without
+        ``excludes`` keep using all arguments.
+        """
         if not excludes and not excludes_positional:
             return None
         sig = signature(user_func)
         bound = sig.bind(*user_args, **user_kwds)
+        arguments = bound.arguments
         if excludes_positional:
-            bound.arguments = OrderedDict(
-                item for i, item in enumerate(bound.arguments.items()) if i not in excludes_positional
+            positional_kinds = (
+                Parameter.POSITIONAL_ONLY,
+                Parameter.POSITIONAL_OR_KEYWORD,
+                Parameter.VAR_POSITIONAL,
             )
+            # Descending order: each deletion removes exactly one slot, so
+            # smaller indices keep pointing at the same values.
+            for index in sorted(set(excludes_positional), reverse=True):
+                offset = 0
+                for param in sig.parameters.values():
+                    if param.kind not in positional_kinds:
+                        continue
+                    if param.kind is Parameter.VAR_POSITIONAL:
+                        values = arguments.get(param.name, ())
+                        count = len(values)
+                        if offset <= index < offset + count:
+                            element = index - offset
+                            arguments[param.name] = values[:element] + values[element + 1 :]
+                            break
+                        offset += count
+                    elif param.name in arguments:
+                        if index == offset:
+                            del arguments[param.name]
+                            break
+                        offset += 1
+                else:
+                    raise TypeError(
+                        f"excludes_positional index {index} is out of range for the signature of {user_func!r}"
+                    )
         if excludes:
-            bound.arguments = OrderedDict((k, v) for k, v in bound.arguments.items() if k not in excludes)
+            catch_alls = {
+                param.name
+                for param in sig.parameters.values()
+                if param.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
+            }
+            var_keyword = next((p.name for p in sig.parameters.values() if p.kind is Parameter.VAR_KEYWORD), None)
+            for name in excludes:
+                if name in catch_alls:
+                    raise TypeError(
+                        f"Cannot exclude the catch-all parameter {name!r} as a whole; "
+                        "exclude individual values via excludes_positional instead."
+                    )
+                if name in arguments:
+                    del arguments[name]
+                elif var_keyword is not None and name in arguments.get(var_keyword, ()):
+                    del arguments[var_keyword][name]
         return bound
 
     def prepare(
