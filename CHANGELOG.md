@@ -1,6 +1,8 @@
 # Changelog
 
-## v1.0 (unreleased)
+## v1.0.a2
+
+> 📅 2026-09-28
 
 - 💔 **Breaking Changes:**
   - **The policy layer is rebuilt from inheritance into composition.** The `AbstractPolicy` mixin hierarchy is replaced by a single `Policy(keying, hasher, scripts)` bundling three orthogonal components: a `Keying` (key naming: `SingleKeying` / `MultipleKeying` and their cluster variants), a `Hasher` (algorithm + serializer + optional bytecode in one `HashConfig`), and a `Scripts` (Lua script declaration, ARGV builders and per-client script registration). Custom policies are now composed — `Policy(SingleKeying(key), MyHasher(), LruScripts())` — instead of subclassing mixins; the built-in presets (`lru_policy`, `rr_policy`, ...) are argument-less, pre-composed `Policy` instances. `make_hasher(name, hash_config)` (see New Features) replaces the `make_hash_mixin` factory; `make_scripts_mixin` is removed. See `docs/usage/migration.md` for the full 0.x → 1.0 mapping.
