@@ -231,10 +231,17 @@ class Policy:
         """
         return await self.keying.apurge(redis_client, prefix, name, batch_size)
 
-    def _count_index(self, redis_client: RedisSyncClientT, index_key: KeyNameT) -> int:
+    def _fetch_index_size(self, redis_client: RedisSyncClientT, index_key: KeyNameT) -> int:
         """Cardinality of one index structure — ``ZCARD``, or ``SCARD`` for the RR family."""
-        count = redis_client.scard if self.scripts._index_structure == "set" else redis_client.zcard
-        return count(index_key)  # type: ignore[return-value]
+        if self.scripts._index_structure == "set":
+            return redis_client.scard(index_key)
+        return redis_client.zcard(index_key)
+
+    async def _afetch_index_size(self, redis_client: RedisAsyncClientT, index_key: KeyNameT) -> int:
+        """Async version of :meth:`_fetch_index_size`."""
+        if self.scripts._index_structure == "set":
+            return await redis_client.scard(index_key)
+        return await redis_client.zcard(index_key)
 
     def get_size(self, redis_client: RedisSyncClientT, prefix: str, name: str) -> int:
         """Get the number of items in the cache synchronously.
@@ -255,7 +262,7 @@ class Policy:
             Number of items in the cache.
         """
         return sum(
-            self._count_index(redis_client, index_key)
+            self._fetch_index_size(redis_client, index_key)
             for index_key, _ in self.keying.iterate_key_pairs(redis_client, prefix, name)
         )
 
@@ -272,8 +279,7 @@ class Policy:
         """
         total = 0
         async for index_key, _ in self.keying.aiterate_key_pairs(redis_client, prefix, name):
-            count = redis_client.scard if self.scripts._index_structure == "set" else redis_client.zcard
-            total += await count(index_key)  # type: ignore[misc]
+            total += await self._afetch_index_size(redis_client, index_key)
         return total
 
     # --- script invocation (the single entry point to the Redis side) ------
