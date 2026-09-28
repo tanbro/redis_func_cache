@@ -159,7 +159,13 @@ Practical guidance for the `factory` argument:
 
   - The built-in policies use [`pickle`][] to serialize function arguments and then calculate the cache key by hashing the serialized data with `md5` by default.
 
-    [`pickle`][] is chosen because only the hash bytes are stored in Redis, not the serialized data itself, making this approach safe. However, [`pickle`][] causes **incompatibility between different Python versions**.
+    [`pickle`][] is chosen deliberately, and the choice is safe:
+
+    - **No security risk.** The danger of [`pickle`][] lies in *deserializing* untrusted data (`loads`); the hasher only ever *serializes* your own function's arguments (`dumps`) and never reads anything back — the digest bytes are stored in Redis but never deserialized.
+    - **Why not JSON?** Pickle can serialize almost any Python object (`datetime`, `Decimal`, `bytes`, `set`, custom objects, ...), so the built-in policies work out of the box. A JSON-based hasher raises `TypeError` on such arguments, which is a poor default for "preset" policies that take no configuration. If you prefer JSON-key semantics, compose a custom policy with a `Json*` hasher as shown below.
+    - **Why does this differ from the constructor's `serializer="json"`?** They serve different purposes: the constructor `serializer` encodes the cached *return values* (stored in Redis and must be deserializable later), while the hasher only derives an internal *key digest* that nobody reads back. Their formats do not need to match.
+
+    However, [`pickle`][] causes **incompatibility between different Python versions**.
 
   - The key calculation defined in `hashing.Hasher.calc_hash()` uses the function's bytecode as part of the hash computation by default. So it cannot hit cache across different Python versions.
 
