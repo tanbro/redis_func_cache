@@ -1,6 +1,12 @@
 useTabs: false
 endOfLine: "lf"
 embeddedLanguageFormatting: auto
+
+excludeFiles:
+  - docs/**/*.include.md
+  - docs/_build/**/*
+  - docs/_static/**/*
+
 overrides:
   - files: ["*.md", "*.mdx"]
     options:
