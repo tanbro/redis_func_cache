@@ -2,7 +2,7 @@
 
 ## Background
 
-Every cache maintained by *redis-func-cache* consists of **two Redis keys**:
+Every cache maintained by _redis-func-cache_ consists of **two Redis keys**:
 
 - `...:0` — a **sorted set (ZSET)** holding one member per cached invocation (the
   `hash_value`), scored according to the eviction policy (last-access timestamp for
@@ -30,7 +30,7 @@ end
 
 ## The ghost-entry problem
 
-When a field expires, its ZSET member survives as a *ghost*: an eviction slot that
+When a field expires, its ZSET member survives as a _ghost_: an eviction slot that
 points to a value that is no longer there. The full lifecycle:
 
 ```mermaid
@@ -43,11 +43,11 @@ flowchart TD
     ghost -->|"never accessed again"| residue["residue until\nstructure TTL or eviction"]
 ```
 
-Two cleanup paths already exist, both *incidental*:
+Two cleanup paths already exist, both _incidental_:
 
 1. **Lazy cleanup on re-access.** The get scripts handle the mismatch case: when
    `ZRANK` finds the member but `HGET` returns nothing, the member is removed
-   (`ZREM`). This only triggers for the *same* `hash_value`, i.e. the same function
+   (`ZREM`). This only triggers for the _same_ `hash_value`, i.e. the same function
    called again with the same arguments.
 2. **Incidental eviction.** Ghosts occupy eviction slots, so under `maxsize` pressure
    they are eventually popped from the ZSET and `HDEL`ed (a no-op for missing fields).
@@ -73,15 +73,15 @@ limit — memory is bounded by the same envelope as live entries. The actual cos
 
 ## Options considered
 
-| Option | Verdict | Why |
-| --- | --- | --- |
-| Explicit `vacuum_all_pairs()` / `avacuum_all_pairs()` on the policy | **Adopted** | Deterministic, O(1) extra cost on the hot path, accurate reporting. See below. |
-| Whole vacuum as a single atomic Lua script (cursor loop server-side) | Rejected | Redis executes scripts on its single thread; a full ZSET traversal inside one script blocks the entire instance for the duration and can hit the busy-reply threshold on large caches. Chunked execution exists precisely to yield. |
-| Probabilistic sampling embedded in the put script (`ZRANDMEMBER` + `HEXISTS` + `ZREM`) | **Rejected** | Nondeterministic: cleanup latency is unbounded (a ghost may linger arbitrarily long), the hot-path cost fluctuates with traffic, and the eventual size still cannot be trusted at any point in time. It optimizes the wrong property — we want *accurate* size and *bounded* residue, not expected-value cleanup. |
-| Score-range targeted sweep (`ZRANGEBYSCORE` on "old" members) | Rejected | `field_ttl` is per-decorated-function while `HEXPIRE` is refreshed only on put; last-access scores and field expiry times diverge. Worse, score semantics differ per policy (timestamp / insertion order / frequency), so the sweep would have to be policy-specific. |
-| Native enumeration of expired fields | Rejected | Redis exposes no API to list expired-but-unreclaimed fields. The closest probe, `HTTL`, is per-field — it cannot drive an enumeration, only confirm a guess. |
-| Keyspace notifications + background sweeper thread | Rejected | Expired-field notifications for hashes are not delivered reliably (and hash-field expiry events are emitted on access, not on expiry); it also drags a runtime dependency and threading model into the library. |
-| Versioned/generation keys (swap structure on invalidation) | Rejected | A wholesale redesign of the key layout to solve a bounded, low-severity issue. |
+| Option                                                                                 | Verdict      | Why                                                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Explicit `vacuum_all_pairs()` / `avacuum_all_pairs()` on the policy                    | **Adopted**  | Deterministic, O(1) extra cost on the hot path, accurate reporting. See below.                                                                                                                                                                                                                                    |
+| Whole vacuum as a single atomic Lua script (cursor loop server-side)                   | Rejected     | Redis executes scripts on its single thread; a full ZSET traversal inside one script blocks the entire instance for the duration and can hit the busy-reply threshold on large caches. Chunked execution exists precisely to yield.                                                                               |
+| Probabilistic sampling embedded in the put script (`ZRANDMEMBER` + `HEXISTS` + `ZREM`) | **Rejected** | Nondeterministic: cleanup latency is unbounded (a ghost may linger arbitrarily long), the hot-path cost fluctuates with traffic, and the eventual size still cannot be trusted at any point in time. It optimizes the wrong property — we want _accurate_ size and _bounded_ residue, not expected-value cleanup. |
+| Score-range targeted sweep (`ZRANGEBYSCORE` on "old" members)                          | Rejected     | `field_ttl` is per-decorated-function while `HEXPIRE` is refreshed only on put; last-access scores and field expiry times diverge. Worse, score semantics differ per policy (timestamp / insertion order / frequency), so the sweep would have to be policy-specific.                                             |
+| Native enumeration of expired fields                                                   | Rejected     | Redis exposes no API to list expired-but-unreclaimed fields. The closest probe, `HTTL`, is per-field — it cannot drive an enumeration, only confirm a guess.                                                                                                                                                      |
+| Keyspace notifications + background sweeper thread                                     | Rejected     | Expired-field notifications for hashes are not delivered reliably (and hash-field expiry events are emitted on access, not on expiry); it also drags a runtime dependency and threading model into the library.                                                                                                   |
+| Versioned/generation keys (swap structure on invalidation)                             | Rejected     | A wholesale redesign of the key layout to solve a bounded, low-severity issue.                                                                                                                                                                                                                                    |
 
 ## Chosen design: `vacuum_all_pairs` on the policy
 
@@ -122,12 +122,12 @@ FIFO/LFU/LRU/LRU-T/MRU/RR), and the operation is cluster-safe because it touches
 single key pair per script invocation (both keys of a pair share a hash tag in the
 cluster policies).
 
-One structural wrinkle: multiple policies derive a key pair *per decorated function*,
+One structural wrinkle: multiple policies derive a key pair _per decorated function_,
 so a vacuum call has no function argument to compute keys from. The enumeration of key
 pairs is therefore a small hook implemented once each in `SingleKeying` (return the
 static pair) and `MultipleKeying` (enumerate pairs by a `SCAN` pattern, deriving
 the hash key from each sorted-set key's `:0` suffix). This is the single-versus-multiple
-*structural* distinction, not eviction logic — the six eviction strategies themselves
+_structural_ distinction, not eviction logic — the six eviction strategies themselves
 remain zero-code.
 
 ### Implementation shape: a cursor-passing Lua script
@@ -137,7 +137,7 @@ which members to `ZREM`. Splitting the work between client and server (client-si
 `ZSCAN`, then a script call with the member batch) would cost **two round trips per
 chunk** and leave a **non-atomic gap** between probe and removal: if a concurrent put
 revives a ghost in that gap, the vacuum would delete the revived member and create the
-*inverse* ghost — a live hash field with no ZSET member. The get/put scripts'
+_inverse_ ghost — a live hash field with no ZSET member. The get/put scripts'
 half-existence recovery would eventually repair it, but the library should not
 manufacture dirty state in the first place.
 
@@ -159,14 +159,14 @@ This shape buys three properties at once:
   invocation: a revival either happens before the script (the probe sees the live
   field and skips the member) or after it (the next vacuum run sees it). Each call
   touches at most `COUNT` members and then yields, so the single-threaded server stays
-  responsive — the reason a *whole-vacuum* script with a server-side cursor loop was
+  responsive — the reason a _whole-vacuum_ script with a server-side cursor loop was
   rejected (see the options table).
 - **Reuse of the script infrastructure.** The script travels through the same
   `read_lua_file` / `clean_lua_script` / `client.register_script` pipeline as the six
   pairs of policy scripts, and its return value is the chunk result — no extra
   plumbing.
 
-Enumeration of *which* key pairs to vacuum stays client-side (`SCAN MATCH` on the
+Enumeration of _which_ key pairs to vacuum stays client-side (`SCAN MATCH` on the
 library-owned pattern): a script may only touch keys sharing one cluster slot, while
 multiple policies spread their pairs across slots — so no script can enumerate and
 touch all pairs in a cluster. The client-side enumeration also yields between pages,

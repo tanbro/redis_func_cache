@@ -42,13 +42,13 @@ Policy**:
   facades keep the short names `purge`/`vacuum` (whole-cache granularity only; no one-pair cache
   facade by design — a fn-keyed one-pair op would be a false promise under `MultipleKeying`,
   whose entries span several pairs).
-- **IO ownership follows each component's abstraction** (Redis IO is *not* exclusive to Policy):
+- **IO ownership follows each component's abstraction** (Redis IO is _not_ exclusive to Policy):
   Keying owns key-lifecycle IO (enumerating/deleting the key pairs it names — only it knows the
   layout, e.g. `MultipleKeying.purge_all_pairs`'s SCAN+UNLINK); Policy owns entry-level IO (get/put/vacuum/
   get_size — it orchestrates keying + hasher + scripts); Hasher and Scripts are pure. "Single entry
   point" means the cache layer only talks to Policy — not that only Policy touches Redis.
 - `policies/` holds presets only: `Policy` instances named `{Lru,LruT,Fifo,FifoT,Lfu,Mru,Rr} ×
-  {(none),Multiple,Cluster,ClusterMultiple}`. Presets take **no arguments**; they are pre-composed.
+{(none),Multiple,Cluster,ClusterMultiple}`. Presets take **no arguments**; they are pre-composed.
 
 Data layout: every cache function gets a key pair — `:0` suffix = ZSET (or SET for RR) index with
 eviction scores, `:1` suffix = HASH of `hash_value → serialized result`. Get/put/vacuum are single
@@ -66,8 +66,8 @@ must change together.
 ## Hard API invariants (break = bug)
 
 - `RedisFuncCache(name, policy=lru_t_policy, *, redis_client=None, factory=None, maxsize=DEFAULT_MAXSIZE,
-  ttl=DEFAULT_TTL, update_ttl=True, ignore_redis_errors=False, prefix=DEFAULT_PREFIX,
-  serializer="json", handler=None)` (see the `RedisFuncCache.__init__` in `cache.py`). The decorator returned by `cache(...)` accepts only `serializer`, `excludes`, `ttl`,
+ttl=DEFAULT_TTL, update_ttl=True, ignore_redis_errors=False, prefix=DEFAULT_PREFIX,
+serializer="json", handler=None)` (see the `RedisFuncCache.__init__` in `cache.py`). The decorator returned by `cache(...)` accepts only `serializer`, `excludes`, `ttl`,
   `update_ttl`, `write_only`, and never `policy` — unknown kwargs are forwarded to the Lua script
   and fail at runtime.
 - Policies are argument-less instances passed positionally to the constructor. `maxsize`, `ttl`,

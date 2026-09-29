@@ -123,12 +123,7 @@ Available policies:
 > Explore the source code in the directory `src/redis_func_cache/policies` for more details.
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
-
-
-
-
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-
 [`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
 [`hyperbolic_policy`]: redis_func_cache.policies.hyperbolic.hyperbolic_policy "Hyperbolic (LFU with aging) policy"
 [`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
@@ -136,6 +131,3 @@ Available policies:
 [`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
 [`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
 [`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
-
-
-

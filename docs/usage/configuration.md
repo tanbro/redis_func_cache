@@ -30,7 +30,7 @@ The change is **lazy**: growing takes effect immediately on subsequent writes, w
 
 ### Sliding Expiration Semantics
 
-When `ttl` is set, the structure TTL is refreshed on every **hit** and every **write** (if `update_ttl` is enabled). A **miss** never slides the expiration — instead, a miss cleans up the stale entry it probed (one-item lazy vacuum; see also `vacuum` in the *Cache Maintenance* section below).
+When `ttl` is set, the structure TTL is refreshed on every **hit** and every **write** (if `update_ttl` is enabled). A **miss** never slides the expiration — instead, a miss cleans up the stale entry it probed (one-item lazy vacuum; see also `vacuum` in the _Cache Maintenance_ section below).
 
 ### Per-Item TTL (Experimental)
 
@@ -41,7 +41,7 @@ You can also set TTL on individual cached items:
 def my_func(x): ...
 ```
 
-> ⚠️ **Warning:** This feature requires [Redis][] 7.4+ and uses [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). When a field expires, it's removed from the HASH but the corresponding entry in the ZSET is only lazily cleaned up. Use `vacuum` (see the *Cache Maintenance* section below) to reclaim those slots on demand.
+> ⚠️ **Warning:** This feature requires [Redis][] 7.4+ and uses [Redis Hashes Field expiration](https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration). When a field expires, it's removed from the HASH but the corresponding entry in the ZSET is only lazily cleaned up. Use `vacuum` (see the _Cache Maintenance_ section below) to reclaim those slots on demand.
 
 ## Serialization
 
@@ -160,7 +160,7 @@ For per-function keys in cluster mode, use `*ClusterMultiplePolicy` variants: [`
 
 ## Cache Maintenance
 
-Per-item TTL expiry (see *Per-Item TTL* above) removes the HASH field but leaves the corresponding member in the index structure (ZSET or SET). Such "ghost" entries can be reclaimed on demand:
+Per-item TTL expiry (see _Per-Item TTL_ above) removes the HASH field but leaves the corresponding member in the index structure (ZSET or SET). Such "ghost" entries can be reclaimed on demand:
 
 ```python
 removed = cache.vacuum(batch_size=500)  # Returns the number of ghosts removed
@@ -200,14 +200,8 @@ with cache.disable_rw():
 ```
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
-
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
-
-
-
-
-
 [`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
 [`hyperbolic_multiple_policy`]: redis_func_cache.policies.hyperbolic.hyperbolic_multiple_policy
 [`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
@@ -215,7 +209,6 @@ with cache.disable_rw():
 [`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
 [`rr_multiple_policy`]: redis_func_cache.policies.rr.rr_multiple_policy
 [`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
-
 [`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
 [`hyperbolic_cluster_policy`]: redis_func_cache.policies.hyperbolic.hyperbolic_cluster_policy
 [`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
@@ -223,5 +216,4 @@ with cache.disable_rw():
 [`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy
 [`rr_cluster_policy`]: redis_func_cache.policies.rr.rr_cluster_policy
 [`lru_t_cluster_policy`]: redis_func_cache.policies.lru.lru_t_cluster_policy
-
 [`lru_t_cluster_multiple_policy`]: redis_func_cache.policies.lru.lru_t_cluster_multiple_policy

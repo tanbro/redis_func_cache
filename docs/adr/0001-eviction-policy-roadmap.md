@@ -7,7 +7,7 @@
 
 ## Context
 
-Every eviction policy in *redis-func-cache* is a composition of `Keying`, `Hasher`,
+Every eviction policy in _redis-func-cache_ is a composition of `Keying`, `Hasher`,
 and `Scripts`, and its entire decision logic lives in the score it assigns inside a
 single ZSET (`...:0`) that pairs with the value HASH (`...:1`). Get/put are atomic
 Lua scripts, `calc_ext_args` can inject extra ARGV into put (MRU already reuses the
@@ -40,24 +40,24 @@ cache-layer API or the put ARGV contract beyond optional `calc_ext_args` extensi
 
 1. **Hyperbolic / LFU-with-aging** — score = `log(frequency) / age^d` (d ≈ 0.25),
    recomputed on each access inside the get/put scripts
-   (Hyperbolic Caching, USENIX ATC 2020). Captures recency *and* frequency in one
+   (Hyperbolic Caching, USENIX ATC 2020). Captures recency _and_ frequency in one
    ZSET score, ages out stale hot entries without a decay task. Purely a
    score-formula change; the cheapest real win. This addresses LFU's aging flaw
    using the same ZSET mechanism LFU already uses.
-   *Implementation ADR: [ADR 0002](0002-hyperbolic-eviction-policy.md).*
+   _Implementation ADR: [ADR 0002](0002-hyperbolic-eviction-policy.md)._
 2. **GDSF (Greedy-Dual-Size)** — score = `frequency × call_cost / value_size`
    (Cao & Irani 1997; Young's greedy-dual framework). Value size is computed in
    Lua from `ARGV[5]`; call cost arrives as an extra ARGV via `calc_ext_args`,
    declared per-function by the user. Theoretically dominates LRU when sizes or
    costs are heterogeneous — which is the norm for function-result caching.
-   *Implementation ADR: TBD.*
+   _Implementation ADR: TBD._
 3. **Random admission (admission-only variant)** — do not change eviction; on put
    (insert branch only), admit a new entry by a cheap stochastic rule (e.g. reject
    with probability p, or reject when a small recent-rejection record says the key
-   was just evicted). Encodes the core W-TinyLFU insight that *admission*
+   was just evicted). Encodes the core W-TinyLFU insight that _admission_
    decisions, not eviction upgrades, neutralize scan pollution. A few lines of
    Lua; can be layered on LRU-T or any other base policy.
-   *Implementation ADR: TBD.*
+   _Implementation ADR: TBD._
 
 ### Deferred
 
@@ -103,10 +103,10 @@ cache-layer API or the put ARGV contract beyond optional `calc_ext_args` extensi
 
 ## References
 
-- Berger et al., *Hyperbolic Caching*, USENIX ATC 2020.
-- Cao & Irani, *Cost-Aware WWW Proxy Caching Algorithms*, USENIX 1997.
-- Young, *On-line File Caching*, SODA 1998.
-- O'Neil et al., *The LRU-K Page Replacement Algorithm*, SIGMOD 1993.
-- Eisenman et al. / Yang et al., *W-TinyLFU* (rapidash sketch admission), and
-  *SIEVE is Simpler than LRU*, NSDI 2024 (eviction-side alternative, not adopted
+- Berger et al., _Hyperbolic Caching_, USENIX ATC 2020.
+- Cao & Irani, _Cost-Aware WWW Proxy Caching Algorithms_, USENIX 1997.
+- Young, _On-line File Caching_, SODA 1998.
+- O'Neil et al., _The LRU-K Page Replacement Algorithm_, SIGMOD 1993.
+- Eisenman et al. / Yang et al., _W-TinyLFU_ (rapidash sketch admission), and
+  _SIEVE is Simpler than LRU_, NSDI 2024 (eviction-side alternative, not adopted
   here because it needs a per-entry visited bit).

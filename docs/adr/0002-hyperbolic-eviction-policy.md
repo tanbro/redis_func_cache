@@ -8,7 +8,7 @@
 ## Context
 
 ADR 0001 accepted Hyperbolic Caching (Berger et al., USENIX ATC 2020) as the
-cheapest real win beyond LRU/LFU: one ZSET score capturing recency *and*
+cheapest real win beyond LRU/LFU: one ZSET score capturing recency _and_
 frequency, `score = log(freq + 1) / age^d` (d = 0.25), fixing LFU's classical
 weakness — stale hot entries never age out — without a decay task.
 
@@ -18,7 +18,7 @@ Policies are stateless: all state must live in Redis, and the key-pair layout
 ## Decision
 
 - **Score** `priority = log(freq + 1) / (age_seconds + 1) ^ 0.25`, where age
-  counts from the entry's *insertion time* and time is the **Redis server
+  counts from the entry's _insertion time_ and time is the **Redis server
   TIME** (never client clocks). The `+1` on the age term keeps fresh entries
   finite and bounds the effect of microsecond-level age jitter.
 - **Per-entry metadata** lives in a companion field `'<hash>:m'` of the value
@@ -31,7 +31,7 @@ Policies are stateless: all state must live in Redis, and the key-pair layout
   must not produce a negative base for the fractional power (NaN scores would
   corrupt the index ordering).
 - **Eviction by sampling, not by stored score.** Scores are recomputed only
-  on access, so between accesses a stored score can only *over-estimate* the
+  on access, so between accesses a stored score can only _over-estimate_ the
   true priority (age grows monotonically). A plain `ZPOPMIN` would therefore
   keep a recently-pumped entry forever — precisely the LFU weakness this
   policy exists to fix. Instead each eviction samples 8 random members
@@ -47,7 +47,7 @@ Policies are stateless: all state must live in Redis, and the key-pair layout
 
 ## Consequences
 
-- **Positive**: frequency *and* aging in one ZSET score; stale hot entries
+- **Positive**: frequency _and_ aging in one ZSET score; stale hot entries
   evict before fresh ones (pinned by `tests/test_hyperbolic.py`); no decay
   task; layout unchanged.
 - **Negative / accepted coarseness**:
@@ -66,5 +66,5 @@ Policies are stateless: all state must live in Redis, and the key-pair layout
 
 ## References
 
-- Berger et al., *Hyperbolic Caching*, USENIX ATC 2020.
+- Berger et al., _Hyperbolic Caching_, USENIX ATC 2020.
 - ADR 0001: Eviction Policy Roadmap Beyond LRU/LRU-T/LFU.

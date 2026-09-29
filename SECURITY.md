@@ -4,10 +4,10 @@
 
 Security fixes are applied to the latest release only. Older versions do not receive security updates; please upgrade.
 
-| Version   | Supported          |
-| --------- | ------------------ |
-| 1.0.x     | :white_check_mark: |
-| < 1.0     | :x:                |
+| Version | Supported          |
+| ------- | ------------------ |
+| 1.0.x   | :white_check_mark: |
+| < 1.0   | :x:                |
 
 ## Reporting a Vulnerability
 
