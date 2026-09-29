@@ -66,7 +66,7 @@ limit — memory is bounded by the same envelope as live entries. The actual cos
 - `get_size` reports the index cardinality (`ZCARD`, or `SCARD` for the RR policy) —
   the same number the eviction script enforces `maxsize` against — so ghosts keep the
   reported size elevated and the backlog is directly observable as `get_size` minus the
-  HASH length (`HLEN`, live entries). Previously `get_size` reported `HLEN`, which hid
+  HASH length (`HLEN`, live entries; under the Hyperbolic and GDSF policies the HASH also holds one `:m` metadata field per entry, so HLEN there is about twice the entry count). Previously `get_size` reported `HLEN`, which hid
   the divergence between live entries and occupied eviction slots.
 - Every ghost wastes one eviction slot: reclaiming it costs a full
   `ZPOPMIN`/`ZPOPMAX` + `HDEL` cycle that evicts no real entry.
@@ -185,6 +185,6 @@ same hierarchy.
 
 `get_size` now reports the index cardinality (`ZCARD` / `SCARD`), matching the eviction
 accounting; ghosts therefore keep the reported size elevated until reclaimed. Users who
-want the live-entry count can read the HASH length (`HLEN`) of the second key from
+want the live-entry count can read the HASH length (`HLEN`) of the second key from (mind the `:m` metadata fields under the Hyperbolic and GDSF policies, which double it)
 `calc_key_pair()`. A `get_size(accurate=True)` convenience (vacuum first, then report — the
 two numbers coincide afterwards) remains a possible follow-up, not part of the initial change.

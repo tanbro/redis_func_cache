@@ -19,6 +19,9 @@ from redis_func_cache import (
     RedisFuncCache,
     fifo_cluster_multiple_policy,
     fifo_policy,
+    gdsf_cluster_multiple_policy,
+    gdsf_multiple_policy,
+    gdsf_policy,
     hyperbolic_cluster_multiple_policy,
     hyperbolic_multiple_policy,
     hyperbolic_policy,
@@ -34,6 +37,7 @@ from redis_func_cache import (
     rr_policy,
 )
 from redis_func_cache.policies.fifo import fifo_cluster_policy, fifo_multiple_policy
+from redis_func_cache.policies.gdsf import gdsf_cluster_policy
 from redis_func_cache.policies.hyperbolic import hyperbolic_cluster_policy
 from redis_func_cache.policies.lfu import lfu_cluster_policy, lfu_multiple_policy
 from redis_func_cache.policies.lru import (
@@ -165,6 +169,7 @@ if REDIS_CLUSTER_NODES:
         "hyperbolic": RedisFuncCache(
             __name__, hyperbolic_cluster_policy, factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE
         ),
+        "gdsf": RedisFuncCache(__name__, gdsf_cluster_policy, factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
         "lfu": RedisFuncCache(__name__, lfu_cluster_policy, factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
     }
 
@@ -177,6 +182,7 @@ if REDIS_CLUSTER_NODES:
         "hyperbolic": RedisFuncCache(
             __name__, hyperbolic_cluster_multiple_policy, factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE
         ),
+        "gdsf": RedisFuncCache(__name__, gdsf_cluster_multiple_policy, factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
         "lfu": RedisFuncCache(__name__, lfu_cluster_multiple_policy, factory=REDIS_CLUSTER_FACTORY, maxsize=MAXSIZE),
     }
 
@@ -188,6 +194,7 @@ CACHES: dict[str, RedisFuncCache[RedisSyncClientT]] = {
     "rr": RedisFuncCache(__name__, rr_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "fifo": RedisFuncCache(__name__, fifo_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "hyperbolic": RedisFuncCache(__name__, hyperbolic_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "gdsf": RedisFuncCache(__name__, gdsf_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "lfu": RedisFuncCache(__name__, lfu_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
@@ -198,6 +205,7 @@ MULTI_CACHES: dict[str, RedisFuncCache[RedisSyncClientT]] = {
     "rr": RedisFuncCache(__name__, rr_multiple_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "fifo": RedisFuncCache(__name__, fifo_multiple_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "hyperbolic": RedisFuncCache(__name__, hyperbolic_multiple_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
+    "gdsf": RedisFuncCache(__name__, gdsf_multiple_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
     "lfu": RedisFuncCache(__name__, lfu_multiple_policy, factory=REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
@@ -209,6 +217,7 @@ ASYNC_CACHES: dict[str, RedisFuncCache[RedisAsyncClientT]] = {
     "rr": RedisFuncCache(__name__, rr_policy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
     "fifo": RedisFuncCache(__name__, fifo_policy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
     "hyperbolic": RedisFuncCache(__name__, hyperbolic_policy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
+    "gdsf": RedisFuncCache(__name__, gdsf_policy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
     "lfu": RedisFuncCache(__name__, lfu_policy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
@@ -223,6 +232,7 @@ ASYNC_MULTI_CACHES: dict[str, RedisFuncCache[RedisAsyncClientT]] = {
     "hyperbolic": RedisFuncCache(
         __name__, hyperbolic_cluster_multiple_policy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE
     ),
+    "gdsf": RedisFuncCache(__name__, gdsf_cluster_multiple_policy, factory=ASYNC_REDIS_FACTORY, maxsize=MAXSIZE),
 }
 
 

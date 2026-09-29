@@ -303,8 +303,10 @@ class Policy:
         :attr:`Scripts.index_structure <redis_func_cache.scripts.Scripts.index_structure>`),
         which is the same number the eviction
         script enforces ``maxsize`` against. With per-item TTL, expired-but-not-
-        yet-vacuumed entries ("ghosts") keep this number elevated; the count of
-        live values is the HASH length (``HLEN``) of the second key.
+        yet-vacuumed entries ("ghosts") keep this number elevated. Note that
+        under the Hyperbolic and GDSF policies the value HASH also holds one
+        ``:m`` companion metadata field per entry, so its ``HLEN`` is about
+        twice the entry count — neither number is the live-value count.
 
         Args:
             redis_client: A synchronous redis client obtained from the bound cache.
@@ -482,7 +484,7 @@ class Policy:
         if located is None:
             located = self.locate(prefix, name, fn, args, kwds)
         keys, hash_value = located
-        ext_args = self.scripts.calc_ext_args(fn, args, kwds)
+        ext_args = self.scripts.calc_ext_args(fn, args, kwds, options=options)
         _, put_script = self.scripts.register_scripts(redis_client)
         put_script(
             keys=keys,
@@ -510,7 +512,7 @@ class Policy:
         if located is None:
             located = self.locate(prefix, name, fn, args, kwds)
         keys, hash_value = located
-        ext_args = self.scripts.calc_ext_args(fn, args, kwds)
+        ext_args = self.scripts.calc_ext_args(fn, args, kwds, options=options)
         _, put_script = self.scripts.register_scripts(redis_client)
         await put_script(
             keys=keys,

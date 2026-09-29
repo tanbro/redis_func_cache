@@ -50,7 +50,7 @@ cache-layer API or the put ARGV contract beyond optional `calc_ext_args` extensi
    Lua from `ARGV[5]`; call cost arrives as an extra ARGV via `calc_ext_args`,
    declared per-function by the user. Theoretically dominates LRU when sizes or
    costs are heterogeneous — which is the norm for function-result caching.
-   _Implementation ADR: TBD._
+   _Implementation ADR: [ADR 0003](0003-gdsf-eviction-policy.md)._
 3. **Random admission (admission-only variant)** — do not change eviction; on put
    (insert branch only), admit a new entry by a cheap stochastic rule (e.g. reject
    with probability p, or reject when a small recent-rejection record says the key

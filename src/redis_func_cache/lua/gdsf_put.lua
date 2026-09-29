@@ -1,0 +1,122 @@
+--[[
+  GDSF (Greedy-Dual-Size) cache put operation.
+  KEYS[1]: Redis sorted set key for cache hashes (score = freq * cost / size)
+  KEYS[2]: Redis hash key for cache values; per-entry metadata field "<hash>:m" = "<freq> <cost>"
+  ARGV[1]: max cache size (number)
+  ARGV[2]: update ttl flag (1 for update ttl, 0 for fixed ttl)
+  ARGV[3]: TTL for both keys (number, seconds)
+  ARGV[4]: hash key to store
+  ARGV[5]: value to store
+  ARGV[6]: field ttl (number, seconds)
+  ARGV[7]: per-function miss cost (number, > 0)
+  Returns: number of evicted items
+  size is the serialized byte length of the stored value (ARGV[5]) — the
+  physical space the entry occupies in Redis. Eviction keeps the entries with
+  the greatest retained benefit per byte (freq * cost / size); unlike the
+  Hyperbolic policy the score is exact at write time (no aging term), so a
+  plain ZPOPMIN preserves the ordering.
+]]
+local zset_key = KEYS[1]
+local hmap_key = KEYS[2]
+
+local maxsize = tonumber(ARGV[1])
+local update_ttl_flag = ARGV[2]
+local ttl = ARGV[3]
+local hash = ARGV[4]
+local return_value = ARGV[5]
+local field_ttl = ARGV[6]
+local cost = tonumber(ARGV[7])
+if not cost or cost <= 0 then
+    cost = 1
+end
+
+local c = 0
+-- Max members per HDEL chunk: Lua unpack() overflows above ~8000 values
+local UNPACK_CHUNK = 4000
+
+-- Check if zset and hash keys exist (multi-key EXISTS returns 0..2)
+local both_exists = redis.call('EXISTS', zset_key, hmap_key)
+
+-- If either zset or hash doesn't exist, clean up the other one (UNLINK is a no-op on missing keys)
+if both_exists ~= 2 then
+    redis.call('UNLINK', zset_key, hmap_key)
+    both_exists = 0
+end
+
+local size = #return_value
+if size < 1 then
+    size = 1
+end
+
+-- If hash exists in zset, update the value
+if redis.call('ZRANK', zset_key, hash) then
+    redis.call('HSET', hmap_key, hash, return_value)
+
+    -- Re-score from the recorded frequency (cost may have changed at the decorator)
+    local freq = 1
+    local meta = redis.call('HGET', hmap_key, hash .. ':m')
+    if meta then
+        local sep = string.find(meta, ' ')
+        if sep then
+            freq = tonumber(string.sub(meta, 1, sep - 1)) or 1
+        end
+    end
+    redis.call('ZADD', zset_key, freq * cost / size, hash)
+    redis.call('HSET', hmap_key, hash .. ':m', freq .. ' ' .. cost)
+
+    -- Handle field TTL update
+    if tonumber(field_ttl) > 0 then
+        redis.call('HEXPIRE', hmap_key, field_ttl, 'FIELDS', 2, hash, hash .. ':m')
+    end
+
+    -- Handle key TTL update (only update if update_ttl_flag is set)
+    if tonumber(ttl) > 0 and update_ttl_flag == "1" then
+        redis.call('EXPIRE', zset_key, ttl)
+        redis.call('EXPIRE', hmap_key, ttl)
+    end
+else
+    -- Hash does not exist in zset
+    if maxsize > 0 then
+        local n = redis.call('ZCARD', zset_key) - maxsize
+        if n >= 0 then
+            -- Use batch ZPOPMIN instead of looping calls
+            local evicted_keys_data = redis.call('ZPOPMIN', zset_key, n + 1) -- evict lowest benefit per byte
+
+            -- Extract keys from returned data (ZPOPMIN returns [key,score,key,score,...] format)
+            if #evicted_keys_data > 0 then
+                local keys_only = {}
+                for i = 1, #evicted_keys_data, 2 do
+                    keys_only[#keys_only + 1] = evicted_keys_data[i]
+                end
+                -- Chunked HDEL: unpack has a stack limit (values travel with their metadata fields)
+                for i = 1, #keys_only, UNPACK_CHUNK do
+                    local fields = {}
+                    local m = 0
+                    for j = i, math.min(i + UNPACK_CHUNK - 1, #keys_only) do
+                        m = m + 1
+                        fields[m] = keys_only[j]
+                        m = m + 1
+                        fields[m] = keys_only[j] .. ':m'
+                    end
+                    c = c + redis.call('HDEL', hmap_key, unpack(fields, 1, m))
+                end
+            end
+        end
+    end
+    redis.call('ZADD', zset_key, cost / size, hash) -- frequency starts at 1
+    redis.call('HSET', hmap_key, hash, return_value)
+    redis.call('HSET', hmap_key, hash .. ':m', '1 ' .. cost)
+
+    -- Set Hash's Field TTL if specified (always set for new fields)
+    if tonumber(field_ttl) > 0 then
+        redis.call('HEXPIRE', hmap_key, field_ttl, 'FIELDS', 2, hash, hash .. ':m')
+    end
+
+    -- Set initial TTL for new keys (only when zset and hash keys are first created)
+    if tonumber(ttl) > 0 and both_exists == 0 then
+        redis.call('EXPIRE', zset_key, ttl)
+        redis.call('EXPIRE', hmap_key, ttl)
+    end
+end
+
+return c

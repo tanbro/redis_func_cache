@@ -27,6 +27,7 @@ It is one of the three orthogonal components composed into a
 
 from __future__ import annotations
 
+import math
 from abc import ABC
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
@@ -46,6 +47,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = (
     "FifoScripts",
     "FifoTScripts",
+    "GdsfScripts",
     "HyperbolicScripts",
     "LfuScripts",
     "LruScripts",
@@ -146,7 +148,11 @@ class Scripts(ABC):
         self._registered_vacuum: WeakKeyDictionary[RedisClientT, Script | AsyncScript] = WeakKeyDictionary()
 
     def calc_ext_args(
-        self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
+        self,
+        fn: Callable | None = None,
+        args: Sequence | None = None,
+        kwds: Mapping[str, Any] | None = None,
+        options: Mapping[str, Any] | None = None,
     ) -> Iterable[EncodableT] | None:
         """Extra ARGV entries the scripts expect, beyond the core put arguments.
 
@@ -157,6 +163,9 @@ class Scripts(ABC):
             fn: The function being cached.
             args: Positional arguments.
             kwds: Keyword arguments.
+            options: Decorator-local keyword arguments from ``cache(...)``
+                (may be None); policies that need a per-function declaration
+                (e.g. GDSF's ``cost``) read it here.
 
         Returns:
             Iterable of extra encodable arguments, or None.
@@ -248,6 +257,45 @@ class HyperbolicScripts(Scripts):
     put_script = "hyperbolic_put.lua"
 
 
+class GdsfScripts(Scripts):
+    """Scripts for the GDSF policies (sorted set index, cost-benefit scores).
+
+    The score is the Greedy-Dual-Size priority ``freq * cost / size``
+    (Cherkasova 1998), where ``size`` is the serialized byte length of the
+    stored value (computed in Lua from ARGV[5]) and ``cost`` is the per-function
+    miss cost the user declares as the ``cost`` decorator kwarg. ``cost`` travels
+    as an extra argument (ARGV[7]); a per-entry metadata field (``<hash>:m``)
+    stores ``"<freq> <cost>"`` so hits can re-score. See ``lua/gdsf_put.lua``.
+    """
+
+    get_script = "gdsf_get.lua"
+    put_script = "gdsf_put.lua"
+
+    #: Default miss cost when the ``cost`` decorator kwarg is absent.
+    DEFAULT_COST = 1.0
+
+    def calc_ext_args(
+        self,
+        fn: Callable | None = None,
+        args: Sequence | None = None,
+        kwds: Mapping[str, Any] | None = None,
+        options: Mapping[str, Any] | None = None,
+    ) -> tuple[float]:
+        """Pass the per-function miss ``cost`` (ARGV[7]).
+
+        Reads the ``cost`` decorator kwarg (default 1.0). The value is coerced
+        with ``float()`` — whatever that raises for a non-numeric value is
+        propagated as-is; a non-positive or NaN result raises ``ValueError``.
+        No fallback, per the GDSF design decision (a zero cost would make every
+        score zero and eviction degenerate).
+        """
+        raw = None if options is None else options.get("cost")
+        cost = self.DEFAULT_COST if raw is None else float(raw)
+        if math.isnan(cost) or cost <= 0:
+            raise ValueError(f"cost must be a positive number (not NaN), got {cost!r}")
+        return (cost,)
+
+
 class LruScripts(Scripts):
     """Scripts for the LRU policies (sorted set index, recency scores)."""
 
@@ -273,7 +321,11 @@ class MruScripts(Scripts):
     put_script = "lru_put.lua"
 
     def calc_ext_args(
-        self, fn: Callable | None = None, args: Sequence | None = None, kwds: Mapping[str, Any] | None = None
+        self,
+        fn: Callable | None = None,
+        args: Sequence | None = None,
+        kwds: Mapping[str, Any] | None = None,
+        options: Mapping[str, Any] | None = None,
     ) -> tuple[str]:
         """Pass the MRU eviction-direction flag (ARGV[7])."""
         return ("mru",)

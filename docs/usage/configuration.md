@@ -168,7 +168,7 @@ removed = cache.vacuum(batch_size=500)  # Returns the number of ghosts removed
 
 For async caches, use `await cache.avacuum()`. Each invocation scans incrementally (in `batch_size` chunks) and is atomic per step, so it is safe to run while the cache is serving traffic.
 
-Note on size reporting: `cache.get_size()` returns the index structure cardinality — the same number the eviction script enforces `maxsize` against. Ghost entries keep it elevated until reclaimed; the count of live values is the HASH length (`HLEN`) of the second key from `cache.policy.calc_key_pair(cache.prefix, cache.name, fn)`.
+Note on size reporting: `cache.get_size()` returns the index structure cardinality — the same number the eviction script enforces `maxsize` against. Ghost entries keep it elevated until reclaimed. The value HASH's length (`HLEN`) of the second key from `cache.policy.calc_key_pair(cache.prefix, cache.name, fn)` is close to the live-value count for most policies — but under the [Hyperbolic](considerations.md) and GDSF policies each entry also carries a `:m` companion metadata field, so there HLEN is about twice the entry count.
 
 ## Cache Mode Control
 

@@ -71,6 +71,42 @@
     "keys_b": ["gp:gn:fifo_t:0", "gp:gn:fifo_t:1"],
     "scripts": ["fifo_get.lua", "fifo_t_put.lua"]
   },
+  "gdsf_cluster_multiple_policy": {
+    "ext_args": [1.0],
+    "keys_a": [
+      "gp:gn:gdsf-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
+      "gp:gn:gdsf-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
+    ],
+    "keys_b": [
+      "gp:gn:gdsf-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
+      "gp:gn:gdsf-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
+    ],
+    "scripts": ["gdsf_get.lua", "gdsf_put.lua"]
+  },
+  "gdsf_cluster_policy": {
+    "ext_args": [1.0],
+    "keys_a": ["gp:{gn:gdsf-c}:0", "gp:{gn:gdsf-c}:1"],
+    "keys_b": ["gp:{gn:gdsf-c}:0", "gp:{gn:gdsf-c}:1"],
+    "scripts": ["gdsf_get.lua", "gdsf_put.lua"]
+  },
+  "gdsf_multiple_policy": {
+    "ext_args": [1.0],
+    "keys_a": [
+      "gp:gn:gdsf-m:tests._golden_fns:fn_a#{checksum_a}:0",
+      "gp:gn:gdsf-m:tests._golden_fns:fn_a#{checksum_a}:1"
+    ],
+    "keys_b": [
+      "gp:gn:gdsf-m:tests._golden_fns:fn_b#{checksum_b}:0",
+      "gp:gn:gdsf-m:tests._golden_fns:fn_b#{checksum_b}:1"
+    ],
+    "scripts": ["gdsf_get.lua", "gdsf_put.lua"]
+  },
+  "gdsf_policy": {
+    "ext_args": [1.0],
+    "keys_a": ["gp:gn:gdsf:0", "gp:gn:gdsf:1"],
+    "keys_b": ["gp:gn:gdsf:0", "gp:gn:gdsf:1"],
+    "scripts": ["gdsf_get.lua", "gdsf_put.lua"]
+  },
   "hyperbolic_cluster_multiple_policy": {
     "ext_args": [],
     "keys_a": [

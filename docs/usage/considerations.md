@@ -136,6 +136,14 @@ Practical guidance for the `factory` argument:
 - **Decorator compatibility** with other decorators is not guaranteed.
 - **Unique cache names**: Each [`RedisFuncCache`][] instance must have a unique `name` argument. Sharing the same name across different instances may lead to serious errors.
 
+## The GDSF Policies' `cost` and Size Semantics
+
+The [`gdsf_policy`][] family scores each entry as `frequency × cost / size` — the retained benefit per byte — and evicts the smallest score.
+
+- **`size` is the serialized byte length** of the stored value: the physical space the entry occupies in Redis. This makes GDSF's hit rate **sensitive to the `serializer` choice**: the same return value serializes to different byte lengths under different serializers (and their relative sizes may even invert). Byte length is the theoretically correct measure — GDSF's rationale is "keep the greatest benefit per byte actually held" — but be consistent about your serializer when comparing hit rates across configurations.
+- **`cost` is the per-function miss cost**, declared per decorated function with the `cost` kwarg (default `1.0`, unit-free — pick one consistent unit, e.g. milliseconds or a downstream API's charge per call). It is coerced with `float()`; a non-positive or NaN value raises `ValueError` and a non-numeric one propagates whatever `float()` raises — there is no fallback, because a zero cost would collapse every score to zero and reduce eviction to a tie.
+- **`cost` only matters when functions share a key pair.** Under [`gdsf_policy`][] / [`gdsf_cluster_policy`][] (single key pair), entries of different functions compete and `cost` weighs the cross-function trade-off. Under [`gdsf_multiple_policy`][] / [`gdsf_cluster_multiple_policy`][] (one key pair per function), a pair's entries all carry the same cost — a positive constant cannot change their relative order — so scoring reduces to `frequency / size`, which remains fully effective (large results are still evicted first).
+
 ## Known Issues
 
 - Arguments passed to a cached function — including `self`/`cls` when decorating methods inside a class body — must be serializable by the args serializer of the policy's hasher (pickle for the built-in policies, JSON for the `Json*` hashers), or excluded from the key and hash calculations with `excludes` and/or `excludes_positional`.
@@ -217,3 +225,7 @@ Practical guidance for the `factory` argument:
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
 [`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
 [`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
+[`gdsf_policy`]: redis_func_cache.policies.gdsf.gdsf_policy "Greedy-Dual-Size policy"
+[`gdsf_multiple_policy`]: redis_func_cache.policies.gdsf.gdsf_multiple_policy "Greedy-Dual-Size policy, one key pair per function"
+[`gdsf_cluster_policy`]: redis_func_cache.policies.gdsf.gdsf_cluster_policy "Greedy-Dual-Size policy with cluster hash tags"
+[`gdsf_cluster_multiple_policy`]: redis_func_cache.policies.gdsf.gdsf_cluster_multiple_policy "Greedy-Dual-Size policy with cluster hash tags, one key pair per function"

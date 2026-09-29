@@ -113,6 +113,7 @@ Available policies:
 
 - **[`lru_t_policy`][]** (Default, recommended): Time-based LRU, offers the best balance of performance and accuracy for most use cases. It is the default when the `policy` argument is omitted.
 - [`fifo_policy`][]: First in, first out
+- [`gdsf_policy`][]: Greedy-Dual-Size — evicts the smallest benefit per byte (`frequency × cost / size`); supports the `cost` decorator kwarg (see [considerations](considerations.md))
 - [`hyperbolic_policy`][]: Hyperbolic caching (LFU with aging) — frequency and insertion age in one score, so stale hot entries age out
 - [`lfu_policy`][]: Least frequently used
 - [`lru_policy`][]: Least recently used (more precise but slower than LRU-T)
@@ -125,6 +126,7 @@ Available policies:
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
 [`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
+[`gdsf_policy`]: redis_func_cache.policies.gdsf.gdsf_policy "Greedy-Dual-Size policy"
 [`hyperbolic_policy`]: redis_func_cache.policies.hyperbolic.hyperbolic_policy "Hyperbolic (LFU with aging) policy"
 [`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
 [`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
