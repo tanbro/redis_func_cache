@@ -42,13 +42,14 @@ ARGS, KWDS = (1,), {"x": "a"}
 def _policies() -> list[tuple[str, Policy]]:
     """Collect every built-in policy preset bound to the golden namespace."""
     import redis_func_cache.policies.fifo as fifo_mod
+    import redis_func_cache.policies.hyperbolic as hyperbolic_mod
     import redis_func_cache.policies.lfu as lfu_mod
     import redis_func_cache.policies.lru as lru_mod
     import redis_func_cache.policies.mru as mru_mod
     import redis_func_cache.policies.rr as rr_mod
 
     out: list[tuple[str, Policy]] = []
-    for module in (fifo_mod, lfu_mod, lru_mod, mru_mod, rr_mod):
+    for module in (fifo_mod, hyperbolic_mod, lfu_mod, lru_mod, mru_mod, rr_mod):
         for attr in dir(module):
             policy = getattr(module, attr)
             if isinstance(policy, Policy):

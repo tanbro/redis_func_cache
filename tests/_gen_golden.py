@@ -21,6 +21,7 @@ import json
 from pathlib import Path
 
 import redis_func_cache.policies.fifo as fifo_mod
+import redis_func_cache.policies.hyperbolic as hyperbolic_mod
 import redis_func_cache.policies.lfu as lfu_mod
 import redis_func_cache.policies.lru as lru_mod
 import redis_func_cache.policies.mru as mru_mod
@@ -31,7 +32,7 @@ from redis_func_cache.utils import b64digest
 
 from ._golden_fns import fn_a, fn_b
 
-POLICY_MODULES = (fifo_mod, lfu_mod, lru_mod, mru_mod, rr_mod)
+POLICY_MODULES = (fifo_mod, hyperbolic_mod, lfu_mod, lru_mod, mru_mod, rr_mod)
 PREFIX, NAME = "gp:", "gn"
 ARGS, KWDS = (1,), {"x": "a"}
 

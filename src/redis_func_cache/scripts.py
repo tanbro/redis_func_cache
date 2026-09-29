@@ -46,6 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = (
     "FifoScripts",
     "FifoTScripts",
+    "HyperbolicScripts",
     "LfuScripts",
     "LruScripts",
     "LruTScripts",
@@ -232,6 +233,19 @@ class LfuScripts(Scripts):
 
     get_script = "lfu_get.lua"
     put_script = "lfu_put.lua"
+
+
+class HyperbolicScripts(Scripts):
+    """Scripts for the Hyperbolic policies (sorted set index, LFU-with-aging scores).
+
+    The score is the Hyperbolic priority ``log(freq + 1) / (age + 1) ^ 0.25``,
+    recomputed on every access from a per-entry metadata field
+    (``<hash>:m`` in the value hash) that stores the access frequency and the
+    insertion time. See ``lua/hyperbolic_put.lua`` for the full contract.
+    """
+
+    get_script = "hyperbolic_get.lua"
+    put_script = "hyperbolic_put.lua"
 
 
 class LruScripts(Scripts):

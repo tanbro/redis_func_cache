@@ -1,6 +1,5 @@
 # Important Considerations
 
-
 Before using this library, please be aware of the following important considerations:
 
 ## Cache Stampede Risk
@@ -139,7 +138,6 @@ Practical guidance for the `factory` argument:
 
 ## Known Issues
 
-
 - Arguments passed to a cached function — including `self`/`cls` when decorating methods inside a class body — must be serializable by the args serializer of the policy's hasher (pickle for the built-in policies, JSON for the `Json*` hashers), or excluded from the key and hash calculations with `excludes` and/or `excludes_positional`.
 
   - Instance methods: the instance is hashed **by value**. If the result does not depend on instance state, use `excludes_positional=[0]` — cache entries are then shared across instances; otherwise the instance must be serializable.
@@ -151,6 +149,7 @@ Practical guidance for the `factory` argument:
         @cache(excludes_positional=[0])
         def cm(cls, value): ...
     ```
+
   - Passing an already-bound *instance* method (e.g. `cache.decorate(obj.method)`) raises `TypeError` at key calculation; decorate the unbound function in the class body instead.
 
 - Compatibility with other [decorator][]s is not guaranteed.
@@ -217,36 +216,12 @@ Practical guidance for the `factory` argument:
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
 
-[bson]: https://bsonspec.org/ "BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments."
-[msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
 
-[uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
-[pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`Policy`]: redis_func_cache.policies.Policy
-[`SingleKeying`]: redis_func_cache.keying.SingleKeying
-[`Hasher`]: redis_func_cache.hashing.Hasher
 
-[`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
-[`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
 [`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
-[`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
-[`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
 [`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
 
-[`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
-[`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
-[`lru_multiple_policy`]: redis_func_cache.policies.lru.lru_multiple_policy
-[`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
-[`rr_multiple_policy`]: redis_func_cache.policies.rr.rr_multiple_policy
-[`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
 
-[`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
-[`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
-[`lru_cluster_policy`]: redis_func_cache.policies.lru.lru_cluster_policy
-[`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy
-[`rr_cluster_policy`]: redis_func_cache.policies.rr.rr_cluster_policy
-[`lru_t_cluster_policy`]: redis_func_cache.policies.lru.lru_t_cluster_policy
 
-[`lru_t_cluster_multiple_policy`]: redis_func_cache.policies.lru.lru_t_cluster_multiple_policy

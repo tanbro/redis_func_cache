@@ -1,7 +1,7 @@
 # ADR 0001: Eviction Policy Roadmap Beyond LRU/LRU-T/LFU
 
-- **Status:** Draft (direction agreed; no policy implemented yet — promotes to
-  Accepted once the first implementation ADR lands)
+- **Status:** Accepted (direction agreed; the first implementation ADR has
+  landed — see ADR 0002)
 - **Date:** 2026-09-29
 - **Deciders:** maintainers
 
@@ -44,7 +44,7 @@ cache-layer API or the put ARGV contract beyond optional `calc_ext_args` extensi
    ZSET score, ages out stale hot entries without a decay task. Purely a
    score-formula change; the cheapest real win. This addresses LFU's aging flaw
    using the same ZSET mechanism LFU already uses.
-   *Implementation ADR: TBD.*
+   *Implementation ADR: [ADR 0002](0002-hyperbolic-eviction-policy.md).*
 2. **GDSF (Greedy-Dual-Size)** — score = `frequency × call_cost / value_size`
    (Cao & Irani 1997; Young's greedy-dual framework). Value size is computed in
    Lua from `ARGV[5]`; call cost arrives as an extra ARGV via `calc_ext_args`,
@@ -61,12 +61,12 @@ cache-layer API or the put ARGV contract beyond optional `calc_ext_args` extensi
 
 ### Deferred
 
-4. **SLRU (segmented LRU)** — probational + protected segments; requires either a
+1. **SLRU (segmented LRU)** — probational + protected segments; requires either a
    second index ZSET (four-key pair) or score-space partitioning within one ZSET.
    Good pollution resistance (strong baseline in the LRU-K literature) but the
    layout/complexity cost is not justified until the accepted policies above prove
    insufficient.
-5. **LRU-K / LRU-2** — the most theoretically grounded anti-pollution policy
+2. **LRU-K / LRU-2** — the most theoretically grounded anti-pollution policy
    (O'Neil et al. 1993), but needs a per-entry "previous access time" metadata
    field in the HASH and an extra round-trip inside the get script. Revisit if
    admission + Hyperbolic do not hold up in practice.

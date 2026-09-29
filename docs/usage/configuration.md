@@ -138,7 +138,7 @@ def func2(x): ...
 # func1 and func2 have separate Redis key pairs
 ```
 
-Available multiple-key policies: [`fifo_multiple_policy`][], [`lfu_multiple_policy`][], [`lru_multiple_policy`][], [`lru_t_multiple_policy`][], [`mru_multiple_policy`][], [`rr_multiple_policy`][].
+Available multiple-key policies: [`fifo_multiple_policy`][], [`hyperbolic_multiple_policy`][], [`lfu_multiple_policy`][], [`lru_multiple_policy`][], [`lru_t_multiple_policy`][], [`mru_multiple_policy`][], [`rr_multiple_policy`][].
 
 ## Redis Cluster
 
@@ -154,7 +154,7 @@ cache = RedisFuncCache("my-cache", lru_t_cluster_policy, redis_client=redis_clie
 def my_func(x): ...
 ```
 
-Available cluster policies: [`fifo_cluster_policy`][], [`lfu_cluster_policy`][], [`lru_cluster_policy`][], [`lru_t_cluster_policy`][], [`mru_cluster_policy`][], [`rr_cluster_policy`][].
+Available cluster policies: [`fifo_cluster_policy`][], [`hyperbolic_cluster_policy`][], [`lfu_cluster_policy`][], [`lru_cluster_policy`][], [`lru_t_cluster_policy`][], [`mru_cluster_policy`][], [`rr_cluster_policy`][].
 
 For per-function keys in cluster mode, use `*ClusterMultiplePolicy` variants: [`lru_t_cluster_multiple_policy`][], etc.
 
@@ -200,31 +200,16 @@ with cache.disable_rw():
 ```
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
-[redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
 
-[decorator]: https://docs.python.org/glossary.html#term-decorator "A function returning another function, usually applied as a function transformation using the @wrapper syntax"
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
 
-[bson]: https://bsonspec.org/ "BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments."
-[msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
 
-[uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
-[pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 
-[`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`Policy`]: redis_func_cache.policies.Policy
-[`SingleKeying`]: redis_func_cache.keying.SingleKeying
-[`Hasher`]: redis_func_cache.hashing.Hasher
 
-[`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
-[`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
-[`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
-[`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
-[`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
-[`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
 
 [`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
+[`hyperbolic_multiple_policy`]: redis_func_cache.policies.hyperbolic.hyperbolic_multiple_policy
 [`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
 [`lru_multiple_policy`]: redis_func_cache.policies.lru.lru_multiple_policy
 [`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
@@ -232,6 +217,7 @@ with cache.disable_rw():
 [`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
 
 [`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
+[`hyperbolic_cluster_policy`]: redis_func_cache.policies.hyperbolic.hyperbolic_cluster_policy
 [`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
 [`lru_cluster_policy`]: redis_func_cache.policies.lru.lru_cluster_policy
 [`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy

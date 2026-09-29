@@ -17,6 +17,9 @@ repos:
       - id: check-toml
       - id: check-ast
       - id: check-builtin-literals
+      - id: prettier
+        args: [--write]
+        files: \.(md|mdx)$
       # - id: check-docstring-first
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -42,3 +45,9 @@ repos:
     hooks:
       - id: check-github-workflows
       - id: check-readthedocs
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.3
+    hooks:
+      - id: markdownlint-cli2
+        args: ["--fix"]

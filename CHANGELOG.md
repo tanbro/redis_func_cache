@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- ✨ **New Features:**
+  - **Hyperbolic eviction policy** (`hyperbolic_policy` and its `multiple` / `cluster` / `cluster-multiple` variants): LFU with aging (Hyperbolic Caching, USENIX ATC 2020) — one ZSET score `log(freq + 1) / (age + 1) ^ 0.25` captures recency *and* frequency, so stale hot entries age out instead of squatting on slots (classical LFU's weakness). Scores are recomputed on every access from a per-entry metadata field (access frequency + insertion time, Redis server TIME authoritative, clock resets floored); eviction re-scores a small random sample rather than trusting the stale stored ordering. Requires Redis ≥ 6.2 (`ZRANDMEMBER`); no API or ARGV-contract changes. See `docs/adr/0002-hyperbolic-eviction-policy.md`.
+
 - 🐞 **Bug Fixes:**
   - `excludes` / `excludes_positional` on `cache(...)` silently corrupted cache keys for functions with `*args` / `**kwargs` signatures. `signature(fn).bind(...)` folds such calls into a single `args`/`kwds` entry, so a positional exclusion deleted the whole varargs tuple — every call then hashed identically and **wrong cached results were returned** for different arguments. Both filters are now defined on the bound arguments: `excludes` matches named parameters (including positional-only and keyword-only ones) and keys collected by a `**kwargs` catch-all; `excludes_positional` indexes the expanded positional stream (bound positional slots plus `*args` elements; keyword-only parameters never occupy an index), so `excludes_positional=[1]` on `f(conn, *args)` excludes `args[0]`, not the entire tuple. Two misuses now fail fast with `TypeError` instead of silently collapsing every call onto one hash: excluding the catch-all parameter itself (`excludes=["args"]`), and an out-of-range positional index. One deliberate semantic correction: a keyword-only parameter no longer occupies an `excludes_positional` index.
 

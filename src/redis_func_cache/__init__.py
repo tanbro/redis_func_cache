@@ -11,6 +11,12 @@ from .policies.fifo import (
     fifo_t_multiple_policy,
     fifo_t_policy,
 )
+from .policies.hyperbolic import (
+    hyperbolic_cluster_multiple_policy,
+    hyperbolic_cluster_policy,
+    hyperbolic_multiple_policy,
+    hyperbolic_policy,
+)
 from .policies.lfu import lfu_cluster_multiple_policy, lfu_cluster_policy, lfu_multiple_policy, lfu_policy
 from .policies.lru import (
     lru_cluster_multiple_policy,
@@ -37,6 +43,10 @@ __all__ = (
     "fifo_t_cluster_policy",
     "fifo_t_multiple_policy",
     "fifo_t_policy",
+    "hyperbolic_cluster_multiple_policy",
+    "hyperbolic_cluster_policy",
+    "hyperbolic_multiple_policy",
+    "hyperbolic_policy",
     "lfu_cluster_multiple_policy",
     "lfu_cluster_policy",
     "lfu_multiple_policy",
