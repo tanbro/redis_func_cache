@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any, cast
 from weakref import WeakKeyDictionary
 
 from redis.commands.core import AsyncScript, Script
+from redis.typing import ScriptTextT
 
 from .serializers import json_encode
 from .typing import RedisClientT
@@ -42,7 +43,7 @@ from .utils import read_lua_file
 if TYPE_CHECKING:  # pragma: no cover
     from typing import Literal
 
-    from redis.typing import EncodableT, ScriptTextT
+    from redis.typing import EncodableT
 
 __all__ = (
     "FifoScripts",
@@ -53,6 +54,7 @@ __all__ = (
     "LruScripts",
     "LruTScripts",
     "MruScripts",
+    "RandomAdmissionScripts",
     "RrScripts",
     "Scripts",
     "build_get_args",
@@ -340,3 +342,78 @@ class RrScripts(Scripts):
     get_script = "rr_get.lua"
     put_script = "rr_put.lua"
     index_structure = "set"
+
+
+class RandomAdmissionScripts(Scripts):
+    """Put-side random admission composed over any base policy's scripts.
+
+    The wrapped base's put script is prefixed, at load time, with an admission
+    prologue: entries already present in the index always pass through (an
+    update must never be dropped), while a new insertion is rejected with
+    probability ``p`` (the script returns 0 without writing). This is the
+    fixed-probability admission rule of the ``lru_tr`` family — the cheap
+    anti-scan-pollution baseline of the TinyLFU admission principle.
+
+    Notes:
+
+    - The rejection uses Lua's ``math.random``, seeded per script execution
+      from Redis 7.0 on; random admission therefore requires **Redis >= 7.0**
+      (on older servers the sequence would be deterministic across runs).
+    - ``get_script`` / ``put_script`` / ``index_structure`` mirror the base;
+      the composed put script is not a package resource (``put_script`` still
+      names the base file whose text the prologue prefixes).
+    - ``calc_ext_args`` is delegated to the base, so any base policy's extra
+      ARGV contract (e.g. MRU's flag) is preserved.
+    """
+
+    def __init__(self, base: Scripts, p: float = 0.5) -> None:
+        """Compose random admission over a base policy's scripts.
+
+        Args:
+            base: The base policy's scripts (any :class:`Scripts` instance).
+            p: Probability of rejecting a new insertion, within ``[0, 1]``.
+                ``0`` admits everything, ``1`` rejects every new insertion
+                (updates still pass). Non-numeric values propagate whatever
+                ``float()`` raises; a value outside the range (or NaN) raises
+                ``ValueError``.
+        """
+        super().__init__()
+        probability = float(p)
+        if math.isnan(probability) or not 0.0 <= probability <= 1.0:
+            raise ValueError(f"admission probability must be within [0, 1], got {p!r}")
+        self.base = base
+        self.p = probability
+        self.get_script = base.get_script
+        self.put_script = base.put_script
+        self.index_structure = base.index_structure
+
+    def calc_ext_args(
+        self,
+        fn: Callable | None = None,
+        args: Sequence | None = None,
+        kwds: Mapping[str, Any] | None = None,
+        options: Mapping[str, Any] | None = None,
+    ) -> Iterable[EncodableT] | None:
+        """Delegate to the base scripts' extra ARGV entries."""
+        return self.base.calc_ext_args(fn, args, kwds, options)
+
+    def read_lua_scripts(self) -> tuple[ScriptTextT, ScriptTextT]:
+        """Read the base scripts, prefixing the put script with the prologue."""
+        get_text, put_text = self.base.read_lua_scripts()
+        return (get_text, cast(ScriptTextT, self._admission_prologue() + cast(str, put_text)))
+
+    def _admission_prologue(self) -> str:
+        """Lua prologue: reject new insertions with probability ``p``."""
+        exists_command = "SISMEMBER" if self.index_structure == "set" else "ZSCORE"
+        return (
+            "-- >>> random admission prologue (composed by RandomAdmissionScripts).\n"
+            "-- Updates pass unconditionally; new insertions are rejected with\n"
+            f"-- probability {self.p!r} (requires Redis >= 7.0 for a random seed).\n"
+            f"local __ra_exists = redis.call('{exists_command}', KEYS[1], ARGV[4])\n"
+            "if not __ra_exists then\n"
+            f"    if math.random() < {self.p!r} then\n"
+            "        return 0\n"
+            "    end\n"
+            "end\n"
+            "-- <<< end random admission prologue\n"
+        )

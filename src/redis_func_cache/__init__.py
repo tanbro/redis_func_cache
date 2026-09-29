@@ -33,6 +33,10 @@ from .policies.lru import (
     lru_t_cluster_policy,
     lru_t_multiple_policy,
     lru_t_policy,
+    lru_tr_cluster_multiple_policy,
+    lru_tr_cluster_policy,
+    lru_tr_multiple_policy,
+    lru_tr_policy,
 )
 from .policies.mru import mru_cluster_multiple_policy, mru_cluster_policy, mru_multiple_policy, mru_policy
 from .policies.rr import rr_cluster_multiple_policy, rr_cluster_policy, rr_multiple_policy, rr_policy
@@ -69,6 +73,10 @@ __all__ = (
     "lru_t_cluster_policy",
     "lru_t_multiple_policy",
     "lru_t_policy",
+    "lru_tr_cluster_multiple_policy",
+    "lru_tr_cluster_policy",
+    "lru_tr_multiple_policy",
+    "lru_tr_policy",
     "mru_cluster_multiple_policy",
     "mru_cluster_policy",
     "mru_multiple_policy",

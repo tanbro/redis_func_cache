@@ -144,6 +144,14 @@ The [`gdsf_policy`][] family scores each entry as `frequency × cost / size` —
 - **`cost` is the per-function miss cost**, declared per decorated function with the `cost` kwarg (default `1.0`, unit-free — pick one consistent unit, e.g. milliseconds or a downstream API's charge per call). It is coerced with `float()`; a non-positive or NaN value raises `ValueError` and a non-numeric one propagates whatever `float()` raises — there is no fallback, because a zero cost would collapse every score to zero and reduce eviction to a tie.
 - **`cost` only matters when functions share a key pair.** Under [`gdsf_policy`][] / [`gdsf_cluster_policy`][] (single key pair), entries of different functions compete and `cost` weighs the cross-function trade-off. Under [`gdsf_multiple_policy`][] / [`gdsf_cluster_multiple_policy`][] (one key pair per function), a pair's entries all carry the same cost — a positive constant cannot change their relative order — so scoring reduces to `frequency / size`, which remains fully effective (large results are still evicted first).
 
+## The Random Admission Policies' (`lru_tr`) Probabilistic Contract
+
+The [`lru_tr_policy`][] family is LRU-T with random admission: a **new** insertion is rejected with probability `p` (baked in at 0.5 for the presets), while an **update** of an already-cached entry always passes. Rejection is invisible to the caller — the call succeeds, only its result is not stored, and the next call invokes the function again.
+
+- **Nondeterminism is the point.** Hit rates are not reproducible run-to-run; load tests need statistical treatment (averages over many runs), and unit tests must not assert exact cache contents against these policies.
+- **Requires Redis ≥ 7.0.** Admission draws on Lua's `math.random`, which is seeded per script execution only from Redis 7.0 on. On older servers every run would replay the same random sequence — the same calls would be admitted or rejected identically, silently defeating the mechanism. The library does not enforce this; you must.
+- **Cheap baseline, not TinyLFU.** A one-pass scan of length S displaces at most an expected `p·S` pre-existing entries, whatever its length; that caps the pollution damage. It does not approximate W-TinyLFU's hit rates — that needs a frequency-estimating admission filter. To layer admission over another base policy, compose `RandomAdmissionScripts` (from `redis_func_cache.scripts`) into a custom `Policy`. See `docs/adr/0004-random-admission-policy.md`.
+
 ## Known Issues
 
 - Arguments passed to a cached function — including `self`/`cls` when decorating methods inside a class body — must be serializable by the args serializer of the policy's hasher (pickle for the built-in policies, JSON for the `Json*` hashers), or excluded from the key and hash calculations with `excludes` and/or `excludes_positional`.
@@ -229,3 +237,4 @@ The [`gdsf_policy`][] family scores each entry as `frequency × cost / size` —
 [`gdsf_multiple_policy`]: redis_func_cache.policies.gdsf.gdsf_multiple_policy "Greedy-Dual-Size policy, one key pair per function"
 [`gdsf_cluster_policy`]: redis_func_cache.policies.gdsf.gdsf_cluster_policy "Greedy-Dual-Size policy with cluster hash tags"
 [`gdsf_cluster_multiple_policy`]: redis_func_cache.policies.gdsf.gdsf_cluster_multiple_policy "Greedy-Dual-Size policy with cluster hash tags, one key pair per function"
+[`lru_tr_policy`]: redis_func_cache.policies.lru.lru_tr_policy "LRU-T with random admission policy"
