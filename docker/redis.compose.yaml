@@ -62,11 +62,7 @@ services:
         redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382 --cluster-yes \
         && sleep infinity
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "redis-cli --cluster check 127.0.0.1:6380",
-        ]
+      test: ["CMD-SHELL", "redis-cli --cluster check 127.0.0.1:6380"]
       interval: 10s
       timeout: 5s
       retries: 5

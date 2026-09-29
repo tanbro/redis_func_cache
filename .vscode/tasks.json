@@ -1,43 +1,43 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "docs: build",
-            "type": "shell",
-            "command": "${command:python.interpreterPath} -m sphinx -j auto -d _build/doctrees . _build/html",
-            "options": {
-                "cwd": "${workspaceFolder}/docs"
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "docs: serve",
-            "type": "shell",
-            "command": "${command:python.interpreterPath} -m http.server -d _build/html",
-            "options": {
-                "cwd": "${workspaceFolder}/docs"
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "lint",
-            "type": "shell",
-            "command": "ruff check --fix && ruff format",
-            "problemMatcher": []
-        },
-        {
-            "label": "static type check",
-            "type": "shell",
-            "command": "${command:python.interpreterPath} -m mypy",
-            "problemMatcher": []
-        },
-        {
-            "label": "pre-commit",
-            "type": "shell",
-            "command": "pre-commit run --all-files",
-            "problemMatcher": []
-        }
-    ]
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "docs: build",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m sphinx -j auto -d _build/doctrees . _build/html",
+      "options": {
+        "cwd": "${workspaceFolder}/docs"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "docs: serve",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m http.server -d _build/html",
+      "options": {
+        "cwd": "${workspaceFolder}/docs"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "lint",
+      "type": "shell",
+      "command": "ruff check --fix && ruff format",
+      "problemMatcher": []
+    },
+    {
+      "label": "static type check",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m mypy",
+      "problemMatcher": []
+    },
+    {
+      "label": "pre-commit",
+      "type": "shell",
+      "command": "pre-commit run --all-files",
+      "problemMatcher": []
+    }
+  ]
 }

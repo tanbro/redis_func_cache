@@ -3,20 +3,20 @@ description: Composite action to install uv, install project, lint, mypy and run
 
 inputs:
   python-version:
-    description: 'Python version to install (optional)'
+    description: "Python version to install (optional)"
     required: false
-    default: ''
+    default: ""
   upload-codecov:
-    description: 'Whether to upload coverage to codecov (true/false)'
+    description: "Whether to upload coverage to codecov (true/false)"
     required: false
-    default: 'false'
+    default: "false"
   codecov-token:
-    description: 'Codecov token (pass secrets.CODECOV_TOKEN from workflow)'
+    description: "Codecov token (pass secrets.CODECOV_TOKEN from workflow)"
     required: false
-    default: ''
+    default: ""
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install uv (python-version specified)
       if: ${{ inputs.python-version != '' }}
@@ -42,7 +42,7 @@ runs:
 
     - name: Install the project
       env:
-        SETUPTOOLS_SCM_PRETEND_VERSION: '0'
+        SETUPTOOLS_SCM_PRETEND_VERSION: "0"
       shell: bash
       run: uv sync --all-extras --no-dev --group test --group typing
 
