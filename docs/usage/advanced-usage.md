@@ -181,7 +181,7 @@ The library never learns about object storage: it sees a small value on write an
 
 ## Custom key format
 
-An instance of [`RedisFuncCache`][] calculates key pair names through its policy's *keying* component.
+An instance of [`RedisFuncCache`][] calculates key pair names through its policy's _keying_ component.
 There are four built-in keying variants covering the two orthogonal naming choices:
 
 - [`SingleKeying`][]: All functions share the same key pair, [Redis][] cluster is NOT supported.
@@ -202,13 +202,13 @@ There are four built-in keying variants covering the two orthogonal naming choic
 
 Variables in the format string are defined as follows:
 
-|                 |                                                                        |
-| --------------- | ---------------------------------------------------------------------- |
-| `prefix`        | `prefix` argument of [`RedisFuncCache`][]                              |
-| `name`          | `name` argument of [`RedisFuncCache`][]                                |
-| `key`           | `key` attribute of the keying component of the policy                  |
-| `function_name` | full name of the decorated function                                    |
-| `function_hash` | hash value of the decorated function                                   |
+|                 |                                                       |
+| --------------- | ----------------------------------------------------- |
+| `prefix`        | `prefix` argument of [`RedisFuncCache`][]             |
+| `name`          | `name` argument of [`RedisFuncCache`][]               |
+| `key`           | `key` attribute of the keying component of the policy |
+| `function_name` | full name of the decorated function                   |
+| `function_hash` | hash value of the decorated function                  |
 
 `0` and `1` at the end of the keys are used to distinguish between the two data structures:
 
@@ -409,38 +409,14 @@ def some_func(*args, **kwargs): ...
 > Therefore, you can generate unique key names using any method, not just hashes.
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
-[redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
-[decorator]: https://docs.python.org/glossary.html#term-decorator "A function returning another function, usually applied as a function transformation using the @wrapper syntax"
 [json]: https://www.json.org/ "JSON (JavaScript Object Notation) is a lightweight data-interchange format."
 [`pickle`]: https://docs.python.org/library/pickle.html "The pickle module implements binary protocols for serializing and de-serializing a Python object structure."
 [bson]: https://bsonspec.org/ "BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments."
 [msgpack]: https://msgpack.org/ "MessagePack is an efficient binary serialization format."
-[uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
-[pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
-[`Policy`]: redis_func_cache.policies.Policy
 [`SingleKeying`]: redis_func_cache.keying.SingleKeying
 [`MultipleKeying`]: redis_func_cache.keying.MultipleKeying
 [`ClusterSingleKeying`]: redis_func_cache.keying.ClusterSingleKeying
 [`ClusterMultipleKeying`]: redis_func_cache.keying.ClusterMultipleKeying
 [`Hasher`]: redis_func_cache.hashing.Hasher
 [`HashConfig`]: redis_func_cache.hashing.HashConfig
-[`fifo_policy`]: redis_func_cache.policies.fifo.fifo_policy "First In First Out policy"
-[`lfu_policy`]: redis_func_cache.policies.lfu.lfu_policy "Least Frequently Used policy"
-[`lru_policy`]: redis_func_cache.policies.lru.lru_policy "Least Recently Used policy"
-[`mru_policy`]: redis_func_cache.policies.mru.mru_policy "Most Recently Used policy"
-[`rr_policy`]: redis_func_cache.policies.rr.rr_policy "Random Remove policy"
-[`lru_t_policy`]: redis_func_cache.policies.lru.lru_t_policy "Time based Least Recently Used policy."
-[`fifo_multiple_policy`]: redis_func_cache.policies.fifo.fifo_multiple_policy
-[`lfu_multiple_policy`]: redis_func_cache.policies.lfu.lfu_multiple_policy
-[`lru_multiple_policy`]: redis_func_cache.policies.lru.lru_multiple_policy
-[`mru_multiple_policy`]: redis_func_cache.policies.mru.mru_multiple_policy
-[`rr_multiple_policy`]: redis_func_cache.policies.rr.rr_multiple_policy
-[`lru_t_multiple_policy`]: redis_func_cache.policies.lru.lru_t_multiple_policy
-[`fifo_cluster_policy`]: redis_func_cache.policies.fifo.fifo_cluster_policy
-[`lfu_cluster_policy`]: redis_func_cache.policies.lfu.lfu_cluster_policy
-[`lru_cluster_policy`]: redis_func_cache.policies.lru.lru_cluster_policy
-[`mru_cluster_policy`]: redis_func_cache.policies.mru.mru_cluster_policy
-[`rr_cluster_policy`]: redis_func_cache.policies.rr.rr_cluster_policy
-[`lru_t_cluster_policy`]: redis_func_cache.policies.lru.lru_t_cluster_policy
-[`lru_t_cluster_multiple_policy`]: redis_func_cache.policies.lru.lru_t_cluster_multiple_policy

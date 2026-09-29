@@ -17,10 +17,17 @@ repos:
       - id: check-toml
       - id: check-ast
       - id: check-builtin-literals
-      - id: prettier
-        args: [--write]
-        files: \.(md|mdx)$
       # - id: check-docstring-first
+
+  # prettier is run via npx (local hook): the pre-commit-hooks mirror does not
+  # bundle it, and a dedicated node mirror would pin a second copy of prettier
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: npx prettier --write
+        language: system
+        files: \.(md|mdx)$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.9

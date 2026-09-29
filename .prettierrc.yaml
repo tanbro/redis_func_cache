@@ -1,0 +1,8 @@
+useTabs: false
+endOfLine: "lf"
+embeddedLanguageFormatting: auto
+overrides:
+  - files: ["*.md", "*.mdx"]
+    options:
+      proseWrap: "preserve"
+      tabWidth: 2

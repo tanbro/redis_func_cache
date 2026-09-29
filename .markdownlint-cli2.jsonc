@@ -2,13 +2,8 @@
   "gitignore": true, // 自动读取 .gitignore 忽略文件，非常方便
   "ignores": ["docs/*.include.md"],
   "config": {
-    // 常用开关，按你的项目取舍
-    "MD013": {
-      "line_length": 120,
-      "ignore_code_blocks": true,
-      "tables": false,
-      "treat_links_as_single_words": true,
-    }, // line-length 行宽，文档/表格经常超长，一般关闭
+    // 行宽：文档段落/表格经常超长，整体关闭（"line_length": false 是无效值，会回退为默认 80）
+    "MD013": false,
     "MD024": false, // 多个相同标题
     "MD033": false, // 允许行内HTML（很多技术文档需要）
     "MD040": false, // Disabled: Fenced code blocks should have a language specified

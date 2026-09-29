@@ -47,21 +47,21 @@ On the write path the handler replaces the large value with a small reference. O
 2. Multiple handlers. Composition, if needed, is the application's responsibility.
 3. A general middleware framework. Handlers are scoped to the four serialization boundaries only.
 4. Changes to the eviction algorithm or Redis data structures.
-5. Per-value write suppression. A handler can change *what* is written but cannot prevent the write. Skipping the write for a particular result is the caller's job (cache mode, or not calling the cached function path).
+5. Per-value write suppression. A handler can change _what_ is written but cannot prevent the write. Skipping the write for a particular result is the caller's job (cache mode, or not calling the cached function path).
 6. Failure policy. The library does not retry, degrade, count, or fall back on handler errors — see Error Handling below. Reliability policy belongs entirely to the application.
 7. Entry format versioning. Version or generation tags for handler-written bytes are the application's concern; the library offers no metadata channel for them.
 
 ## When to Use a Handler vs a Serializer
 
-| | `serializer=(ser, des)` | `handler=` |
-|---|---|---|
-| Encoding format only (JSON, msgpack, …) | ✅ preferred | overkill |
-| Sync custom encoding | ✅ preferred | overkill |
-| Async I/O (object storage, remote fetch) | ❌ sync only | ✅ |
-| Needs keys / args / func context | ❌ value only | ✅ |
-| Take over one direction, keep library default on the other | ❌ both required | ✅ per-boundary |
-| Post-process deserialized value (enrichment, validation) | possible inside `des` | ✅ clearer at `after_deserialize` |
-| Compress/encrypt library-produced bytes | ❌ | ✅ at `after_serialize` |
+|                                                            | `serializer=(ser, des)` | `handler=`                        |
+| ---------------------------------------------------------- | ----------------------- | --------------------------------- |
+| Encoding format only (JSON, msgpack, …)                    | ✅ preferred            | overkill                          |
+| Sync custom encoding                                       | ✅ preferred            | overkill                          |
+| Async I/O (object storage, remote fetch)                   | ❌ sync only            | ✅                                |
+| Needs keys / args / func context                           | ❌ value only           | ✅                                |
+| Take over one direction, keep library default on the other | ❌ both required        | ✅ per-boundary                   |
+| Post-process deserialized value (enrichment, validation)   | possible inside `des`   | ✅ clearer at `after_deserialize` |
+| Compress/encrypt library-produced bytes                    | ❌                      | ✅ at `after_serialize`           |
 
 Rule of thumb: if you are only choosing an encoding, use `serializer`. If you need async I/O, call context, or taking over part of the library's own steps, use `handler`. The two may be combined: `serializer` defines the default encoding; `handler` may replace bytes at any boundary.
 
@@ -71,12 +71,12 @@ The handler interface defines eight methods: four boundaries, each with a sync a
 
 `HandlerProtocol` is a **pure structural protocol** — signatures only, no implementation bodies, and implementations need not inherit from it (any class whose methods match the signatures is a valid handler). The type annotations are the contract, checked statically. The eight methods form two groups: the four plain names for the synchronous path, the four `*_async` coroutine functions for the asynchronous path. An implementation provides at least the group its execution path uses — both when it serves both paths — and the group it does not use may be kept as `raise NotImplementedError` placeholders (the standard file-like-object pattern). Within a provided group every method is defined; a boundary the implementation does not need returns its input unchanged and unhandled (`before_*` → `(False, value)`, `after_*` → `return value`), so the library's default step runs as usual.
 
-| Boundary | Sync method | Async method |
-|---|---|---|
-| Write, before library serializes | `before_serialize` | `before_serialize_async` |
-| Write, after library serializes | `after_serialize` | `after_serialize_async` |
+| Boundary                          | Sync method          | Async method               |
+| --------------------------------- | -------------------- | -------------------------- |
+| Write, before library serializes  | `before_serialize`   | `before_serialize_async`   |
+| Write, after library serializes   | `after_serialize`    | `after_serialize_async`    |
 | Read, before library deserializes | `before_deserialize` | `before_deserialize_async` |
-| Read, after library deserializes | `after_deserialize` | `after_deserialize_async` |
+| Read, after library deserializes  | `after_deserialize`  | `after_deserialize_async`  |
 
 Each method receives the value being processed as its first positional argument, plus the immutable call context as a keyword-only parameter:
 
@@ -108,12 +108,12 @@ There are two conventions, one per category of boundary, plus one uniform short-
 
 **`handled=True` means the handler owns everything after that boundary.** The library performs no further processing on that side — no serializer/deserializer, and no `after_*` method. The behavior table:
 
-| | `handled=True` at before | after method runs? |
-|---|---|---|
-| Write path | value written as-is, serialization skipped | `after_serialize` **skipped** |
-| Read path | value returned as final result, deserialization skipped | `after_deserialize` **skipped** |
+|            | `handled=True` at before                                | after method runs?              |
+| ---------- | ------------------------------------------------------- | ------------------------------- |
+| Write path | value written as-is, serialization skipped              | `after_serialize` **skipped**   |
+| Read path  | value returned as final result, deserialization skipped | `after_deserialize` **skipped** |
 
-The rationale: `after_*` methods post-process *library-produced* values. When a before-boundary is handled, no library-produced value exists; anything the handler wants layered on top, it composes itself inside the before method.
+The rationale: `after_*` methods post-process _library-produced_ values. When a before-boundary is handled, no library-produced value exists; anything the handler wants layered on top, it composes itself inside the before method.
 
 ### Before boundaries return `(handled, value)`
 
@@ -122,12 +122,12 @@ The rationale: `after_*` methods post-process *library-produced* values. When a 
 - `value` **always** replaces the working value for this path, regardless of `handled`. When the method is implemented, the library never falls back to the original input.
 - `handled` controls whether the library still performs its own default operation:
 
-**before_serialize**
+#### `before_serialize`
 
 - `handled=True`: the handler owns the rest of the write path. `value` must already be encoded bytes (or a str acceptable to Redis) and is written to Redis as-is; the library skips its serializer **and** `after_serialize`.
 - `handled=False`: the library serializes `value` with its configured serializer (or the `serialize_func` override from `decorate`), then calls `after_serialize`.
 
-**before_deserialize**
+#### `before_deserialize`
 
 - `handled=True`: the handler owns the rest of the read path. `value` is the **final** result returned to the caller; the library skips its deserializer **and** `after_deserialize`.
 - `handled=False`: `value` replaces the bytes read from Redis; the library deserializes `value`, then calls `after_deserialize`.
@@ -279,21 +279,21 @@ Rejected as a library concern. Versioning of handler-written bytes is an applica
 
 ## Open Questions
 
-1. Should the protocol be a runtime-checkable Protocol, an ABC, or plain duck typing. *(Current: pure, non-runtime-checkable structural Protocol; implementations are duck-typed and need not inherit.)*
+1. Should the protocol be a runtime-checkable Protocol, an ABC, or plain duck typing. _(Current: pure, non-runtime-checkable structural Protocol; implementations are duck-typed and need not inherit.)_
 
 ## Implementation Plan
 
-1. Define the handler protocol with four boundaries, sync/async pairs, and the two return conventions. *(Done: `HandlerProtocol` in `handler.py`.)*
-2. Frozen `HandlerContext` dataclass passed to every handler method. *(Done.)*
-3. Optional `handler` argument on the cache constructor, plus a per-function override on `decorate`. *(Done.)*
-4. No runtime validation of handler behavior; typing is the contract. *(Done: `validate_handler` removed.)*
-5. Insert handler calls at the four boundaries in both execution paths, statically, one to one. *(Done: direct calls in `exec` / `aexec`.)*
-6. Uniform short-circuit rule: `handled=True` skips the library's remaining steps on that side, including the `after_*` method. *(Done.)*
-7. Handler context uses the same excludes-filtered effective arguments as key calculation. *(Done.)*
-8. Respect cache mode. *(Done: handlers only run inside `mode.read` / `mode.write`.)*
-9. Tests: no handler, full handler, identity-only boundaries, sync/async, `handled` True/False per boundary, short-circuit, per-function override, mode interaction, frozen context. *(Done: `tests/test_handler.py`.)*
-10. Document the handler system and offload use case in the README. *(Done.)*
-11. Export `HandlerProtocol` and `HandlerContext` from the package root. *(Done.)*
+1. Define the handler protocol with four boundaries, sync/async pairs, and the two return conventions. _(Done: `HandlerProtocol` in `handler.py`.)_
+2. Frozen `HandlerContext` dataclass passed to every handler method. _(Done.)_
+3. Optional `handler` argument on the cache constructor, plus a per-function override on `decorate`. _(Done.)_
+4. No runtime validation of handler behavior; typing is the contract. _(Done: `validate_handler` removed.)_
+5. Insert handler calls at the four boundaries in both execution paths, statically, one to one. _(Done: direct calls in `exec` / `aexec`.)_
+6. Uniform short-circuit rule: `handled=True` skips the library's remaining steps on that side, including the `after_*` method. _(Done.)_
+7. Handler context uses the same excludes-filtered effective arguments as key calculation. _(Done.)_
+8. Respect cache mode. _(Done: handlers only run inside `mode.read` / `mode.write`.)_
+9. Tests: no handler, full handler, identity-only boundaries, sync/async, `handled` True/False per boundary, short-circuit, per-function override, mode interaction, frozen context. _(Done: `tests/test_handler.py`.)_
+10. Document the handler system and offload use case in the README. _(Done.)_
+11. Export `HandlerProtocol` and `HandlerContext` from the package root. _(Done.)_
 
 ## References
 
