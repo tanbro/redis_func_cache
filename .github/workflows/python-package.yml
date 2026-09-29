@@ -20,6 +20,10 @@ on:
       - tests/**
       - pyproject.toml
 
+# Minimal GITHUB_TOKEN permissions by default; jobs may widen as needed.
+permissions:
+  contents: read
+
 jobs:
   get-version:
     runs-on: ubuntu-latest
