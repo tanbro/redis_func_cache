@@ -15,9 +15,9 @@ Policy**:
   variants hash-tag the varying segment (`{...}`) so both keys of a pair share a slot. Stateless:
   namespace (`prefix`, `name`) is passed to each call, not stored.
 - **Hasher** (`src/redis_func_cache/hashing.py`, `fingerprint.py`): computes the per-call sub-key
-  from function + args via `HashConfig` (algorithm, serializer, `use_bytecode`). ~26 presets plus a
-  `make_hasher` factory. The fingerprint is md5(fullname + bytecode); checksums are base64 digests.
-  Pure computation — no Redis IO.
+  from function + args via `HashConfig` (algorithm, serializer, `use_bytecode`). A set of presets
+  plus a `make_hasher` factory. The fingerprint is md5(fullname + bytecode); checksums are base64
+  digests. Pure computation — no Redis IO.
 - **Scripts** (`src/redis_func_cache/scripts.py`): pure **declaration + registration** — the
   get/put Lua file names (`src/redis_func_cache/lua/`), the index structure
   (`zset` for most policies, `set` for RR), `calc_ext_args` (extra ARGV values appended to put,
@@ -67,7 +67,7 @@ must change together.
 
 - `RedisFuncCache(name, policy=lru_t_policy, *, redis_client=None, factory=None, maxsize=DEFAULT_MAXSIZE,
   ttl=DEFAULT_TTL, update_ttl=True, ignore_redis_errors=False, prefix=DEFAULT_PREFIX,
-  serializer="json", handler=None)` (see `cache.py:128`). The decorator returned by `cache(...)` accepts only `serializer`, `excludes`, `ttl`,
+  serializer="json", handler=None)` (see the `RedisFuncCache.__init__` in `cache.py`). The decorator returned by `cache(...)` accepts only `serializer`, `excludes`, `ttl`,
   `update_ttl`, `write_only`, and never `policy` — unknown kwargs are forwarded to the Lua script
   and fail at runtime.
 - Policies are argument-less instances passed positionally to the constructor. `maxsize`, `ttl`,
@@ -81,6 +81,12 @@ must change together.
 - Bytecode is part of the default fingerprint by design — a Python upgrade invalidates stale keys
   (documented in `docs/usage/considerations.md`). Do not add an opt-out knob to built-in policies;
   users compose a custom policy instead.
+- `make_bound` (`cache.py`) anchors both exclude filters on `signature(fn).bind(*args, **kwds)`:
+  `excludes` matches named parameter slots plus `**kwargs` keys; `excludes_positional` indexes the
+  **expanded positional stream** (`bound.args`; keyword-only params never occupy an index, varargs
+  are addressed element-wise). Never index `bound.arguments` by enumeration order and never exclude
+  a catch-all (`*args`/`**kwargs`) parameter as a whole — both collapse the hash to function
+  identity, i.e. silent wrong-result cache hits (pinned by `tests/test_excludes.py`).
 - Golden fixtures (`tests/_golden.json`) template checksums as `{checksum_a}` / `{checksum_b}`
   placeholders; digests are re-derived in the test, never frozen. Regenerate with
   `tests/_gen_golden.py`. If a fixture failure mentions bytecode, fix the templating, not the pin.
@@ -113,6 +119,8 @@ uv run pre-commit run -a
 - Test framework is pytest (+ pytest-asyncio); no stdlib `unittest`. Match the existing patterns in
   `tests/` (`_catches.py` CACHES fixtures, `_mocks.patch_object`); expiry is simulated via
   `hdel`/`delete`, tests do not require Redis ≥ 7.4.
+- Security issues go through GitHub private vulnerability reporting (see `SECURITY.md`) — never
+  open a public issue for them.
 
 ## Known sharp edges
 
