@@ -4,19 +4,20 @@ The admission rule is probabilistic: a new insertion is rejected with
 probability ``p`` while updates always pass. Lua's ``math.random`` cannot be
 seeded from the tests, so the aggregate behavior is asserted statistically
 (many puts, rejection ratio within a wide interval); the deterministic
-aspects — updates pass, p boundary values, composition plumbing — are
-asserted exactly.
+aspects — updates pass, boundary probabilities, the ``admission_p``
+decorator override, and semantic equivalence with the base LRU-T script —
+are asserted exactly.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from redis_func_cache import RedisFuncCache, lru_tr_policy
+from redis_func_cache import RedisFuncCache, lru_t_policy, lru_tr_policy
 from redis_func_cache.hashing import PICKLE_MD5_HASHER
 from redis_func_cache.keying import SingleKeying
 from redis_func_cache.policies import Policy
-from redis_func_cache.scripts import LruTScripts, MruScripts, RandomAdmissionScripts, RrScripts
+from redis_func_cache.scripts import LruTrScripts
 
 from ._catches import redis_factory
 
@@ -24,7 +25,7 @@ N_PUTS = 100
 
 
 def _make_cache(name: str, p: float) -> RedisFuncCache:
-    policy = Policy(SingleKeying(name), PICKLE_MD5_HASHER, RandomAdmissionScripts(LruTScripts(), p=p))
+    policy = Policy(SingleKeying(name), PICKLE_MD5_HASHER, LruTrScripts(p=p))
     return RedisFuncCache(f"{__name__}#{name}", policy, factory=redis_factory, maxsize=N_PUTS)
 
 
@@ -34,11 +35,6 @@ def _make_echo(cache: RedisFuncCache, **kwds):
         return x
 
     return echo
-
-
-def _locate(cache: RedisFuncCache, fn, args=(1,)):
-    (index_key, _value_key), _hash_value = cache.policy.locate(cache.prefix, cache.name, fn, args, {})
-    return index_key
 
 
 @pytest.fixture()
@@ -55,18 +51,18 @@ def test_rejection_ratio_is_statistical(cache):
     for x in range(N_PUTS):
         echo(x)
     client = redis_factory()
-    index_key = _locate(cache, echo.__wrapped__)
+    (index_key, _value_key), _hash_value = cache.policy.locate(cache.prefix, cache.name, echo.__wrapped__, (19,), {})
     admitted = client.zcard(index_key)
     # ~50 expected; a wide interval keeps the test deterministic-ish without
-    # being vacuous (a broken p=0 or p=1 prologue lands far outside).
+    # being vacuous (a broken p=0 or p=1 script lands far outside).
     assert 30 <= admitted <= 70
 
 
 def test_update_always_admitted():
     """An entry already in the index is updated regardless of the random draw.
 
-    Uses p = 1.0 (every new insertion rejected): the seeded pre-existing entry
-    must still be refreshed by the put call.
+    Uses p = 1.0 (every new insertion rejected): a put for a seeded index
+    member must take the update branch, never the rejection branch.
     """
     cache = _make_cache("update", p=1.0)
     cache.purge()
@@ -82,9 +78,12 @@ def test_update_always_admitted():
         member = cache.policy.calc_hash(fn, (1,), {})
         member = member.encode() if isinstance(member, str) else member
 
-        # Seed the index member: a put for this hash must take the update
-        # branch (always admitted), never the rejection branch.
+        # Seed both keys: the script's consistency cleanup UNLINKs the pair
+        # when only one of them exists (which would push the put into the
+        # insertion branch); with both present the seeded member takes the
+        # update branch (always admitted), never the rejection branch.
         client.zadd(index_key, {member: 0})
+        client.hset(value_key, member, b"stale")
         cache.policy.put(
             client,
             cache.prefix,
@@ -97,7 +96,7 @@ def test_update_always_admitted():
             update_ttl=True,
             ttl=60,
         )
-        assert client.hget(value_key, member) is not None  # value written, not rejected
+        assert client.hget(value_key, member) != b"stale"  # value refreshed, not rejected
         assert client.zcard(index_key) == 1  # updated in place, not re-inserted
     finally:
         cache.purge()
@@ -112,7 +111,10 @@ def test_p_zero_admits_all():
         for x in range(20):
             assert echo(x) == x
         client = redis_factory()
-        assert client.zcard(_locate(cache, echo.__wrapped__, args=(19,))) == 20
+        (index_key, _value_key), _hash_value = cache.policy.locate(
+            cache.prefix, cache.name, echo.__wrapped__, (19,), {}
+        )
+        assert client.zcard(index_key) == 20
     finally:
         cache.purge()
 
@@ -133,9 +135,65 @@ def test_p_one_rejects_all_new():
         assert echo(1) == 1  # rejected put => still a miss on the second call
         assert calls == [1, 1]
         client = redis_factory()
-        index_key, value_key = cache.policy.locate(cache.prefix, cache.name, echo, (1,), {})[0]
+        (index_key, value_key), _hash_value = cache.policy.locate(cache.prefix, cache.name, echo.__wrapped__, (1,), {})
         assert client.zcard(index_key) == 0
         assert not client.exists(value_key)
+    finally:
+        cache.purge()
+
+
+def test_admission_p_kwarg_overrides_baked():
+    """The admission_p decorator kwarg overrides the baked probability.
+
+    Baked p = 1.0: the undecorated function is never admitted, while the
+    function declaring admission_p = 0.0 is always admitted.
+    """
+    cache = _make_cache("override", p=1.0)
+    cache.purge()
+    try:
+
+        @cache.decorate
+        def plain(x):
+            return x
+
+        exempt = _make_echo(cache, admission_p=0.0)
+
+        for x in range(5):
+            plain(x)
+            assert exempt(x) == x
+
+        client = redis_factory()
+        (plain_key, _vk), _hv = cache.policy.locate(cache.prefix, cache.name, plain.__wrapped__, (4,), {})
+        # Single keying: one shared pair — the exempt function's entries are
+        # in, the plain function's are not.
+        members = set(client.zrange(plain_key, 0, -1))
+        assert members
+        exempt_hash = cache.policy.calc_hash(exempt.__wrapped__, (4,), {})
+        plain_hash = cache.policy.calc_hash(plain.__wrapped__, (4,), {})
+        _to_b = lambda v: v.encode() if isinstance(v, str) else v
+        assert _to_b(exempt_hash) in members
+        assert _to_b(plain_hash) not in members
+        assert client.zcard(plain_key) == 5  # exactly the exempt function's 5 entries
+    finally:
+        cache.purge()
+
+
+def test_admission_p_invalid_falls_back():
+    """An invalid admission_p override (non-numeric or out of [0, 1]) falls back to the baked p.
+
+    Baked p = 1.0: even with an invalid override every new insertion stays
+    rejected (the documented fallback semantics of the weakly-typed options
+    channel).
+    """
+    cache = _make_cache("fallback", p=1.0)
+    cache.purge()
+    try:
+        for bad in ("abc", 2.0, -1.0):
+            echo = _make_echo(cache, admission_p=bad)
+            assert echo(1) == 1  # the call itself succeeds
+            client = redis_factory()
+            (index_key, _value_key), _hv = cache.policy.locate(cache.prefix, cache.name, echo.__wrapped__, (1,), {})
+            assert client.zcard(index_key) == 0  # ... but the put fell back to p = 1.0
     finally:
         cache.purge()
 
@@ -143,32 +201,59 @@ def test_p_one_rejects_all_new():
 def test_p_validation():
     """Non-numeric p propagates float()'s error; out-of-range or NaN raises ValueError."""
     with pytest.raises(TypeError):  # float(object()) is a TypeError
-        RandomAdmissionScripts(LruTScripts(), p=object())
+        LruTrScripts(p=object())
     with pytest.raises(ValueError):  # float("abc") is a ValueError
-        RandomAdmissionScripts(LruTScripts(), p="abc")
+        LruTrScripts(p="abc")
     with pytest.raises(ValueError):
-        RandomAdmissionScripts(LruTScripts(), p=-0.1)
+        LruTrScripts(p=-0.1)
     with pytest.raises(ValueError):
-        RandomAdmissionScripts(LruTScripts(), p=1.5)
+        LruTrScripts(p=1.5)
     with pytest.raises(ValueError):
-        RandomAdmissionScripts(LruTScripts(), p=float("nan"))
-    assert RandomAdmissionScripts(LruTScripts(), p=0).p == 0.0
-    assert RandomAdmissionScripts(LruTScripts(), p="0.25").p == pytest.approx(0.25)
-    assert RandomAdmissionScripts(LruTScripts()).p == pytest.approx(0.5)
+        LruTrScripts(p=float("nan"))
+    assert LruTrScripts(p=0).p == 0.0
+    assert LruTrScripts(p="0.25").p == pytest.approx(0.25)
+    assert LruTrScripts().p == pytest.approx(LruTrScripts.DEFAULT_P)
 
 
-def test_calc_ext_args_delegates():
-    """The composable wrapper must preserve the base policy's ARGV contract."""
-    scripts = RandomAdmissionScripts(MruScripts())
-    assert scripts.calc_ext_args() == ("mru",)
-    assert scripts.get_script == MruScripts.get_script
-    assert scripts.put_script == MruScripts.put_script
+def test_calc_ext_args_bakes_p():
+    """The baked probability travels as the extension argument (ARGV[7])."""
+    assert LruTrScripts().calc_ext_args() == (0.5,)
+    assert LruTrScripts(p=0.25).calc_ext_args() == (0.25,)
 
 
-def test_composable_on_rr():
-    """The prologue dispatches its existence check to the base index structure."""
-    scripts = RandomAdmissionScripts(RrScripts(), p=0.0)
-    assert scripts.index_structure == "set"
-    prologue = scripts._admission_prologue()
-    assert "'SISMEMBER'" in prologue
-    assert RandomAdmissionScripts(LruTScripts())._admission_prologue().count("'ZSCORE'") == 1
+def test_semantics_match_lru_t_when_admitting():
+    """Semantic drift guard: with p = 0 the script must behave like lru_t_put.
+
+    The same scenario (inserts until eviction, an update, mixed sizes) run
+    against lru_t_policy and an admitting lru_tr cache must produce identical
+    index ordering and values — the only allowed difference is admission.
+    """
+    outcomes = {}
+    for label, policy in (
+        ("t", lru_t_policy),
+        ("tr", Policy(SingleKeying("tr"), PICKLE_MD5_HASHER, LruTrScripts(p=0.0))),
+    ):
+        cache = RedisFuncCache(f"{__name__}#drift-{label}", policy, factory=redis_factory, maxsize=3)
+        cache.purge()
+        try:
+
+            @cache.decorate
+            def echo(x):
+                return "v" * x
+
+            for x in range(1, 5):
+                echo(x)
+            echo(2)  # update of an existing entry
+
+            client = redis_factory()
+            (index_key, value_key), _hv = cache.policy.locate(cache.prefix, cache.name, echo.__wrapped__, (1,), {})
+            members = client.zrange(index_key, 0, -1)
+            outcomes[label] = (members, {m: client.hget(value_key, m) for m in members})
+        finally:
+            cache.purge()
+
+    assert outcomes["t"] == outcomes["tr"]
+    # maxsize = 3, inserts 1..4, then an update: the smallest value went first
+    members, values = outcomes["t"]
+    assert len(members) == 3
+    assert all(values[m] is not None for m in members)

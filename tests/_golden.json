@@ -252,7 +252,7 @@
     "scripts": ["lru_t_get.lua", "lru_t_put.lua"]
   },
   "lru_tr_cluster_multiple_policy": {
-    "ext_args": [],
+    "ext_args": [0.5],
     "keys_a": [
       "gp:gn:lru_tr-cm:tests._golden_fns:fn_a#{{checksum_a}}:0",
       "gp:gn:lru_tr-cm:tests._golden_fns:fn_a#{{checksum_a}}:1"
@@ -261,16 +261,16 @@
       "gp:gn:lru_tr-cm:tests._golden_fns:fn_b#{{checksum_b}}:0",
       "gp:gn:lru_tr-cm:tests._golden_fns:fn_b#{{checksum_b}}:1"
     ],
-    "scripts": ["lru_t_get.lua", "lru_t_put.lua"]
+    "scripts": ["lru_t_get.lua", "lru_tr_put.lua"]
   },
   "lru_tr_cluster_policy": {
-    "ext_args": [],
+    "ext_args": [0.5],
     "keys_a": ["gp:{gn:lru_tr-c}:0", "gp:{gn:lru_tr-c}:1"],
     "keys_b": ["gp:{gn:lru_tr-c}:0", "gp:{gn:lru_tr-c}:1"],
-    "scripts": ["lru_t_get.lua", "lru_t_put.lua"]
+    "scripts": ["lru_t_get.lua", "lru_tr_put.lua"]
   },
   "lru_tr_multiple_policy": {
-    "ext_args": [],
+    "ext_args": [0.5],
     "keys_a": [
       "gp:gn:lru_tr-m:tests._golden_fns:fn_a#{checksum_a}:0",
       "gp:gn:lru_tr-m:tests._golden_fns:fn_a#{checksum_a}:1"
@@ -279,13 +279,13 @@
       "gp:gn:lru_tr-m:tests._golden_fns:fn_b#{checksum_b}:0",
       "gp:gn:lru_tr-m:tests._golden_fns:fn_b#{checksum_b}:1"
     ],
-    "scripts": ["lru_t_get.lua", "lru_t_put.lua"]
+    "scripts": ["lru_t_get.lua", "lru_tr_put.lua"]
   },
   "lru_tr_policy": {
-    "ext_args": [],
+    "ext_args": [0.5],
     "keys_a": ["gp:gn:lru_tr:0", "gp:gn:lru_tr:1"],
     "keys_b": ["gp:gn:lru_tr:0", "gp:gn:lru_tr:1"],
-    "scripts": ["lru_t_get.lua", "lru_t_put.lua"]
+    "scripts": ["lru_t_get.lua", "lru_tr_put.lua"]
   },
   "mru_cluster_multiple_policy": {
     "ext_args": ["mru"],

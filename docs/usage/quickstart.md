@@ -117,7 +117,7 @@ Available policies:
 - [`hyperbolic_policy`][]: Hyperbolic caching (LFU with aging) — frequency and insertion age in one score, so stale hot entries age out
 - [`lfu_policy`][]: Least frequently used
 - [`lru_policy`][]: Least recently used (more precise but slower than LRU-T)
-- [`lru_tr_policy`][]: LRU-T with random admission — rejects ~half of the new insertions to blunt scan pollution (requires Redis ≥ 7.0; see [considerations](considerations.md))
+- [`lru_tr_policy`][]: LRU-T with random admission — rejects ~half of the new insertions to blunt scan pollution; per-function `admission_p` override (requires Redis ≥ 7.0; see [considerations](considerations.md))
 - [`mru_policy`][]: Most recently used
 - [`rr_policy`][]: Random remove
 
