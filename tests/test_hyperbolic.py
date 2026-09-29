@@ -56,8 +56,11 @@ def test_metadata_field(cache, echo):
     echo(1)
     client = redis_factory()
     _index_key, value_key, member = _locate(cache, echo)
-    assert member + b":m" in client.hkeys(value_key)
-    freq, insert_ms = client.hget(value_key, member + b":m").split()
+    member_bytes = member.encode() if isinstance(member, str) else member
+    assert member_bytes + b":m" in client.hkeys(value_key)
+    result = client.hget(value_key, member_bytes + b":m")
+    assert result is not None
+    freq, insert_ms = result.split()
     assert int(freq) == 1
     assert int(insert_ms) > 0
 
@@ -70,7 +73,10 @@ def test_score_formula(cache, echo):
     index_key, value_key, member = _locate(cache, echo)
     [(member_z, score)] = client.zrange(index_key, 0, -1, withscores=True)
     assert member_z == member
-    freq, insert_ms = client.hget(value_key, member + b":m").split()
+    member_bytes = member.encode() if isinstance(member, str) else member
+    result = client.hget(value_key, member_bytes + b":m")
+    assert result is not None
+    freq, insert_ms = result.split()
     freq = int(freq)
     assert freq == 4  # 1 on insert + 3 hits
     age = max(time.time() * 1000 - int(insert_ms), 0) / 1000
@@ -93,13 +99,16 @@ def test_aging_evicts_stale_hot_entry(cache, echo):
 
     client = redis_factory()
     index_key, value_key, member = _locate(cache, echo, args=(0,))
-    hot_freq = int(client.hget(value_key, member + b":m").split()[0])
+    member_bytes = member.encode() if isinstance(member, str) else member
+    result = client.hget(value_key, member_bytes + b":m")
+    assert result is not None
+    hot_freq = int(result.split()[0])
     assert hot_freq == 10  # 1 on insert + 9 hits
 
     # Backdate the hot entry's insertion time by ~10 days; its stored score
     # stays high, but its true recomputed priority must now be the lowest
     backdated_ms = int((time.time() - 10 * 86400) * 1000)
-    client.hset(value_key, member + b":m", f"{hot_freq} {backdated_ms}")
+    client.hset(value_key, member_bytes + b":m", f"{hot_freq} {backdated_ms}")
 
     # Insert one more entry: must evict the backdated stale-hot entry even
     # though its frequency is by far the highest
