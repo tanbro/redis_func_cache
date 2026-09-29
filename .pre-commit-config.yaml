@@ -20,7 +20,7 @@ repos:
       # - id: check-docstring-first
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.8
+    rev: v0.16.9
     hooks:
       - id: ruff # Run the linter.
         types_or: [python, pyi, jupyter]
@@ -38,7 +38,7 @@ repos:
         additional_dependencies: ["redis>=5.2,<9"]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: "0.38.1"
+    rev: "0.38.2"
     hooks:
       - id: check-github-workflows
       - id: check-readthedocs
