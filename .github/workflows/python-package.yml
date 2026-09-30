@@ -29,6 +29,30 @@ permissions:
   contents: read
 
 jobs:
+  # Decides whether this ref is a release: the tag must be valid PEP-440 (a
+  # PyPI-publishable version); otherwise the output stays empty and build/publish skip.
+  check-release-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check-release-tag.outputs.version }}
+    steps:
+      # Shallow checkout suffices: the script only reads GITHUB_REF, it runs no git.
+      # Full history is only needed where hatch-vcs derives the version (build).
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Validate PEP-440 tag (extract & check) and set output
+        id: check-release-tag
+        run: |
+          set -euo pipefail
+          # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
+          uv run --no-project .github/scripts/check-release-tag.py
+
   pre-commit:
     runs-on: ubuntu-latest
     env:
@@ -72,30 +96,6 @@ jobs:
 
       - name: Run pre-commit on all files
         run: uvx pre-commit run --all-files
-
-  # Decides whether this ref is a release: the tag must be valid PEP-440 (a
-  # PyPI-publishable version); otherwise the output stays empty and build/publish skip.
-  check-release-tag:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.check-release-tag.outputs.version }}
-    steps:
-      # Shallow checkout suffices: the script only reads GITHUB_REF, it runs no git.
-      # Full history is only needed where hatch-vcs derives the version (build).
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
-        with:
-          enable-cache: true
-
-      - name: Validate PEP-440 tag (extract & check) and set output
-        id: check-release-tag
-        run: |
-          set -euo pipefail
-          # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
-          uv run --no-project .github/scripts/check-release-tag.py
 
   unittest-linux:
     runs-on: ubuntu-latest
