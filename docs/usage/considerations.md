@@ -116,7 +116,20 @@ Allow returning slightly stale data while refreshing the cache in the background
 
 For more detailed examples and advanced patterns, see [Important Considerations - Cache Stampede Risk](#important-considerations).
 
-## Redis Client Lifecycle
+## Concurrency and Atomicity
+
+All cache operations — get and put — are **single Lua scripts executed atomically** by the Redis server: each script runs in its entirety without interruption, so concurrent calls cannot interleave their Redis commands, and no additional locking is needed. Each policy implements two scripts:
+
+- a "get" script that attempts to retrieve a value and updates access information;
+- a "put" script that adds or updates a value and performs eviction if necessary.
+
+Both operate on the cache's two structures (the sorted-set index and the hash map of values) in one atomic step, rather than issuing several Redis commands that could interleave under load.
+
+On [Redis][] Cluster, atomicity holds within a single hash slot: each cache owns two keys (index and values), and the cluster keying variants hash-tag both into the same slot, so all data of one cache lives on the same node and every operation stays atomic.
+
+What the library does **not** manage is the concurrency of the surrounding machinery — the [redis-py][] client and your own functions. The subsections below explain where each responsibility lies.
+
+### Redis Client Lifecycle
 
 The cache issues single Lua script invocations through the [redis-py][] client you supply (directly, or via `factory` for each operation). It does **not** manage connections, threads or event loops — those semantics are defined by redis-py, and how you wire the client is your application's decision. Please consult the redis-py documentation for your client type; the main points, at the time of writing:
 
@@ -129,6 +142,16 @@ Practical guidance for the `factory` argument:
 
 - The factory is invoked every time the cache needs a client, so it should return a **lightweight client sharing one pre-configured pool** — e.g. `redis.Redis.from_pool(pool)` — never construct a new pool per call. Creating a pool (or connection) per invocation leaks connections and defeats redis-py's server-side Lua script cache (`EVALSHA` falls back to `EVAL` for each fresh client).
 - All clients produced by one factory must address the same logical Redis dataset, otherwise cache keys and bookkeeping are scattered across servers.
+
+For best results, use the library with Redis 6.0 or newer to take advantage of native Lua script atomicity and advanced connection management features.
+
+### Function Execution Concurrency
+
+Decorated functions are executed as-is: a synchronous function runs on the caller's thread and an async function on the caller's event loop, so each function remains responsible for its own thread, coroutine or process safety — the cache adds no serialization of its own. The only concurrency the cache introduces lies in the Redis I/O described above: it uses a synchronous Redis client for synchronous functions and an asynchronous one for async functions, which is why concurrent scenarios call for an appropriate client or factory, as described in the previous subsection.
+
+### Contextual State Isolation
+
+The [ContextVar](https://docs.python.org/3/library/contextvars.html#contextvars.ContextVar)-based `mode_context()` and the other cache control context managers are thread- and coroutine-isolated: each thread or async task maintains its own independent mode state, so one context can never interfere with another.
 
 ## Other Key Limitations
 
