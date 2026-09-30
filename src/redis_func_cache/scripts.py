@@ -252,7 +252,8 @@ class HyperbolicScripts(Scripts):
     The score is the Hyperbolic priority ``log(freq + 1) / (age + 1) ^ 0.25``,
     recomputed on every access from a per-entry metadata field
     (``<hash>:m`` in the value hash) that stores the access frequency and the
-    insertion time. See ``lua/hyperbolic_put.lua`` for the full contract.
+    last-access time (every access resets the clock, per the Hyperbolic
+    Caching paper). See ``lua/hyperbolic_put.lua`` for the full contract.
     """
 
     get_script = "hyperbolic_get.lua"
@@ -350,7 +351,7 @@ class LruTrScripts(Scripts):
     Reads are served by the shared ``lru_t_get.lua``; writes go through
     ``lru_tr_put.lua`` — the LRU-T put script plus a random-admission block:
     entries already in the index always pass through (an update must never be
-    dropped), while a **new** insertion is rejected with probability ``p``
+    dropped), while a **new** insertion is rejected with probability ``reject_p``
     (the script returns 0 without writing; no eviction is triggered for it).
     This is the fixed-probability admission rule — the cheap anti-scan-pollution
     baseline of the TinyLFU admission principle.
@@ -358,8 +359,8 @@ class LruTrScripts(Scripts):
     The rejection draws on Lua's ``math.random``, seeded per script execution
     from Redis 7.0 on: random admission therefore requires **Redis >= 7.0**.
 
-    The baked probability ``p`` (default :attr:`DEFAULT_P`) travels as an extra
-    argument (ARGV[7]); the ``admission_p`` decorator kwarg overrides it per
+    The baked rejection probability (default :attr:`DEFAULT_P`) travels as an
+    extra argument (ARGV[7]); the ``reject_p`` decorator kwarg overrides it per
     function (resolved by :meth:`calc_ext_args`, validated like the GDSF
     ``cost`` — no fallback).
     """
@@ -370,19 +371,19 @@ class LruTrScripts(Scripts):
     #: Default rejection probability for new insertions.
     DEFAULT_P = 0.5
 
-    def __init__(self, p: float = DEFAULT_P) -> None:
-        """Declare the admission probability baked into the scripts.
+    def __init__(self, reject_p: float = DEFAULT_P) -> None:
+        """Declare the rejection probability baked into the scripts.
 
         Args:
-            p: Probability of rejecting a new insertion, within ``[0, 1]``.
+            reject_p: Probability of rejecting a new insertion, within ``[0, 1]``.
                 Non-numeric values propagate whatever ``float()`` raises; a
                 value outside the range (or NaN) raises ``ValueError``.
         """
         super().__init__()
-        probability = float(p)
+        probability = float(reject_p)
         if math.isnan(probability) or not 0.0 <= probability <= 1.0:
-            raise ValueError(f"admission probability must be within [0, 1], got {p!r}")
-        self.p = probability
+            raise ValueError(f"reject_p must be within [0, 1], got {reject_p!r}")
+        self.reject_p = probability
 
     def calc_ext_args(
         self,
@@ -391,15 +392,15 @@ class LruTrScripts(Scripts):
         kwds: Mapping[str, Any] | None = None,
         options: Mapping[str, Any] | None = None,
     ) -> tuple[float]:
-        """Pass the effective admission probability (ARGV[7]).
+        """Pass the effective rejection probability (ARGV[7]).
 
-        The baked ``p`` is the default; the ``admission_p`` decorator kwarg
+        The baked ``reject_p`` is the default; the ``reject_p`` decorator kwarg
         overrides it. Validation matches the GDSF ``cost`` semantics: a
         non-numeric value propagates whatever ``float()`` raises, and a value
         outside ``[0, 1]`` (or NaN) raises ``ValueError`` — no fallback.
         """
-        raw = self.p if options is None else options.get("admission_p", self.p)
+        raw = self.reject_p if options is None else options.get("reject_p", self.reject_p)
         p = float(raw)
         if math.isnan(p) or not 0.0 <= p <= 1.0:
-            raise ValueError(f"admission_p must be within [0, 1], got {raw!r}")
+            raise ValueError(f"reject_p must be within [0, 1], got {raw!r}")
         return (p,)

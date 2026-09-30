@@ -15,6 +15,7 @@ from redis.asyncio import Redis as AsyncRedis
 from redis.connection import ConnectionPool
 
 from redis_func_cache import RedisFuncCache, lru_policy
+from redis_func_cache.policies.hyperbolic import hyperbolic_policy
 from redis_func_cache.policies.lru import lru_multiple_policy
 from redis_func_cache.policies.rr import rr_policy
 
@@ -313,3 +314,32 @@ async def test_async_field_ttl_expiry_vacuum_collects(policy):
     assert await _aindex_size(client, index_key) == 1
 
     await cache.policy.apurge_all_pairs(client, cache.prefix, cache.name)
+
+
+def test_vacuum_reclaims_orphan_metadata_field():
+    """幽灵成员的 '<hash>:m' 元数据字段必须一并回收（GDSF/Hyperbolic）。
+
+    值字段过期（用 HDEL 模拟）而元数据字段尚存时，vacuum 除索引成员外
+    还要删除两个 HASH 字段，否则元数据成为永久孤儿。
+    """
+    cache = make_sync_cache(hyperbolic_policy)
+    client = Redis.from_url(REDIS_URL)
+
+    def echo(x):
+        return x
+
+    decorated = cache.decorate(ttl=600)(echo)
+    assert decorated("a") == "a"
+    assert decorated("b") == "b"
+
+    zset_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
+    hash_a = cache.policy.calc_hash(echo, ("a",), {})
+    hash_b = cache.policy.calc_hash(echo, ("b",), {})
+    client.hdel(hmap_key, hash_a)  # 只删值字段，'a:m' 残留
+
+    assert cache.vacuum() == 1
+    assert client.zcard(zset_key) == 1
+    assert not client.hexists(hmap_key, hash_a)
+    assert not client.hexists(hmap_key, hash_a + b":m")
+    assert client.hexists(hmap_key, hash_b)
+    assert client.hexists(hmap_key, hash_b + b":m")

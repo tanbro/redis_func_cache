@@ -57,7 +57,7 @@ cache-layer API or the put ARGV contract beyond optional `calc_ext_args` extensi
    was just evicted). Encodes the core W-TinyLFU insight that _admission_
    decisions, not eviction upgrades, neutralize scan pollution. A few lines of
    Lua; can be layered on LRU-T or any other base policy.
-   _Implementation ADR: TBD._
+   _Implementation ADR: [ADR 0004](0004-random-admission-policy.md)._
 
 ### Deferred
 

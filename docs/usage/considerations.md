@@ -136,6 +136,14 @@ Practical guidance for the `factory` argument:
 - **Decorator compatibility** with other decorators is not guaranteed.
 - **Unique cache names**: Each [`RedisFuncCache`][] instance must have a unique `name` argument. Sharing the same name across different instances may lead to serious errors.
 
+## Per-Request Accounting in Frequency-Based Policies
+
+The frequency-carrying policies (LFU, Hyperbolic, GDSF) share one accounting convention: **a call counts as exactly one request.** A get hit increments the entry's frequency by 1; a put that lands on an existing entry (only reachable via `write_only` mode, or the rare stale-cleanup races) counts the request that produced it instead — never both. A put that inserts a new entry initializes the frequency to 1 (that put is the entry's first request; the get miss that preceded it had nothing to count). Recency-only policies (LRU/LRU-T/FIFO) do not count frequencies, so the convention does not apply to them.
+
+## Known Capacity Boundaries
+
+- **`maxsize` counts entries, not bytes** — including for GDSF. GDSF's score is size-aware (benefit per byte), but the cache's capacity limit is an entry count; the library does not bound the total bytes held. Treat `maxsize` as a slot count and pick a GDSF `cost` scale that reflects your actual recomputation costs.
+
 ## The GDSF Policies' `cost` and Size Semantics
 
 The [`gdsf_policy`][] family scores each entry as `frequency × cost / size` — the retained benefit per byte — and evicts the smallest score.
@@ -150,7 +158,7 @@ The [`lru_tr_policy`][] family is LRU-T with random admission: a **new** inserti
 
 - **Nondeterminism is the point.** Hit rates are not reproducible run-to-run; load tests need statistical treatment (averages over many runs), and unit tests must not assert exact cache contents against these policies.
 - **Requires Redis ≥ 7.0.** Admission draws on Lua's `math.random`, which is seeded per script execution only from Redis 7.0 on. On older servers every run would replay the same random sequence — the same calls would be admitted or rejected identically, silently defeating the mechanism. The library does not enforce this; you must.
-- **The baked `p` and the per-function `admission_p` override.** The probability is baked into a policy (`LruTrScripts(p=0.5)` composes a custom one); a decorated function can override it with the `admission_p` kwarg — `@cache.decorate(admission_p=0.0)` exempts the function from admission entirely. The override is validated like the GDSF `cost`: a non-numeric value propagates `float()`'s error and a value outside `[0, 1]` (or NaN) raises `ValueError` at call time — no fallback. Under the single-key-pair variants (`lru_tr_policy` / `lru_tr_cluster_policy`) a per-function override skews the cross-function competition — a lower `p` grabs more slots; treat it as a blunt priority knob.
+- **The baked `p` and the per-function `reject_p` override.** The probability is baked into a policy (`LruTrScripts(reject_p=0.5)` composes a custom one); a decorated function can override it with the `reject_p` kwarg — `@cache.decorate(reject_p=0.0)` exempts the function from admission entirely. The override is validated like the GDSF `cost`: a non-numeric value propagates `float()`'s error and a value outside `[0, 1]` (or NaN) raises `ValueError` at call time — no fallback. Under the single-key-pair variants (`lru_tr_policy` / `lru_tr_cluster_policy`) a per-function override skews the cross-function competition — a lower `p` grabs more slots; treat it as a blunt priority knob.
 - **Cheap baseline, not TinyLFU.** A one-pass scan of length S displaces at most an expected `p·S` pre-existing entries, whatever its length; that caps the pollution damage. It does not approximate W-TinyLFU's hit rates — that needs a frequency-estimating admission filter. Admission is an LRU-T-specific mechanism, not a general add-on. See `docs/adr/0004-random-admission-policy.md`.
 
 ## Known Issues

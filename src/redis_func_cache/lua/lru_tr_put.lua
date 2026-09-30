@@ -9,7 +9,7 @@
   ARGV[5]: value to store
   ARGV[6]: field ttl (number, seconds)
   ARGV[7]: admission probability (number; the baked default, or the
-           per-function "admission_p" decorator kwarg resolved by the client)
+           per-function "reject_p" decorator kwarg resolved by the client)
   Returns: number of evicted items
 
   Random admission (requires Redis >= 7.0 for a per-execution math.random

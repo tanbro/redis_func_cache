@@ -4,7 +4,7 @@ The admission rule is probabilistic: a new insertion is rejected with
 probability ``p`` while updates always pass. Lua's ``math.random`` cannot be
 seeded from the tests, so the aggregate behavior is asserted statistically
 (many puts, rejection ratio within a wide interval); the deterministic
-aspects — updates pass, boundary probabilities, the ``admission_p``
+aspects — updates pass, boundary probabilities, the ``reject_p``
 decorator override, and semantic equivalence with the base LRU-T script —
 are asserted exactly.
 """
@@ -25,7 +25,7 @@ N_PUTS = 100
 
 
 def _make_cache(name: str, p: float) -> RedisFuncCache:
-    policy = Policy(SingleKeying(name), PICKLE_MD5_HASHER, LruTrScripts(p=p))
+    policy = Policy(SingleKeying(name), PICKLE_MD5_HASHER, LruTrScripts(reject_p=p))
     return RedisFuncCache(f"{__name__}#{name}", policy, factory=redis_factory, maxsize=N_PUTS)
 
 
@@ -142,11 +142,11 @@ def test_p_one_rejects_all_new():
         cache.purge()
 
 
-def test_admission_p_kwarg_overrides_baked():
-    """The admission_p decorator kwarg overrides the baked probability.
+def test_reject_p_kwarg_overrides_baked():
+    """The reject_p decorator kwarg overrides the baked probability.
 
     Baked p = 1.0: the undecorated function is never admitted, while the
-    function declaring admission_p = 0.0 is always admitted.
+    function declaring reject_p = 0.0 is always admitted.
     """
     cache = _make_cache("override", p=1.0)
     cache.purge()
@@ -156,7 +156,7 @@ def test_admission_p_kwarg_overrides_baked():
         def plain(x):
             return x
 
-        exempt = _make_echo(cache, admission_p=0.0)
+        exempt = _make_echo(cache, reject_p=0.0)
 
         for x in range(5):
             plain(x)
@@ -178,24 +178,24 @@ def test_admission_p_kwarg_overrides_baked():
         cache.purge()
 
 
-def test_admission_p_invalid_rejected():
-    """An invalid admission_p override fails fast, like the GDSF cost kwarg.
+def test_reject_p_invalid_rejected():
+    """An invalid reject_p override fails fast, like the GDSF cost kwarg.
 
     Non-numeric values propagate float()'s error; out-of-range values raise
     ValueError at call time — no fallback.
     """
     with pytest.raises(TypeError):  # float(object()) is a TypeError
-        LruTrScripts().calc_ext_args(options={"admission_p": object()})
+        LruTrScripts().calc_ext_args(options={"reject_p": object()})
     with pytest.raises(ValueError):  # float("abc") is a ValueError
-        LruTrScripts().calc_ext_args(options={"admission_p": "abc"})
+        LruTrScripts().calc_ext_args(options={"reject_p": "abc"})
     for bad in (2.0, -1.0, float("nan")):
         with pytest.raises(ValueError):
-            LruTrScripts().calc_ext_args(options={"admission_p": bad})
+            LruTrScripts().calc_ext_args(options={"reject_p": bad})
 
     cache = _make_cache("fallback", p=1.0)
     cache.purge()
     try:
-        echo = _make_echo(cache, admission_p=2.0)
+        echo = _make_echo(cache, reject_p=2.0)
         with pytest.raises(ValueError):  # surfaces on the first put, end to end
             echo(1)
     finally:
@@ -205,28 +205,28 @@ def test_admission_p_invalid_rejected():
 def test_p_validation():
     """Non-numeric p propagates float()'s error; out-of-range or NaN raises ValueError."""
     with pytest.raises(TypeError):  # float(object()) is a TypeError
-        LruTrScripts(p=object())
+        LruTrScripts(reject_p=object())
     with pytest.raises(ValueError):  # float("abc") is a ValueError
-        LruTrScripts(p="abc")
+        LruTrScripts(reject_p="abc")
     with pytest.raises(ValueError):
-        LruTrScripts(p=-0.1)
+        LruTrScripts(reject_p=-0.1)
     with pytest.raises(ValueError):
-        LruTrScripts(p=1.5)
+        LruTrScripts(reject_p=1.5)
     with pytest.raises(ValueError):
-        LruTrScripts(p=float("nan"))
-    assert LruTrScripts(p=0).p == 0.0
-    assert LruTrScripts(p="0.25").p == pytest.approx(0.25)
-    assert LruTrScripts().p == pytest.approx(LruTrScripts.DEFAULT_P)
+        LruTrScripts(reject_p=float("nan"))
+    assert LruTrScripts(reject_p=0).reject_p == 0.0
+    assert LruTrScripts(reject_p="0.25").reject_p == pytest.approx(0.25)
+    assert LruTrScripts().reject_p == pytest.approx(LruTrScripts.DEFAULT_P)
 
 
 def test_calc_ext_args_bakes_p():
     """The effective probability travels as the extension argument (ARGV[7])."""
     assert LruTrScripts().calc_ext_args() == (0.5,)
-    assert LruTrScripts(p=0.25).calc_ext_args() == (0.25,)
+    assert LruTrScripts(reject_p=0.25).calc_ext_args() == (0.25,)
     # the decorator kwarg overrides the baked value, resolved in calc_ext_args
-    assert LruTrScripts(p=1.0).calc_ext_args(options={"admission_p": 0.0}) == (0.0,)
-    assert LruTrScripts(p=1.0).calc_ext_args(options={}) == (1.0,)
-    assert LruTrScripts(p=1.0).calc_ext_args(options=None) == (1.0,)
+    assert LruTrScripts(reject_p=1.0).calc_ext_args(options={"reject_p": 0.0}) == (0.0,)
+    assert LruTrScripts(reject_p=1.0).calc_ext_args(options={}) == (1.0,)
+    assert LruTrScripts(reject_p=1.0).calc_ext_args(options=None) == (1.0,)
 
 
 def test_semantics_match_lru_t_when_admitting():
@@ -239,7 +239,7 @@ def test_semantics_match_lru_t_when_admitting():
     outcomes = {}
     for label, policy in (
         ("t", lru_t_policy),
-        ("tr", Policy(SingleKeying("tr"), PICKLE_MD5_HASHER, LruTrScripts(p=0.0))),
+        ("tr", Policy(SingleKeying("tr"), PICKLE_MD5_HASHER, LruTrScripts(reject_p=0.0))),
     ):
         cache = RedisFuncCache(f"{__name__}#drift-{label}", policy, factory=redis_factory, maxsize=3)
         cache.purge()

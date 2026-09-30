@@ -18,21 +18,27 @@ Policies are stateless: all state must live in Redis, and the key-pair layout
 ## Decision
 
 - **Score** `priority = log(freq + 1) / (age_seconds + 1) ^ 0.25`, where age
-  counts from the entry's _insertion time_ and time is the **Redis server
-  TIME** (never client clocks). The `+1` on the age term keeps fresh entries
-  finite and bounds the effect of microsecond-level age jitter.
+  counts from the entry's **last access** — every access (hit or put) resets
+  the clock to the **Redis server TIME** (never client clocks), exactly as the
+  paper's lazy-decay evaluation does. Without the reset a long-lived hot
+  entry's priority would decay to zero and it would always evict, degenerating
+  the policy toward insertion-order eviction. The `+1` on the age term keeps
+  fresh entries finite and bounds the effect of microsecond-level age jitter.
 - **Per-entry metadata** lives in a companion field `'<hash>:m'` of the value
-  HASH, holding `"<freq> <insert_time_us>"`. Value fields are 32-byte digests,
+  HASH, holding `"<freq> <last_access_ms>"`. Value fields are 32-byte digests,
   metadata fields 34 bytes — the namespaces cannot collide, the key-pair
   layout is unchanged, and `get_size` (ZCARD) still counts one member per
   entry. HEXPIRE (per-field TTL) applies to both fields together. Corrupt or
-  missing metadata restarts the entry (freq = 1, insert = now).
+  missing metadata restarts the entry (freq = 1, last access = now).
+  Entries written by the pre-reset implementation carry an old timestamp that
+  is simply read as a stale last-access time — they age a little faster and
+  self-correct on their next access; no migration is needed.
 - **Clock-reset guard**: age is floored at 0; a backwards server-clock step
   must not produce a negative base for the fractional power (NaN scores would
   corrupt the index ordering).
 - **Eviction by sampling, not by stored score.** Scores are recomputed only
   on access, so between accesses a stored score can only _over-estimate_ the
-  true priority (age grows monotonically). A plain `ZPOPMIN` would therefore
+  true priority (age grows monotonically since the last access). A plain `ZPOPMIN` would therefore
   keep a recently-pumped entry forever — precisely the LFU weakness this
   policy exists to fix. Instead each eviction samples 8 random members
   (`ZRANDMEMBER`, hence Redis ≥ 6.2), recomputes their true priorities from

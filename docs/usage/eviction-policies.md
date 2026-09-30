@@ -38,17 +38,17 @@ Random replacement: the index is a plain Redis SET and `SPOP` picks the victim. 
 
 ### LFU — `lfu_policy`
 
-Least frequently used: the index score is an access counter (initialized on insert, incremented on hit). Captures long-term popularity, which recency misses — but classical LFU has a famous aging flaw: an entry that was hot long ago but is dead now still holds its high count and squats on a slot. The built-in script pair does not fix aging (see the roadmap policy [Hyperbolic](#the-roadmap-policies) for the fix); choose LFU when popularity is stable and pollution is not a concern.
+Least frequently used: the index score is an access counter (initialized on insert, incremented on hit). Captures long-term popularity, which recency misses — but classical LFU has a famous aging flaw: an entry that was hot long ago but is dead now still holds its high count and squats on a slot. The built-in script pair does not fix aging — [Hyperbolic](#hyperbolic--hyperbolic_policy) is its aging fix; choose LFU when popularity is stable and pollution is not a concern.
 
 - Reference: O'Neil, O'Neil & Weikum, _The LRU-K Page Replacement Algorithm for Database Disk Buffering_, SIGMOD 1993 (introduces and dissects LFU's aging problem; LRU-K is its classical remedy).
 
-## The roadmap policies
+## The upgrade policies
 
 These three were added together as the anti-pollution/heterogeneity upgrade of the baseline set — see the [eviction policy roadmap ADR](../adr/0001-eviction-policy-roadmap.md) for the decision record and [ADR 0002](../adr/0002-hyperbolic-eviction-policy.md) / [ADR 0003](../adr/0003-gdsf-eviction-policy.md) / [ADR 0004](../adr/0004-random-admission-policy.md) for the implementation designs.
 
 ### Hyperbolic — `hyperbolic_policy`
 
-LFU with aging: one score `log(freq + 1) / (age + 1) ^ 0.25` merges frequency and recency — a newly inserted entry scores high and decays if not re-accessed, so yesterday's hot entry loses its squat. Requires Redis ≥ 6.2 (`ZRANDMEMBER` for sampled re-scoring; a stored frequency-only score cannot express aging, so the put script re-scores a random sample before evicting). A companion metadata field (`<hash>:m`) holds the frequency and insertion time.
+LFU with aging: one score `log(freq + 1) / (age + 1) ^ 0.25` merges frequency and recency — a newly inserted entry scores high and decays if not re-accessed, so yesterday's hot entry loses its squat. Age counts from the **last access**: every hit or write resets the entry's clock, so a steadily hot entry's priority stays near `log(freq + 1)` and only an untouched one decays. Requires Redis ≥ 6.2 (`ZRANDMEMBER` for sampled re-scoring; a stored frequency-only score cannot express aging, so the put script re-scores a random sample before evicting). A companion metadata field (`<hash>:m`) holds the frequency and the last-access time.
 
 - Reference: Berger, Sitaraman & Abad, _Hyperbolic Caching: Flexible Caching for Web-Scale Workloads_, USENIX ATC 2020. ([paper](https://www.usenix.org/conference/atc20/presentation/berger))
 
@@ -60,7 +60,7 @@ Greedy-Dual-Size: score = `frequency × cost / size` — the retained benefit **
 
 ### LRU-T with random admission — `lru_tr_policy`
 
-LRU-T plus a probabilistic admission filter: a **new** insertion is rejected with probability `p` (0.5 in the presets, overridable per function with the `admission_p` kwarg), while updates always pass. Rationale: one-pass scans — the classic LRU killer — can only displace an expected `p·S` pre-existing entries, however long the scan. Hit rates are nondeterministic by design, and the policy requires Redis ≥ 7.0 (per-execution `math.random` seeding). Positioned as the **cheap baseline** of scan-resistant admission: it does not approximate TinyLFU's hit rates — that needs a frequency-estimating admission filter (a Count-Min Sketch or similar), deliberately deferred. See the caveats in [considerations](considerations.md#the-random-admission-policies-lru_tr-probabilistic-contract).
+LRU-T plus a probabilistic admission filter: a **new** insertion is rejected with probability `p` (0.5 in the presets, overridable per function with the `reject_p` kwarg), while updates always pass. Rationale: one-pass scans — the classic LRU killer — can only displace an expected `p·S` pre-existing entries, however long the scan. Hit rates are nondeterministic by design, and the policy requires Redis ≥ 7.0 (per-execution `math.random` seeding). Positioned as the **cheap baseline** of scan-resistant admission: it does not approximate TinyLFU's hit rates — that needs a frequency-estimating admission filter (a Count-Min Sketch or similar), deliberately deferred. See the caveats in [considerations](considerations.md#the-random-admission-policies-lru_tr-probabilistic-contract).
 
 - References: Einziger, Friedman & Manes, _TinyLFU: A Fresh Look at Power-Law Key Distribution and the I/O Cost of Flash_, ACM TOCS 2017 (the admission-over-eviction principle); Jaleel, Theobald, Steely & Emer, _High Performance Cache Replacement Using Re-Reference Interval Prediction (RRIP)_, ISCA 2010 (randomized/low-priority insertion as an established scan-resistant baseline).
 

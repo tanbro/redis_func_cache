@@ -2,14 +2,15 @@
   Hyperbolic (LFU with aging) cache get operation.
   KEYS[1]: Redis sorted set key for cache hashes (score = hyperbolic priority)
   KEYS[2]: Redis hash key for cache values; each entry also has a companion
-           metadata field '<hash>:m' storing "<freq> <insert_time_ms>"
+           metadata field '<hash>:m' storing "<freq> <last_access_ms>"
   ARGV[1]: update ttl flag (1 for update ttl, 0 for fixed ttl)
   ARGV[2]: TTL for both keys (number, seconds)
   ARGV[3]: hash key to retrieve
   Returns: value if found, otherwise nil. Recomputes the hyperbolic priority
   score = log(freq + 1) / (age_seconds + 1) ^ 0.25 on every hit (server TIME is
-  authoritative), and cleans up stale entries on a miss. The structure TTL is
-  only refreshed on a hit.
+  authoritative) and resets the entry's clock — age counts from the LAST ACCESS
+  (Hyperbolic Caching paper: every access zeroes the age term). Misses clean up
+  stale entries. The structure TTL is only refreshed on a hit.
 ]]
 local zset_key = KEYS[1]
 local hmap_key = KEYS[2]
@@ -29,35 +30,27 @@ if rnk and val then
         redis.call('EXPIRE', hmap_key, ttl)
     end
 
-    -- Parse "<freq> <insert_ms>"; missing or corrupt metadata restarts the entry
+    -- Parse "<freq> <last_access_ms>"; missing or corrupt metadata restarts the entry
     local meta = redis.call('HGET', hmap_key, hash .. ':m')
     local freq = 1
-    local insert_ms = 0
     if meta then
         local sep = string.find(meta, ' ')
         if sep then
             freq = tonumber(string.sub(meta, 1, sep - 1)) or 1
-            insert_ms = tonumber(string.sub(meta, sep + 1)) or 0
         end
     end
 
     local time = redis.call('TIME')
-    local now_ms = time[1] * 1000 + math.floor(time[2] / 1000)
-    if insert_ms <= 0 then
-        insert_ms = now_ms
-    end
-
-    -- Age floored at 0: a server clock reset must not produce a negative
-    -- base for the fractional power (NaN scores would corrupt the index)
-    local age = (now_ms - insert_ms) / 1000
-    if age < 0 then
-        age = 0
-    end
+    -- Reset the clock: age is measured from the last access, so a freshly hit
+    -- entry's priority is log(freq + 1) and decays only while it is NOT
+    -- accessed — that decay is what lets it age out
+    local last_access_ms = time[1] * 1000 + math.floor(time[2] / 1000)
 
     freq = freq + 1
-    local score = math.log(freq + 1) / math.pow(age + 1, 0.25)
+    -- age = 0 at access time, so the priority is exactly log(freq + 1)
+    local score = math.log(freq + 1)
     redis.call('ZADD', zset_key, score, hash)
-    redis.call('HSET', hmap_key, hash .. ':m', freq .. ' ' .. insert_ms)
+    redis.call('HSET', hmap_key, hash .. ':m', freq .. ' ' .. last_access_ms)
     return val
 elseif rnk then
     redis.call('ZREM', zset_key, hash) -- remove stale zset member

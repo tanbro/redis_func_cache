@@ -2,7 +2,7 @@
   Hyperbolic (LFU with aging) cache put operation.
   KEYS[1]: Redis sorted set key for cache hashes (score = hyperbolic priority)
   KEYS[2]: Redis hash key for cache values; each entry also has a companion
-           metadata field '<hash>:m' storing "<freq> <insert_time_ms>"
+           metadata field '<hash>:m' storing "<freq> <last_access_ms>"
   ARGV[1]: max cache size (number)
   ARGV[2]: update ttl flag (1 for update ttl, 0 for fixed ttl)
   ARGV[3]: TTL for both keys (number, seconds)
@@ -13,13 +13,14 @@
 
   Score formula (Hyperbolic Caching, USENIX ATC 2020):
       priority = log(freq + 1) / (age_seconds + 1) ^ 0.25
-  where age counts from the entry's insertion time (server TIME is
-  authoritative). The score is recomputed on each access; between accesses a
-  stored score can only over-estimate the true priority, so eviction must not
-  trust the stored ordering: each eviction samples SAMPLE members, recomputes
-  their true priorities from the metadata, and evicts the sampled minimum.
-  Sampling is what lets stale hot entries (not accessed since their score
-  was last refreshed) age out — the LFU weakness this policy fixes.
+  where age counts from the entry's LAST ACCESS (server TIME is
+  authoritative): every access zeroes the age term, so a steadily hot entry's
+  priority stays near log(freq + 1) while an untouched one decays. Between
+  accesses a stored score can only over-estimate the true priority, so
+  eviction must not trust the stored ordering: each eviction samples SAMPLE
+  members, recomputes their true priorities from the metadata, and evicts the
+  sampled minimum. Sampling is what lets stale hot entries age out — the LFU
+  weakness this policy fixes.
 ]]
 local zset_key = KEYS[1]
 local hmap_key = KEYS[2]
@@ -40,17 +41,17 @@ local GHOST = -1e308
 local time = redis.call('TIME')
 local now_ms = time[1] * 1000 + math.floor(time[2] / 1000)
 
--- Read the companion metadata field "<freq> <insert_ms>"; missing or corrupt
--- metadata restarts the entry with the current clock as its insertion time
+-- Read the companion metadata field "<freq> <last_access_ms>"; missing or corrupt
+-- metadata restarts the entry with the current clock as its last-access time
 local function read_meta(field)
     local meta = redis.call('HGET', hmap_key, field)
     if meta then
         local sep = string.find(meta, ' ')
         if sep then
             local freq = tonumber(string.sub(meta, 1, sep - 1))
-            local insert_ms = tonumber(string.sub(meta, sep + 1))
-            if freq and insert_ms and insert_ms > 0 then
-                return freq, insert_ms
+            local last_access_ms = tonumber(string.sub(meta, sep + 1))
+            if freq and last_access_ms and last_access_ms > 0 then
+                return freq, last_access_ms
             end
         end
     end
@@ -59,8 +60,8 @@ end
 
 -- Hyperbolic priority; age floored at 0 so a server clock reset cannot
 -- produce a negative base for the fractional power (NaN would corrupt the index)
-local function priority(freq, insert_ms)
-    local age = (now_ms - insert_ms) / 1000
+local function priority(freq, last_access_ms)
+    local age = (now_ms - last_access_ms) / 1000
     if age < 0 then
         age = 0
     end
@@ -78,10 +79,11 @@ end
 
 -- If hash exists in zset, update the value and recompute the priority
 if redis.call('ZRANK', zset_key, hash) then
-    local freq, insert_ms = read_meta(hash .. ':m')
+    local freq = read_meta(hash .. ':m')
     freq = freq + 1
-    redis.call('ZADD', zset_key, priority(freq, insert_ms), hash)
-    redis.call('HSET', hmap_key, hash .. ':m', freq .. ' ' .. insert_ms)
+    -- Reset the clock: a put is an access (age counts from the last access)
+    redis.call('ZADD', zset_key, priority(freq, now_ms), hash)
+    redis.call('HSET', hmap_key, hash .. ':m', freq .. ' ' .. now_ms)
     redis.call('HSET', hmap_key, hash, return_value)
 
     -- Handle field TTL update (value and metadata fields age together)
@@ -112,8 +114,8 @@ else
                 if redis.call('HEXISTS', hmap_key, m) == 0 then
                     p = GHOST
                 else
-                    local freq, insert_ms = read_meta(m .. ':m')
-                    p = priority(freq, insert_ms)
+                    local freq, last_access_ms = read_meta(m .. ':m')
+                    p = priority(freq, last_access_ms)
                 end
                 if p < best_p then
                     best_p = p

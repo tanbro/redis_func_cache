@@ -51,6 +51,18 @@ if #ghosts > 0 then
     -- Chunked unpack: it overflows above ~8000 values
     local UNPACK_CHUNK = 4000
     for i = 1, #ghosts, UNPACK_CHUNK do
+        -- Also delete the companion metadata field '<hash>:m' (GDSF/Hyperbolic);
+        -- HDEL of a missing field is a no-op and base fields are md5 hex, so the
+        -- ':m' suffix can never collide with a real member — safe for every policy
+        local fields = {}
+        local m = 0
+        for j = i, math.min(i + UNPACK_CHUNK - 1, #ghosts) do
+            m = m + 1
+            fields[m] = ghosts[j]
+            m = m + 1
+            fields[m] = ghosts[j] .. ':m'
+        end
+        redis.call('HDEL', hmap_key, unpack(fields, 1, m))
         if is_set then
             removed = removed + redis.call('SREM', index_key, unpack(ghosts, i, math.min(i + UNPACK_CHUNK - 1, #ghosts)))
         else

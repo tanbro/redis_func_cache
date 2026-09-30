@@ -114,10 +114,10 @@ Available policies:
 - **[`lru_t_policy`][]** (Default, recommended): Time-based LRU, offers the best balance of performance and accuracy for most use cases. It is the default when the `policy` argument is omitted.
 - [`fifo_policy`][]: First in, first out
 - [`gdsf_policy`][]: Greedy-Dual-Size — evicts the smallest benefit per byte (`frequency × cost / size`); supports the `cost` decorator kwarg (see [considerations](considerations.md))
-- [`hyperbolic_policy`][]: Hyperbolic caching (LFU with aging) — frequency and insertion age in one score, so stale hot entries age out
+- [`hyperbolic_policy`][]: Hyperbolic caching (LFU with aging) — frequency and recency in one score, so stale hot entries age out
 - [`lfu_policy`][]: Least frequently used
 - [`lru_policy`][]: Least recently used (more precise but slower than LRU-T)
-- [`lru_tr_policy`][]: LRU-T with random admission — rejects ~half of the new insertions to blunt scan pollution; per-function `admission_p` override (requires Redis ≥ 7.0; see [considerations](considerations.md))
+- [`lru_tr_policy`][]: LRU-T with random admission — rejects ~half of the new insertions to blunt scan pollution; per-function `reject_p` override (requires Redis ≥ 7.0; see [considerations](considerations.md))
 - [`mru_policy`][]: Most recently used
 - [`rr_policy`][]: Random remove
 

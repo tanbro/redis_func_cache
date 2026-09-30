@@ -52,7 +52,9 @@ end
 if redis.call('ZRANK', zset_key, hash) then
     redis.call('HSET', hmap_key, hash, return_value)
 
-    -- Re-score from the recorded frequency (cost may have changed at the decorator)
+    -- Count the request (the accounting convention shared with LFU/Hyperbolic:
+    -- a get hit counts once, a put update counts the request that produced it —
+    -- never both), then re-score (cost may have changed at the decorator)
     local freq = 1
     local meta = redis.call('HGET', hmap_key, hash .. ':m')
     if meta then
@@ -61,6 +63,7 @@ if redis.call('ZRANK', zset_key, hash) then
             freq = tonumber(string.sub(meta, 1, sep - 1)) or 1
         end
     end
+    freq = freq + 1
     redis.call('ZADD', zset_key, freq * cost / size, hash)
     redis.call('HSET', hmap_key, hash .. ':m', freq .. ' ' .. cost)
 
