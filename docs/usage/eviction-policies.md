@@ -64,6 +64,53 @@ LRU-T plus a probabilistic admission filter: a **new** insertion is rejected wit
 
 - References: Einziger, Friedman & Manes, _TinyLFU: A Fresh Look at Power-Law Key Distribution and the I/O Cost of Flash_, ACM TOCS 2017 (the admission-over-eviction principle); Jaleel, Theobald, Steely & Emer, _High Performance Cache Replacement Using Re-Reference Interval Prediction (RRIP)_, ISCA 2010 (randomized/low-priority insertion as an established scan-resistant baseline).
 
+## Per-function policy kwargs
+
+Two policies take extra per-function arguments through the decorator (alongside the common `serializer` / `excludes` / `ttl` / `update_ttl` / `write_only` options). Both are safe to pass under any policy — a policy whose scripts do not read them simply ignores them — but they only have an effect on the policies below. (A kwarg outside the known option set is a different story: it is forwarded to the Lua script and fails at runtime.)
+
+### `cost` — the GDSF policies
+
+The miss cost of the decorated function, a positive number (coerced with `float()`; unit-free — pick one consistent unit, e.g. milliseconds or a downstream API's charge per call). Defaults to `1.0` when absent; ignored by non-GDSF policies.
+
+```python
+from redis_func_cache import gdsf_policy, RedisFuncCache
+
+cache = RedisFuncCache(__name__, gdsf_policy, factory=factory)
+
+@cache(cost=500.0)  # a miss here is ~500 units — retain it over cheap calls
+def expensive_api(user_id: int) -> dict: ...
+
+@cache  # no cost kwarg: defaults to 1.0
+def cheap_api(key: str) -> str: ...
+```
+
+`cost` only changes eviction when functions **share a key pair** — under `gdsf_policy` / `gdsf_cluster_policy` it weighs the cross-function trade-off; under the `gdsf_multiple_*` variants every entry of a pair carries the same cost, so it cannot change their relative order. Full semantics (including why `size` makes hit rates serializer-sensitive): [considerations](considerations.md#the-gdsf-policies-cost-and-size-semantics).
+
+### `reject_p` — the `lru_tr` policies
+
+The probability of rejecting a **new** insertion, within `[0, 1]`. It can be set at two levels: baked into the policy (compose `LruTrScripts(reject_p=...)` — the usual way, applies to every function of the cache), or per function with the decorator kwarg (overrides the baked value). The presets bake `0.5`. A value outside `[0, 1]` (or NaN) raises `ValueError`.
+
+```python
+from redis_func_cache import RedisFuncCache
+from redis_func_cache.hashing import PickleMd5Hasher
+from redis_func_cache.keying import MultipleKeying
+from redis_func_cache.policies import Policy
+from redis_func_cache.scripts import LruTrScripts
+
+# Policy level (the common case): compose the preset's parts with your own p —
+# every decorated function of the cache then admits newcomers with p = 0.2
+my_lru_tr = Policy(MultipleKeying("lru_tr-m"), PickleMd5Hasher(), LruTrScripts(reject_p=0.2))
+cache = RedisFuncCache(__name__, my_lru_tr, factory=factory)
+
+@cache   # p = 0.2 from the policy
+def scanned_table(key: str) -> bytes: ...
+
+@cache(reject_p=0.75)   # per-function override: exempt this one from admission
+def hot_key(user_id: int) -> dict: ...
+```
+
+Note the trade-off under the single-key-pair variants (`lru_tr_policy` / `lru_tr_cluster_policy`): a lower `p` grabs more slots for that function, skewing the cross-function competition — treat it as a blunt priority knob. See the [probabilistic contract](considerations.md#the-random-admission-policies-lru_tr-probabilistic-contract) for what nondeterminism means for your tests.
+
 ## Choosing one
 
 | Workload signal                                  | Start with                   | Redis floor |
