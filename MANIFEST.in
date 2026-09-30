@@ -1,6 +1,7 @@
 exclude .*
 exclude .log
 exclude codecov.yml
+exclude mmdc.json
 exclude qodana.yaml
 exclude requirements.txt
 exclude AGENTS.md
