@@ -195,7 +195,7 @@ with cache.read_only():
     data = get_user_data(123)  # Only attempts to read from cache
 
 # Disable cache entirely
-with cache.disable_rw():
+with cache.no_cache():
     data = get_user_data(123)  # Function executed, no cache interaction
 ```
 

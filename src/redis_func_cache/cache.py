@@ -32,6 +32,8 @@ from .typing import (
     RedisAsyncClientT,
     RedisClientTV,
     RedisSyncClientT,
+    is_redis_async_client,
+    is_redis_sync_client,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -41,6 +43,24 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 __all__ = ("RedisFuncCache",)
+
+_FORBIDDEN_KEY_CHARS = frozenset("*?[]\\{}")
+"""Characters rejected in ``name`` / ``prefix`` key fragments.
+
+``*``, ``?``, ``[`` and ``\\`` are glob metacharacters: the maintenance
+operations enumerate keys via ``SCAN`` patterns built from these fragments,
+and an unescaped metacharacter would widen the pattern to keys the cache does
+not own. ``{`` and ``}`` would corrupt the cluster hash tag the cluster keying
+variants wrap around the fragment (Redis reads the tag between the first
+``{`` and the first ``}``).
+"""
+
+
+def _validate_key_fragment(kind: str, value: str) -> None:
+    """Reject key-fragment characters that would corrupt SCAN patterns or cluster hash tags."""
+    forbidden = sorted(c for c in value if c in _FORBIDDEN_KEY_CHARS)
+    if forbidden:
+        raise ValueError(f"{kind} must not contain glob or hash-tag characters: {forbidden!r}")
 
 
 class RedisFuncCache(Generic[RedisClientTV]):
@@ -326,6 +346,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         value = str(value).strip()
         if not value:
             raise ValueError("name must be a non-empty string")
+        _validate_key_fragment("name", value)
         self._name = value
 
     @property
@@ -338,6 +359,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         value = str(value).strip()
         if not value:
             raise ValueError("prefix must be a non-empty string")
+        _validate_key_fragment("prefix", value)
         self._prefix = value
 
     @property
@@ -627,6 +649,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
         if ignore_redis_errors is None:
             ignore_redis_errors = self.ignore_redis_errors
         redis_client = self.get_redis_client()
+        if is_redis_async_client(redis_client):
+            raise TypeError(
+                f"The sync execution path requires a synchronous redis client, got {type(redis_client).__name__}"
+            )
         if stats:
             stats.count += 1
         handler = self._handler if handler is None else handler
@@ -757,6 +783,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
         if ignore_redis_errors is None:
             ignore_redis_errors = self.ignore_redis_errors
         redis_client = self.get_redis_client()
+        if is_redis_sync_client(redis_client):
+            raise TypeError(
+                f"The async execution path requires an asynchronous redis client, got {type(redis_client).__name__}"
+            )
         if stats:
             stats.count += 1
         handler = handler if handler is not None else self._handler
@@ -959,7 +989,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                         @cache(excludes_positional=[1, 2])
                         def update_user(user_id: int, session: Session, token: str) -> None: ...
 
-                options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
+            options: Additional options passed to :meth:`exec`, they will encoded to json, then pass to redis lua script.
 
                 .. versionadded:: 0.5
 
@@ -1020,7 +1050,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
             serialize_func, deserialize_func = serializer
         field_ttl = 0 if ttl is None else int(ttl)
         if field_ttl < 0:
-            raise ValueError("ttl must be a positive integer")
+            raise ValueError("ttl must be a non-negative integer")
         if field_ttl:
             warn("The ‘ttl’ parameter is experimental and only available in Redis versions above 7.4")
 
@@ -1112,7 +1142,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
         The context manager is thread local and thread safe.
 
         Args:
-            mode(Mode): The cache mode to use within the context. Can be a combination of Mode bitwise flags.
+            mode(Mode): The cache mode to use within the context.
 
         Example:
 
@@ -1137,10 +1167,10 @@ class RedisFuncCache(Generic[RedisClientTV]):
             self._mode.reset(token)
 
     @contextmanager
-    def disable_rw(self) -> Generator[RedisFuncCache.Mode]:
+    def no_cache(self) -> Generator[RedisFuncCache.Mode]:
         """A context manager who disables the cache read and write temporarily.
 
-        This wall disable the cache read and write, as if there is no cache.
+        This will disable the cache read and write, as if there is no cache.
 
         Example:
 
@@ -1150,10 +1180,11 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 def func(): ...
 
 
-                with cache.disable_rw():
+                with cache.no_cache():
                     result = func()  # will be executed without cache ability
 
-        .. versionadded:: 0.5
+        .. versionchanged:: 1.0
+            Renamed from ``disable_rw``.
         """
         mode = replace(self._mode.get(), read=False, write=False)
         with self.mode_context(mode) as x:
@@ -1241,24 +1272,20 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         .. versionadded:: 1.0
         """
-        return self.policy.purge_all_pairs(
-            cast(RedisSyncClientT, self.get_redis_client() if redis_client is None else redis_client),
-            self.prefix,
-            self.name,
-            batch_size,
-        )
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if is_redis_sync_client(client):
+            return self.policy.purge_all_pairs(client, self.prefix, self.name, batch_size)
+        raise TypeError(f"Expected a synchronous redis client, got {type(client).__name__}")
 
     async def apurge(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`purge`.
 
         .. versionadded:: 1.0
         """
-        return await self.policy.apurge_all_pairs(
-            cast(RedisAsyncClientT, self.get_redis_client() if redis_client is None else redis_client),
-            self.prefix,
-            self.name,
-            batch_size,
-        )
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if is_redis_async_client(client):
+            return await self.policy.apurge_all_pairs(client, self.prefix, self.name, batch_size)
+        raise TypeError(f"Expected an asynchronous redis client, got {type(client).__name__}")
 
     def get_size(self, redis_client: RedisSyncClientT | None = None) -> int:
         """Get the number of items in the cache synchronously.
@@ -1276,22 +1303,20 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         .. versionadded:: 1.0
         """
-        return self.policy.get_size(
-            cast(RedisSyncClientT, self.get_redis_client() if redis_client is None else redis_client),
-            self.prefix,
-            self.name,
-        )
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if is_redis_sync_client(client):
+            return self.policy.get_size(client, self.prefix, self.name)
+        raise TypeError(f"Expected a synchronous redis client, got {type(client).__name__}")
 
     async def aget_size(self, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`get_size`.
 
         .. versionadded:: 1.0
         """
-        return await self.policy.aget_size(
-            cast(RedisAsyncClientT, self.get_redis_client() if redis_client is None else redis_client),
-            self.prefix,
-            self.name,
-        )
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if is_redis_async_client(client):
+            return await self.policy.aget_size(client, self.prefix, self.name)
+        raise TypeError(f"Expected an asynchronous redis client, got {type(client).__name__}")
 
     def vacuum(self, batch_size: int = 500, redis_client: RedisSyncClientT | None = None) -> int:
         """Remove ZSET members whose hash fields have expired ("ghost" entries).
@@ -1310,21 +1335,17 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
         .. versionadded:: 1.0
         """
-        return self.policy.vacuum_all_pairs(
-            cast(RedisSyncClientT, self.get_redis_client() if redis_client is None else redis_client),
-            self.prefix,
-            self.name,
-            batch_size,
-        )
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if is_redis_sync_client(client):
+            return self.policy.vacuum_all_pairs(client, self.prefix, self.name, batch_size)
+        raise TypeError(f"Expected a synchronous redis client, got {type(client).__name__}")
 
     async def avacuum(self, batch_size: int = 500, redis_client: RedisAsyncClientT | None = None) -> int:
         """Async version of :meth:`vacuum`.
 
         .. versionadded:: 1.0
         """
-        return await self.policy.avacuum_all_pairs(
-            cast(RedisAsyncClientT, self.get_redis_client() if redis_client is None else redis_client),
-            self.prefix,
-            self.name,
-            batch_size,
-        )
+        client = self.get_redis_client() if redis_client is None else redis_client
+        if is_redis_async_client(client):
+            return await self.policy.avacuum_all_pairs(client, self.prefix, self.name, batch_size)
+        raise TypeError(f"Expected an asynchronous redis client, got {type(client).__name__}")

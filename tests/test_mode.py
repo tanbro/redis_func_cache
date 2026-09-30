@@ -21,8 +21,8 @@ def clean_caches():
 
 
 @pytest.mark.parametrize("cache_name,cache", CACHES.items())
-def test_disable_rw(cache_name: str, cache: RedisFuncCache):
-    """测试 disable_rw 上下文管理器是否正确禁用读写操作。"""
+def test_no_cache(cache_name: str, cache: RedisFuncCache):
+    """测试 no_cache 上下文管理器是否正确禁用读写操作。"""
 
     @cache
     def echo(x):
@@ -37,8 +37,8 @@ def test_disable_rw(cache_name: str, cache: RedisFuncCache):
         assert echo(val) == val
         mock_put.assert_not_called()
 
-    # 在 disable_rw 上下文中调用，函数仍然会被执行，但不会读写缓存
-    with cache.disable_rw():
+    # 在 no_cache 上下文中调用，函数仍然会被执行，但不会读写缓存
+    with cache.no_cache():
         assert not cache.get_mode().read
         assert not cache.get_mode().write
         # 直接调用函数，不经过缓存

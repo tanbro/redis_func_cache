@@ -43,8 +43,8 @@ def cache(async_redis_client):
 
 class TestAsyncContext:
     @pytest.mark.asyncio
-    async def test_disable_rw(self, cache):
-        """测试 disable_rw 上下文管理器是否正确禁用读写操作。"""
+    async def test_no_cache(self, cache):
+        """测试 no_cache 上下文管理器是否正确禁用读写操作。"""
 
         @cache
         async def echo(x):
@@ -59,8 +59,8 @@ class TestAsyncContext:
             assert await echo(val) == val
             mock_put.assert_not_called()
 
-        # 在 disable_rw 上下文中调用，缓存应完全禁用
-        with cache.disable_rw():  # noqa: SIM117
+        # 在 no_cache 上下文中调用，缓存应完全禁用
+        with cache.no_cache():  # noqa: SIM117
             # 直接调用函数，不经过缓存
             with patch_object(cache.policy, "aget", return_value=None) as mock_get:
                 with patch_object(cache.policy, "aput") as mock_put:
@@ -158,7 +158,7 @@ class TestAsyncContext:
             results["initial_mode"] = (mode.read, mode.write, mode.exec)
 
             # 在子协程中修改 mode
-            with cache.disable_rw():
+            with cache.no_cache():
                 mode = cache.get_mode()
                 results["disabled_mode"] = (mode.read, mode.write, mode.exec)
 
