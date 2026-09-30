@@ -88,7 +88,7 @@ Rules for diagrams in Markdown docs (README.md, CONTRIBUTING.md, docs/):
     in the document;
   - commit source and artifact together; a source change must be re-exported in
     the same commit.
-- Export Mermaid with `mmdc` using `<dir>/diagrams/mmdc.json` containing
+- Export Mermaid with `mmdc` using the repo-root `mmdc.json` containing
   `{"htmlLabels": false}` — required so text renders in SVG-as-image (secure
   static mode); pin the mmdc version when regenerating.
 - SVG is plain text and small — keep it in ordinary Git (no LFS); LFS is for
