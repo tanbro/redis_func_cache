@@ -19,7 +19,7 @@ repos:
       - id: check-builtin-literals
       # - id: check-docstring-first
 
-  # prettier is run via npx (local hook)
+  # prettier is managed by pre-commit's node env (npx hits ETXTBSY races in CI)
   - repo: local
     hooks:
       - id: luals
@@ -30,8 +30,9 @@ repos:
         pass_filenames: false
       - id: prettier
         name: prettier
-        entry: npx --yes prettier
-        language: system
+        entry: prettier
+        language: node
+        additional_dependencies: ["prettier@3.9.9"]
         pass_filenames: true
         args: ["--write", "--ignore-unknown"]
 
