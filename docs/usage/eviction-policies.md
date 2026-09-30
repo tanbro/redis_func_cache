@@ -66,14 +66,23 @@ LRU-T plus a probabilistic admission filter: a **new** insertion is rejected wit
 
 ## Choosing one
 
-| Workload signal                                  | Start with                   |
-| ------------------------------------------------ | ---------------------------- |
-| General purpose, no special structure            | [`lru_t_policy`][] (default) |
-| Big/cheap results vary in size or recompute cost | [`gdsf_policy`][]            |
-| Stable popularity, stale hotness is the problem  | [`hyperbolic_policy`][]      |
-| One-pass scans keep flushing the cache           | [`lru_tr_policy`][]          |
-| Cyclic access over a fixed working set           | [`mru_policy`][]             |
-| No reuse structure to exploit                    | [`rr_policy`][]              |
+| Workload signal                                  | Start with                   | Redis floor |
+| ------------------------------------------------ | ---------------------------- | ----------- |
+| General purpose, no special structure            | [`lru_t_policy`][] (default) | 3.2         |
+| Big/cheap results vary in size or recompute cost | [`gdsf_policy`][]            | 3.2         |
+| Stable popularity, stale hotness is the problem  | [`hyperbolic_policy`][]      | 6.2         |
+| One-pass scans keep flushing the cache           | [`lru_tr_policy`][]          | 7.0         |
+| Cyclic access over a fixed working set           | [`mru_policy`][]             | 3.2         |
+| No reuse structure to exploit                    | [`rr_policy`][]              | 3.2         |
+
+How to read the signals:
+
+- **Start from the default.** `lru_t_policy` is the right answer until measurement says otherwise; recency is a strong default predictor of reuse. Switch only when your hit rate shows a specific, diagnosable failure mode.
+- **Scan pollution** (a periodic job or admin query touches every key once and the working set is evicted): `lru_tr` is the cheap fix and costs nothing else — updates always pass, so steady traffic is unaffected. If you also need frequency awareness, `hyperbolic` already resists pollution on its own (a one-hit entry's priority decays immediately), making the two the natural alternatives, not complements.
+- **Heterogeneous values or costs**: sizes or recomputation costs differ by more than an order of magnitude — `gdsf`. If your values are near-uniform in size, GDSF's size term cancels and it behaves like LFU with extra bookkeeping.
+- **Popularity is stable and old hotness never returns**: plain LFU is fine and cheapest per access; if popularity shifts over days, `hyperbolic` replaces it outright.
+- **The floors are per-policy**: field-level TTL (`ttl` on the decorator) separately requires Redis ≥ 7.4 with any policy (see [considerations](considerations.md)).
+- **Nothing fits?** Policies compose: `Policy(SingleKeying("my-ns"), PICKLE_MD5_HASHER, MyScripts())` — any custom scorer is a small Lua pair (see the [composition ADR](../adr/0001-eviction-policy-roadmap.md) for what the mechanism can and cannot express).
 
 [`Policy`]: redis_func_cache.policies.Policy
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache
