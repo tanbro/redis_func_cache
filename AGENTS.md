@@ -93,9 +93,14 @@ Rules for diagrams in Markdown docs (README.md, CONTRIBUTING.md, docs/):
   static mode); pin the mmdc version when regenerating.
 - SVG is plain text and small — keep it in ordinary Git (no LFS); LFS is for
   real binaries (see `.gitattributes`).
-- Do not introduce other diagram tools (no draw.io; PlantUML only as a last
-  resort when Mermaid truly cannot express the UML, exported to SVG the same
-  way).
+- Tool ladder by capability: **Mermaid** is the default — it covers most
+  diagram needs including ordinary UML (flowchart, sequence, class, state).
+  **Graphviz** (`dot`) is the broader fallback when Mermaid cannot express the
+  graph or its layout needs — complex edge routing, clusters, large node sets;
+  sources `<name>.dot`, exported with `dot -Tsvg -o images/<name>.svg` (its SVG
+  uses plain text, no config needed). **PlantUML** is for professional, complex
+  UML beyond what Mermaid can express, exported to SVG the same way. No
+  draw.io.
 
 ## Process constraints
 
