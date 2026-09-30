@@ -46,6 +46,7 @@ Contents
 
    usage/quickstart
    usage/configuration
+   usage/eviction-policies
    usage/advanced-usage
    usage/considerations
    usage/migration

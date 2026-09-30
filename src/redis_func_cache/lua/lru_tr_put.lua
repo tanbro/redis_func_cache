@@ -8,10 +8,8 @@
   ARGV[4]: hash key to store
   ARGV[5]: value to store
   ARGV[6]: field ttl (number, seconds)
-  ARGV[7]: baked default admission probability (number)
-  ARGV[last]: reserved options JSON; the "admission_p" key overrides the
-           admission probability per function (invalid values fall back
-           to ARGV[7])
+  ARGV[7]: admission probability (number; the baked default, or the
+           per-function "admission_p" decorator kwarg resolved by the client)
   Returns: number of evicted items
 
   Random admission (requires Redis >= 7.0 for a per-execution math.random
@@ -61,15 +59,7 @@ if redis.call('ZRANK', zset_key, hash) then
 else
     -- Hash does not exist in zset
     -- >>> random admission
-    local ra_default_p = tonumber(ARGV[7] or '0.5')
-    local ra_p = ra_default_p
-    local ra_opts = cjson.decode(ARGV[#ARGV])
-    if type(ra_opts) == 'table' and ra_opts.admission_p ~= nil then
-        local ra_v = tonumber(ra_opts.admission_p)
-        if ra_v and ra_v >= 0 and ra_v <= 1 and ra_v == ra_v then
-            ra_p = ra_v
-        end
-    end
+    local ra_p = tonumber(ARGV[7] or '0.5')
     if math.random() < ra_p then
         return 0
     end

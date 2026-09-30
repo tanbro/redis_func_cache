@@ -360,9 +360,8 @@ class LruTrScripts(Scripts):
 
     The baked probability ``p`` (default :attr:`DEFAULT_P`) travels as an extra
     argument (ARGV[7]); the ``admission_p`` decorator kwarg overrides it per
-    function via the reserved options JSON (decoded by the script only on the
-    insertion path). An invalid override (non-numeric or outside ``[0, 1]``)
-    falls back to the baked value.
+    function (resolved by :meth:`calc_ext_args`, validated like the GDSF
+    ``cost`` — no fallback).
     """
 
     get_script = "lru_t_get.lua"
@@ -392,5 +391,15 @@ class LruTrScripts(Scripts):
         kwds: Mapping[str, Any] | None = None,
         options: Mapping[str, Any] | None = None,
     ) -> tuple[float]:
-        """Pass the baked admission probability (ARGV[7])."""
-        return (self.p,)
+        """Pass the effective admission probability (ARGV[7]).
+
+        The baked ``p`` is the default; the ``admission_p`` decorator kwarg
+        overrides it. Validation matches the GDSF ``cost`` semantics: a
+        non-numeric value propagates whatever ``float()`` raises, and a value
+        outside ``[0, 1]`` (or NaN) raises ``ValueError`` — no fallback.
+        """
+        raw = self.p if options is None else options.get("admission_p", self.p)
+        p = float(raw)
+        if math.isnan(p) or not 0.0 <= p <= 1.0:
+            raise ValueError(f"admission_p must be within [0, 1], got {raw!r}")
+        return (p,)

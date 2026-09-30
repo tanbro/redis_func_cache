@@ -178,22 +178,26 @@ def test_admission_p_kwarg_overrides_baked():
         cache.purge()
 
 
-def test_admission_p_invalid_falls_back():
-    """An invalid admission_p override (non-numeric or out of [0, 1]) falls back to the baked p.
+def test_admission_p_invalid_rejected():
+    """An invalid admission_p override fails fast, like the GDSF cost kwarg.
 
-    Baked p = 1.0: even with an invalid override every new insertion stays
-    rejected (the documented fallback semantics of the weakly-typed options
-    channel).
+    Non-numeric values propagate float()'s error; out-of-range values raise
+    ValueError at call time — no fallback.
     """
+    with pytest.raises(TypeError):  # float(object()) is a TypeError
+        LruTrScripts().calc_ext_args(options={"admission_p": object()})
+    with pytest.raises(ValueError):  # float("abc") is a ValueError
+        LruTrScripts().calc_ext_args(options={"admission_p": "abc"})
+    for bad in (2.0, -1.0, float("nan")):
+        with pytest.raises(ValueError):
+            LruTrScripts().calc_ext_args(options={"admission_p": bad})
+
     cache = _make_cache("fallback", p=1.0)
     cache.purge()
     try:
-        for bad in ("abc", 2.0, -1.0):
-            echo = _make_echo(cache, admission_p=bad)
-            assert echo(1) == 1  # the call itself succeeds
-            client = redis_factory()
-            (index_key, _value_key), _hv = cache.policy.locate(cache.prefix, cache.name, echo.__wrapped__, (1,), {})
-            assert client.zcard(index_key) == 0  # ... but the put fell back to p = 1.0
+        echo = _make_echo(cache, admission_p=2.0)
+        with pytest.raises(ValueError):  # surfaces on the first put, end to end
+            echo(1)
     finally:
         cache.purge()
 
@@ -216,9 +220,13 @@ def test_p_validation():
 
 
 def test_calc_ext_args_bakes_p():
-    """The baked probability travels as the extension argument (ARGV[7])."""
+    """The effective probability travels as the extension argument (ARGV[7])."""
     assert LruTrScripts().calc_ext_args() == (0.5,)
     assert LruTrScripts(p=0.25).calc_ext_args() == (0.25,)
+    # the decorator kwarg overrides the baked value, resolved in calc_ext_args
+    assert LruTrScripts(p=1.0).calc_ext_args(options={"admission_p": 0.0}) == (0.0,)
+    assert LruTrScripts(p=1.0).calc_ext_args(options={}) == (1.0,)
+    assert LruTrScripts(p=1.0).calc_ext_args(options=None) == (1.0,)
 
 
 def test_semantics_match_lru_t_when_admitting():
