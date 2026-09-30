@@ -423,3 +423,55 @@ def test_lru_multiple_eviction_direction():
     assert client.zscore(index_key, hash_1) is None
 
     cache.policy.purge_all_pairs(client, cache.prefix, cache.name)
+
+
+def test_lfu_put_update_counts_request():
+    """put 更新分支也必须计一次请求（与 Hyperbolic/GDSF 的记账口径一致）。
+
+    正常读写流走不到 put 更新分支（get 命中不写、get 未命中会先清理索引
+    成员）；它主要出现在 write_only 或并发场景。直接调 policy.put 两次：
+    插入计 freq=1，更新分支必须再 +1 到 2。
+    """
+    cache = RedisFuncCache(f"{__name__}#put-update", lfu_policy, factory=redis_factory, maxsize=8)
+    cache.purge()
+    try:
+
+        @cache
+        def echo(x):
+            return x
+
+        fn = echo.__wrapped__
+        client = redis_factory()
+        (index_key, _value_key), _hash_value = cache.policy.locate(cache.prefix, cache.name, fn, (1,), {})
+        member = cache.policy.calc_hash(fn, (1,), {})
+        member = member.encode() if isinstance(member, str) else member
+
+        cache.policy.put(
+            client,
+            cache.prefix,
+            cache.name,
+            fn,
+            (1,),
+            {},
+            value="v",
+            maxsize=8,
+            update_ttl=True,
+            ttl=60,
+        )
+        assert float(client.zscore(index_key, member)) == 1.0
+
+        cache.policy.put(
+            client,
+            cache.prefix,
+            cache.name,
+            fn,
+            (1,),
+            {},
+            value="v",
+            maxsize=8,
+            update_ttl=True,
+            ttl=60,
+        )
+        assert float(client.zscore(index_key, member)) == 2.0  # update counted the request
+    finally:
+        cache.purge()

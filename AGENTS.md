@@ -116,6 +116,7 @@ uv run pre-commit run -a
 - Never run release steps (tag, push to shared refs) or destructive git operations without the
   user's explicit confirmation of the target ref.
 - Pre-commit may reformat files mid-commit: if the hook reports fixes, re-add and re-commit.
+- Two pre-commit hooks are `language: system` and need host tools: `prettier` via npx (Node.js), and `luals` (`lua-language-server`) which statically checks `src/redis_func_cache/lua/` against `.luarc.json` + `lua/meta/` type stubs — both lua dev files are excluded from the wheel/sdist (hatch exclude in pyproject.toml).
 - Test framework is pytest (+ pytest-asyncio); no stdlib `unittest`. Match the existing patterns in
   `tests/` (`_catches.py` CACHES fixtures, `_mocks.patch_object`); expiry is simulated via
   `hdel`/`delete`, tests do not require Redis ≥ 7.4.

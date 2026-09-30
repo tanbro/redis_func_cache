@@ -96,3 +96,16 @@ source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "src/redis_func_cache/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/redis_func_cache"]
+exclude = [
+  "src/redis_func_cache/lua/.luarc.json",
+  "src/redis_func_cache/lua/meta",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "src/redis_func_cache/lua/.luarc.json",
+  "src/redis_func_cache/lua/meta",
+]

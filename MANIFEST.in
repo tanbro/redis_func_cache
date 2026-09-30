@@ -15,6 +15,10 @@ exclude replit.nix
 
 prune .*
 
+# lua-language-server config and type definitions are dev-only
+exclude src/redis_func_cache/lua/.luarc.json
+exclude src/redis_func_cache/lua/meta
+
 prune docs
 prune tests
 

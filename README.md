@@ -370,7 +370,10 @@ pre-commit install
 ```
 
 > ℹ️ **Note:** \
-> Ensure that you have a stable internet connection during the installation process to avoid interruptions.
+> Some hooks invoke host tools (Node.js for `prettier`, `lua-language-server` for the Lua
+> static check); development setup details — including these tool requirements, the test
+> setup, and the coding conventions — live in [CONTRIBUTING.md](CONTRIBUTING.md), the
+> reference for contributors.
 
 ### Module structure
 

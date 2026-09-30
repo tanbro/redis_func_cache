@@ -200,6 +200,7 @@ fabric.properties
 src/**/_version.py
 
 
+.scratch/
 
 
 # AI agents and assistants

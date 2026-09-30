@@ -22,6 +22,12 @@ repos:
   # prettier is run via npx (local hook)
   - repo: local
     hooks:
+      - id: luals
+        name: lua-language static check
+        language: system
+        entry: lua-language-server --check=src/redis_func_cache/lua
+        files: '\.lua$'
+        pass_filenames: false
       - id: prettier
         name: prettier
         entry: npx --yes prettier

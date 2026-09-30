@@ -68,6 +68,11 @@ We use several tools to maintain code quality:
 - **MyPy**: For static type checking. Check <https://mypy.readthedocs.io/en/stable/> for more details.
 - **Pre-commit hooks**: To automatically check code before committing. Check <https://pre-commit.com/> for more details.
 
+Some hooks are `language: system` and invoke external tools, so besides the Python toolchain above you also need:
+
+- **Node.js / npx**: the `prettier` hook runs via `npx` (any recent Node LTS works; it downloads prettier on first use).
+- **lua-language-server**: the `luals` hook statically checks the Lua scripts against `src/redis_func_cache/lua/.luarc.json` and the Redis type stubs in `src/redis_func_cache/lua/meta/` (both are development-only files and are excluded from the built wheel/sdist).
+
 You should install them before making changes.
 
 To run checks manually:

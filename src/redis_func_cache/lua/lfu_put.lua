@@ -35,6 +35,11 @@ end
 
 -- If hash exists in zset, update the value
 if redis.call('ZRANK', zset_key, hash) then
+    -- Count this write as a request too (a put update follows a read miss or
+    -- a write-only call; either way the entry was requested exactly once and
+    -- the get could not count it) — keeps the per-request accounting closed
+    -- with the Hyperbolic/GDSF policies
+    redis.call('ZINCRBY', zset_key, 1, hash)
     redis.call('HSET', hmap_key, hash, return_value)
 
     -- Handle field TTL update
