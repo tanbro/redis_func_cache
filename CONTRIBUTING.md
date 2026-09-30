@@ -51,14 +51,56 @@ We welcome feature requests and suggestions. To propose an enhancement:
    Or if you are using [uv][]:
 
    ```bash
-   uv sync --all-extras
+   uv sync --all-extras --dev
    ```
 
-A virtual environment is created at directory `.venv`. You can activate it by running `source .venv/bin/activate` or `.venv/Scripts/activate` on Windows.
+   A virtual environment is created at directory `.venv`. You can activate it by running `source .venv/bin/activate` or `.venv/Scripts/activate` on Windows.
+
+   The minimum required Python version is 3.10.
+
+   Install the [pre-commit][] hooks:
+
+   ```bash
+   pre-commit install
+   ```
 
 #### Running Tests
 
-Before submitting changes, ensure all tests pass:
+Ensure all tests pass before submitting changes:
+
+1. Start a Redis server.
+2. Set the `REDIS_URL` environment variable (defaults to `redis://` if not defined) to point to it.
+3. Run the tests:
+
+   ```bash
+   uv run pytest -xv --cov
+   ```
+
+If the changes are concerned with Redis cluster, enable the cluster test groups by setting the environment variable
+
+- `REDIS_CLUSTER_NODES`: `":"`-separated list of Redis cluster nodes
+
+A `.env` file can be used to set the environment variables.
+
+A Docker Compose file for unit testing is provided in the `docker` directory to simplify the process. You can run it by executing:
+
+```bash
+cd docker
+docker compose run --rm unittest
+```
+
+It starts the Redis standalone server and cluster automatically (waits until healthy), runs lint, static checks and pytest against Python 3.10–3.14, and propagates the exit code.
+
+The test container uses `uv run --frozen`, which installs dependencies strictly from `uv.lock` and never updates it. Note that `uv.lock` is **not** tracked in SCM (`*.lock` is gitignored), so:
+
+- On a fresh checkout without `uv.lock`, the test script generates it once automatically before running.
+- If you change dependencies in `pyproject.toml`, regenerate the lock yourself, otherwise the container keeps testing against the outdated resolution:
+
+  ```bash
+  uv lock
+  ```
+
+The container mounts named volumes for the uv download cache and the per-version virtual environments (`/venvs`), so repeated runs only do incremental installs. To force a full rebuild, remove them with `docker compose down -v`.
 
 #### Code Style
 
@@ -101,25 +143,7 @@ mypy
 
 3. Add tests for new functionality
 
-4. Ensure all tests pass (you may run redis server on localhost:6379 before running tests):
-
-   ```bash
-   pytest -xv --cov
-   ```
-
-   If the changes are concerned with Redis cluster, it is recommended to run the tests against a Redis cluster by docker compose:
-
-   ```bash
-   cd docker
-   docker compose up --abort-on-container-exit
-   ```
-
-   If you have standalone Redis server(s) running, you can run the tests against it/them by setting the environment variables
-
-   - `REDIS_URL`: url for the single Redis server
-   - `REDIS_CLUSTER_NODES`: `":"` split list of Redis cluster nodes
-
-   A `.env` file can be used to set the environment variables.
+4. Ensure all tests pass — see [Running Tests](#running-tests) for the Redis setup and the Docker-based runner.
 
 5. Commit your changes with a clear, descriptive commit message
 
@@ -178,8 +202,182 @@ If you need help with your contribution:
 2. Join our community discussions
 3. Contact the maintainers directly
 
+## Architecture
+
+The library composes three orthogonal components into a `Policy`: **Keying** (key naming), **Hasher** (per-call sub-key computation) and **Scripts** (Lua script declarations). The module structure:
+
+```mermaid
+graph LR
+    RedisFuncCache --> Policy
+    RedisFuncCache --> Serializer
+    RedisFuncCache --> ScriptExecution
+    Policy --> Keying
+    Policy --> Hasher
+    Policy --> Scripts
+    Keying --> SingleKeying
+    Keying --> MultipleKeying
+    SingleKeying --> ClusterSingleKeying
+    MultipleKeying --> ClusterMultipleKeying
+    Scripts --> LruScripts
+    Scripts --> LruTScripts
+    Scripts --> FifoScripts
+    Scripts --> FifoTScripts
+    Scripts --> LfuScripts
+    Scripts --> MruScripts
+    Scripts --> RrScripts
+    LruScripts --> lru_get.lua
+    LruScripts --> lru_put.lua
+    LruTScripts --> lru_t_get.lua
+    LruTScripts --> lru_t_put.lua
+    Serializer --> json
+    Serializer --> pickle
+    Serializer --> dill
+    Serializer --> msgpack
+    Serializer --> bson
+    Serializer --> yaml
+    Serializer --> cbor
+    Serializer --> cloudpickle
+    ScriptExecution --> redis.commands.core.Script
+    ScriptExecution --> redis.commands.core.AsyncScript
+    RedisFuncCache --> utils.py
+    utils.py --> b64digest
+    utils.py --> get_callable_bytecode
+```
+
+Core classes:
+
+```mermaid
+classDiagram
+    class RedisFuncCache {
+        -redis_client: RedisClientTV
+        -policy: Policy
+        -serializer: SerializerPairT
+        +__init__(name, policy, redis_client, serializer)
+        +__call__(func)
+        +decorate(func)
+        +exec(user_function, user_args, user_kwds)
+        +aexec(user_function, user_args, user_kwds)
+    }
+
+    class Policy {
+        <<stateless>>
+        +keying: Keying
+        +hasher: Hasher
+        +scripts: Scripts
+        +calc_key_pair(prefix, name, f) -> Tuple[str, str]
+        +calc_hash(f, args, kwds) -> KeyT
+        +purge_all_pairs(client, prefix, name) -> int
+        +purge_one_pair(client, index_key, value_key) -> int
+        +get_size(client, prefix, name) -> int
+        +vacuum_all_pairs(client, prefix, name) -> int
+        +get(client, prefix, name, f) -> bytes
+        +put(client, prefix, name, f, value) -> None
+    }
+
+    class Keying {
+        <<interface>>
+        key: str
+        +calc_key_pair(prefix, name, f) -> Tuple[str, str]
+    }
+
+    class Hasher {
+        <<interface>>
+        __hash_config__: HashConfig
+        +calc_hash(f, args, kwds) -> KeyT
+    }
+
+    class Scripts {
+        <<interface>>
+        get_script: str
+        put_script: str
+        +index_structure: str
+    }
+
+    RedisFuncCache --> Policy : uses
+    Policy --> Keying
+    Policy --> Hasher
+    Policy --> Scripts
+```
+
+Composition of the three orthogonal dimensions (keying / hasher / scripts):
+
+```mermaid
+classDiagram
+    class lru_policy {
+        Policy preset
+    }
+
+    class SingleKeying {
+        key = "lru"
+    }
+
+    class LruScripts {
+        get_script = "lru_get.lua"
+        put_script = "lru_put.lua"
+    }
+
+    class PickleMd5Hasher {
+        __hash_config__ = ...
+    }
+
+    lru_policy --> SingleKeying
+    lru_policy --> LruScripts
+    lru_policy --> PickleMd5Hasher
+
+    class fifo_policy {
+        Policy preset
+    }
+
+    class FifoScripts {
+        get_script = "fifo_get.lua"
+        put_script = "fifo_put.lua"
+    }
+
+    fifo_policy --> SingleKeying
+    fifo_policy --> FifoScripts
+    fifo_policy --> PickleMd5Hasher
+```
+
+The four built-in keying variants:
+
+```mermaid
+classDiagram
+    class Keying {
+        <<abstract>>
+        key: str
+    }
+
+    class SingleKeying
+    class MultipleKeying
+    class ClusterSingleKeying
+    class ClusterMultipleKeying
+
+    Keying <|-- SingleKeying
+    Keying <|-- MultipleKeying
+    SingleKeying <|-- ClusterSingleKeying
+    MultipleKeying <|-- ClusterMultipleKeying
+```
+
+Decorator and proxy:
+
+```mermaid
+classDiagram
+    class RedisFuncCache {
+        +__call__(user_function) -> CallableTV
+        +decorate(user_function) -> CallableTV
+    }
+
+    class Wrapper {
+        +wrapper(*user_args, **user_kwargs)
+        +awrapper(*user_args, **user_kwargs)
+    }
+
+    RedisFuncCache --> Wrapper
+```
+
 ## License
 
 By contributing to redis_func_cache, you agree that your contributions will be licensed under what described in the `LICENSE.md` file.
 
 [uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
+[pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
