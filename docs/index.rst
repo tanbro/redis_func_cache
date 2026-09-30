@@ -48,16 +48,17 @@ Contents
    usage/configuration
    usage/eviction-policies
    usage/advanced-usage
+   usage/handlers
    usage/considerations
    usage/migration
 
-.. toctree::
-   :caption: Design Notes
-   :titlesonly:
 
-   design/handler
-   design/field-ttl-vacuum
-   design/purge
+.. toctree::
+   :caption: API Reference
+   :titlesonly:
+   :maxdepth: 3
+
+   apidoc/modules
 
 .. toctree::
    :caption: Project
@@ -67,13 +68,6 @@ Contents
    CONTRIBUTING
    AUTHORS
    LICENSE
-
-.. toctree::
-   :caption: API Reference
-   :titlesonly:
-   :maxdepth: 3
-
-   apidoc/modules
 
 Indices and tables
 ------------------

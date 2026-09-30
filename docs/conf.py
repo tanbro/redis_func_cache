@@ -2,11 +2,7 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-import sys
-if sys.version_info < (3, 8):
-    import importlib_metadata
-else:
-    import importlib.metadata as importlib_metadata
+import importlib.metadata
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -15,7 +11,7 @@ project = 'redis_func_cache'
 copyright = '2024, Liu Xue Yan'
 author = 'Liu Xue Yan'
 # full version
-version = importlib_metadata.version(project)
+version = importlib.metadata.version(project)
 # major/minor version
 release = ".".join(version.split(".")[:2])
 
@@ -46,7 +42,8 @@ source_suffix = {
 }
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+# Engineering-internal records — read in the repository, not on the docs site.
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'design', 'adr']
 
 graphviz_output_format = 'svg'
 
@@ -79,6 +76,12 @@ autodoc_typehints = "both"
 # autodoc_class_signature = "separated"
 
 autoclass_content = "both"
+
+# Render TYPE_CHECKING-only annotations by name instead of resolving them at
+# runtime (they are importable only for type checkers, e.g. hashlib._Hash).
+autodoc_type_aliases = {
+    "HashT": "HashT",
+}
 
 
 # -- Options for myst_parser extension ---------------------------------------
@@ -118,3 +121,4 @@ intersphinx_mapping = {
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
 napoleon_use_admonition_for_references = True
+napoleon_use_ivar = True

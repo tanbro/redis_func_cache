@@ -20,10 +20,7 @@ from redis.typing import EncodableT, EncodedT, KeyT
 
 from .typing import HashValueT
 
-__all__ = (
-    "HandlerContext",
-    "HandlerProtocol",
-)
+__all__ = ("HandlerContext", "HandlerProtocol")
 
 
 @dataclass(frozen=True)
@@ -53,23 +50,23 @@ class HandlerProtocol(Protocol):
     The cache converts every cached value twice on each full cycle:
 
     - **Write path** (cache miss): the user function's return value is
-    *serialized* into bytes stored in Redis.
+      *serialized* into bytes stored in Redis.
     - **Read path** (cache hit): those bytes are *deserialized* back into
-    the value returned to the caller.
+      the value returned to the caller.
 
     A handler may intervene at up to four points — before and after each of
     the two conversions. The four intervention points have distinct jobs:
 
     - ``before_serialize``: replace the value the library is about to
-    serialize, or take over the write entirely by returning ready-made
-    bytes.
+      serialize, or take over the write entirely by returning ready-made
+      bytes.
     - ``after_serialize``: post-process the serialized bytes (e.g. compress,
-    encrypt, prefix) before they are written to Redis.
+      encrypt, prefix) before they are written to Redis.
     - ``before_deserialize``: replace the raw bytes the library is about to
-    deserialize, or take over the read entirely by returning the final
-    value.
+      deserialize, or take over the read entirely by returning the final
+      value.
     - ``after_deserialize``: post-process the deserialized value (e.g.
-    enrich, validate, convert) before it is returned to the caller.
+      enrich, validate, convert) before it is returned to the caller.
 
     Each boundary exists in two flavors, forming two groups: the plain
     names serve the synchronous execution path, the ``*_async`` coroutine
@@ -84,18 +81,18 @@ class HandlerProtocol(Protocol):
     Return conventions differ between the two halves:
 
     - A ``before_*`` method returns a ``(handled, value)`` pair. ``value``
-    always replaces the value flowing through that point. ``handled``
-    states whether the implementation performed the library's job itself:
-    when true, the library skips its own conversion **and every later
-    step on that path** (including the corresponding ``after_*`` method);
-    when false, the library continues with ``value``. A method with
-    nothing to do returns ``(False, value)`` — explicitly unhandled,
-    with its input unchanged — so the library's default step runs as
-    usual.
+      always replaces the value flowing through that point. ``handled``
+      states whether the implementation performed the library's job itself:
+      when true, the library skips its own conversion **and every later
+      step on that path** (including the corresponding ``after_*`` method);
+      when false, the library continues with ``value``. A method with
+      nothing to do returns ``(False, value)`` — explicitly unhandled,
+      with its input unchanged — so the library's default step runs as
+      usual.
     - An ``after_*`` method returns the replacement value directly — there
-    is no library step left after it, so there is nothing for a
-    ``handled`` flag to control. A method with nothing to do returns
-    its input unchanged.
+      is no library step left after it, so there is nothing for a
+      ``handled`` flag to control. A method with nothing to do returns
+      its input unchanged.
 
     Every method receives the value at that point as its first positional
     argument, plus the :class:`HandlerContext` of the current invocation as

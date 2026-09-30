@@ -88,9 +88,12 @@ Rules for diagrams in Markdown docs (README.md, CONTRIBUTING.md, docs/):
     in the document;
   - commit source and artifact together; a source change must be re-exported in
     the same commit.
-- Export Mermaid with `mmdc` using the repo-root `mmdc.json` containing
-  `{"htmlLabels": false}` — required so text renders in SVG-as-image (secure
-  static mode); pin the mmdc version when regenerating.
+- Export Mermaid with `mmdc` using the repo-root `mmdc.json`
+  (`{"htmlLabels": false}`) and a transparent background.
+- Diagrams are static SVG shown on both the light and dark docs themes: they
+  must stay readable on either — transparent background, no fills or text
+  colors that assume a light (or dark) page. Prefer the tool's default theme
+  and a restrained palette; add color only when it carries meaning.
 - SVG is plain text and small — keep it in ordinary Git (no LFS); LFS is for
   real binaries (see `.gitattributes`).
 - Tool ladder by capability: **Mermaid** is the default — it covers most

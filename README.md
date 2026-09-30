@@ -226,7 +226,6 @@ print(f"reclaimed {removed} expired entries")
 
 - `vacuum(batch_size=500)` returns the number of ghost entries removed; `avacuum()` is the async mirror.
 - It never blocks Redis: each batch is one atomic Lua script performing a single `ZSCAN` step, `HEXISTS` probes and a `ZREM`.
-- For details on when ghosts appear and why this design was chosen, see [the design note](docs/design/field-ttl-vacuum.md).
 
 ### Purge: drop cache structures
 
@@ -246,15 +245,15 @@ See [docs/considerations.md](docs/usage/considerations.md#known-issues) for the 
 
 ## Test
 
-Start a Redis server, then run the test suite (a Docker Compose file in the `docker` directory can start Redis and run the whole suite for you). Detailed instructions — environment variables, the cluster test groups, and the Docker-based runner — are in [CONTRIBUTING.md](CONTRIBUTING.md#running-tests).
+Start a Redis server, then run the test suite (a Docker Compose file in the `docker` directory can start Redis and run the whole suite for you). Detailed instructions — environment variables, the cluster test groups, and the Docker-based runner — are in [CONTRIBUTING.md](https://github.com/tanbro/redis_func_cache/blob/main/CONTRIBUTING.md#running-tests).
 
 ## Develop
 
-To set up a development environment, clone the repository and see [CONTRIBUTING.md](CONTRIBUTING.md#development-setup) for the full setup (virtual environment, dependencies, [pre-commit][] hooks — some of which invoke host tools such as [uv][], Node.js and `lua-language-server` — plus coding conventions and the architecture overview).
+To set up a development environment, clone the repository and see [CONTRIBUTING.md](https://github.com/tanbro/redis_func_cache/blob/main/CONTRIBUTING.md#development-setup) for the full setup (virtual environment, dependencies, [pre-commit][] hooks — some of which invoke host tools such as [uv][], Node.js and `lua-language-server` — plus coding conventions and the architecture overview).
 
 ## Architecture
 
-The library composes three orthogonal components into an eviction policy: **Keying** (key naming, with cluster hash-tag variants), **Hasher** (per-call sub-key computation) and **Scripts** (the Lua script declarations). Full module structure and class diagrams are documented in [CONTRIBUTING.md](CONTRIBUTING.md#architecture).
+The library composes three orthogonal components into an eviction policy: **Keying** (key naming, with cluster hash-tag variants), **Hasher** (per-call sub-key computation) and **Scripts** (the Lua script declarations). Full module structure and class diagrams are documented in [CONTRIBUTING.md](https://github.com/tanbro/redis_func_cache/blob/main/CONTRIBUTING.md#architecture).
 
 [redis]: https://redis.io/ "Redis is an in-memory data store used by millions of developers as a cache"
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"

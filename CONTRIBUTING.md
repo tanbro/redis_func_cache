@@ -116,7 +116,7 @@ Some hooks are `language: system` and invoke external tools, so besides the Pyth
 - **Node.js / npx**: the `prettier` hook runs via `npx` (any recent Node LTS works; it downloads prettier on first use).
 - **lua-language-server**: the `luals` hook statically checks the Lua scripts against `src/redis_func_cache/lua/.luarc.json` and the Redis type stubs in `src/redis_func_cache/lua/meta/` (both are development-only files and are excluded from the built wheel/sdist).
 
-You should install them before making changes. The same suite runs in CI as the the `pre-commit` job of the [Python package workflow](.github/workflows/python-package.yml), so a commit that bypasses the local hooks will be caught there.
+You should install them before making changes. The same suite runs in CI as the the `pre-commit` job of the [Python package workflow](https://github.com/tanbro/redis_func_cache/blob/main/.github/workflows/python-package.yml), so a commit that bypasses the local hooks will be caught there.
 
 To run checks manually:
 

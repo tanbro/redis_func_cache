@@ -944,8 +944,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     However, the corresponding hash key in the `ZSET` portion is **not** removed automatically.
                     Instead, it is only "lazily" cleaned up when accessed, or removed by the eviction policy when a new value is added.
                     During this period, the `ZSET` portion continues to occupy memory, and the reported number of cache items does not decrease.
-                    Use :meth:`vacuum` to remove such stale members explicitly, see also the design note
-                    [`docs/design/field-ttl-vacuum.md`](https://redis-func-cache.readthedocs.io/en/latest/design/field-ttl-vacuum.html).
+                    Use :meth:`vacuum` to remove such stale members explicitly.
 
                 Warning:
                     This feature is **experimental** and requires Redis 7.4 or above.

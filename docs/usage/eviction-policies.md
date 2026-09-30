@@ -44,7 +44,7 @@ Least frequently used: the index score is an access counter (initialized on inse
 
 ## The upgrade policies
 
-These three were added together as the anti-pollution/heterogeneity upgrade of the baseline set — see the [eviction policy roadmap ADR](../adr/0001-eviction-policy-roadmap.md) for the decision record and [ADR 0002](../adr/0002-hyperbolic-eviction-policy.md) / [ADR 0003](../adr/0003-gdsf-eviction-policy.md) / [ADR 0004](../adr/0004-random-admission-policy.md) for the implementation designs.
+These three were added together as the anti-pollution/heterogeneity upgrade of the baseline set.
 
 ### Hyperbolic — `hyperbolic_policy`
 
@@ -82,7 +82,7 @@ How to read the signals:
 - **Heterogeneous values or costs**: sizes or recomputation costs differ by more than an order of magnitude — `gdsf`. If your values are near-uniform in size, GDSF's size term cancels and it behaves like LFU with extra bookkeeping.
 - **Popularity is stable and old hotness never returns**: plain LFU is fine and cheapest per access; if popularity shifts over days, `hyperbolic` replaces it outright.
 - **The floors are per-policy**: field-level TTL (`ttl` on the decorator) separately requires Redis ≥ 7.4 with any policy (see [considerations](considerations.md)).
-- **Nothing fits?** Policies compose: `Policy(SingleKeying("my-ns"), PICKLE_MD5_HASHER, MyScripts())` — any custom scorer is a small Lua pair (see the [composition ADR](../adr/0001-eviction-policy-roadmap.md) for what the mechanism can and cannot express).
+- **Nothing fits?** Policies compose: `Policy(SingleKeying("my-ns"), PICKLE_MD5_HASHER, MyScripts())` — any custom scorer is a small Lua pair.
 
 [`Policy`]: redis_func_cache.policies.Policy
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache

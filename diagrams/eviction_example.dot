@@ -1,18 +1,18 @@
 digraph LRUEviction {
     // Graph settings
-    rankdir=LR;
+    rankdir=TB;
     node [shape=none, margin=0, fontname="Arial, Helvetica, sans-serif"];
-    edge [fontname="Arial, Helvetica, sans-serif", fontsize=10];
+    edge [fontname="Arial, Helvetica, sans-serif", fontsize=10, fontcolor="#607d8b"];
     bgcolor=transparent;
 
     // Step 1: Initial empty cache
     step1 [label=<
-        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="white">
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
             <TR><TD SIDES="B" BGCOLOR="#e3f2fd"><FONT POINT-SIZE="12"><B>Step 1</B></FONT>: <FONT COLOR="#1976d2">put(A)</FONT></TD></TR>
             <TR><TD>
-                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4">
                     <TR><TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>A</B></FONT></TD></TR>
-                    <TR><TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 1</FONT></TD></TR>
+                    <TR><TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 1</FONT></TD></TR>
                 </TABLE>
             </TD></TR>
         </TABLE>
@@ -20,17 +20,17 @@ digraph LRUEviction {
 
     // Step 2: Add B
     step2 [label=<
-        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="white">
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
             <TR><TD SIDES="B" BGCOLOR="#e3f2fd"><FONT POINT-SIZE="12"><B>Step 2</B></FONT>: <FONT COLOR="#1976d2">put(B)</FONT></TD></TR>
             <TR><TD>
-                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4">
                     <TR>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>A</B></FONT></TD>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>B</B></FONT></TD>
                     </TR>
                     <TR>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 1</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 2</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 1</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 2</FONT></TD>
                     </TR>
                 </TABLE>
             </TD></TR>
@@ -39,19 +39,19 @@ digraph LRUEviction {
 
     // Step 3: Add C (cache becomes full)
     step3 [label=<
-        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="white">
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
             <TR><TD SIDES="B" BGCOLOR="#fff3e0"><FONT POINT-SIZE="12"><B>Step 3</B></FONT>: <FONT COLOR="#e65100">put(C) — Cache Full!</FONT></TD></TR>
             <TR><TD>
-                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4">
                     <TR>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>A</B></FONT></TD>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>B</B></FONT></TD>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>C</B></FONT></TD>
                     </TR>
                     <TR>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 1</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 2</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 3</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 1</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 2</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 3</FONT></TD>
                     </TR>
                 </TABLE>
             </TD></TR>
@@ -61,10 +61,10 @@ digraph LRUEviction {
 
     // Step 4: Add D (A evicted - oldest timestamp)
     step4 [label=<
-        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="white">
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
             <TR><TD SIDES="B" BGCOLOR="#ffebee"><FONT POINT-SIZE="12"><B>Step 4</B></FONT>: <FONT COLOR="#c62828">put(D) — Evict A!</FONT></TD></TR>
             <TR><TD>
-                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4">
                     <TR>
                         <TD BGCOLOR="#ffcdd2" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11" COLOR="#c62828"><S><B>A</B></S></FONT></TD>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>B</B></FONT></TD>
@@ -72,10 +72,10 @@ digraph LRUEviction {
                         <TD BGCOLOR="#81c784" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>D</B></FONT></TD>
                     </TR>
                     <TR>
-                        <TD ALIGN="CENTER" BGCOLOR="#ffcdd2" FONTNAME="monospace"><FONT COLOR="#c62828" POINT-SIZE="9">evicted!</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 2</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 3</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="#81c784" FONTNAME="monospace"><FONT COLOR="#1b5e20" POINT-SIZE="9">ts: 4</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#ffcdd2"><FONT FACE="monospace" COLOR="#c62828" POINT-SIZE="9">evicted!</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 2</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 3</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#81c784"><FONT FACE="monospace" COLOR="#1b5e20" POINT-SIZE="9">ts: 4</FONT></TD>
                     </TR>
                 </TABLE>
             </TD></TR>
@@ -85,19 +85,19 @@ digraph LRUEviction {
 
     // Step 5: Access B (update timestamp)
     step5 [label=<
-        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="white">
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
             <TR><TD SIDES="B" BGCOLOR="#e3f2fd"><FONT POINT-SIZE="12"><B>Step 5</B></FONT>: <FONT COLOR="#1976d2">get(B) — Cache Hit!</FONT></TD></TR>
             <TR><TD>
-                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4">
                     <TR>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>C</B></FONT></TD>
-                        <TD BGCOLOR="#bbdefb" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>B</B></FONT></TD>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>D</B></FONT></TD>
+                        <TD BGCOLOR="#bbdefb" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>B</B></FONT></TD>
                     </TR>
                     <TR>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 3</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="#bbdefb" FONTNAME="monospace"><FONT COLOR="#1565c0" POINT-SIZE="9">ts: 5 ↑</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 4</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 3</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 4</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#bbdefb"><FONT FACE="monospace" COLOR="#1565c0" POINT-SIZE="9">ts: 5 ↑</FONT></TD>
                     </TR>
                 </TABLE>
             </TD></TR>
@@ -107,21 +107,21 @@ digraph LRUEviction {
 
     // Step 6: Add E (C evicted - now oldest)
     step6 [label=<
-        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="white">
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
             <TR><TD SIDES="B" BGCOLOR="#ffebee"><FONT POINT-SIZE="12"><B>Step 6</B></FONT>: <FONT COLOR="#c62828">put(E) — Evict C!</FONT></TD></TR>
             <TR><TD>
-                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+                <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="4">
                     <TR>
                         <TD BGCOLOR="#ffcdd2" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11" COLOR="#c62828"><S><B>C</B></S></FONT></TD>
-                        <TD BGCOLOR="#bbdefb" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>B</B></FONT></TD>
                         <TD BGCOLOR="#c8e6c9" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>D</B></FONT></TD>
+                        <TD BGCOLOR="#bbdefb" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>B</B></FONT></TD>
                         <TD BGCOLOR="#81c784" BORDER="1" WIDTH="60" HEIGHT="30" ALIGN="CENTER"><FONT POINT-SIZE="11"><B>E</B></FONT></TD>
                     </TR>
                     <TR>
-                        <TD ALIGN="CENTER" BGCOLOR="#ffcdd2" FONTNAME="monospace"><FONT COLOR="#c62828" POINT-SIZE="9">evicted!</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="#bbdefb" FONTNAME="monospace"><FONT COLOR="#1565c0" POINT-SIZE="9">ts: 5</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="white" FONTNAME="monospace"><FONT COLOR="#333" POINT-SIZE="9">ts: 4</FONT></TD>
-                        <TD ALIGN="CENTER" BGCOLOR="#81c784" FONTNAME="monospace"><FONT COLOR="#1b5e20" POINT-SIZE="9">ts: 6</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#ffcdd2"><FONT FACE="monospace" COLOR="#c62828" POINT-SIZE="9">evicted!</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#f5f5f5"><FONT FACE="monospace" COLOR="#333" POINT-SIZE="9">ts: 4</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#bbdefb"><FONT FACE="monospace" COLOR="#1565c0" POINT-SIZE="9">ts: 5</FONT></TD>
+                        <TD ALIGN="CENTER" BGCOLOR="#81c784"><FONT FACE="monospace" COLOR="#1b5e20" POINT-SIZE="9">ts: 6</FONT></TD>
                     </TR>
                 </TABLE>
             </TD></TR>
@@ -129,22 +129,27 @@ digraph LRUEviction {
         </TABLE>
     >];
 
-    // Connection edges
+    // Connection edges: 3x2 snake grid (1-2-3 top row, 4-5-6 bottom row)
+    edge [color="#78909c"];
+    { rank=same; step1; step4; }
+    { rank=same; step2; step5; }
+    { rank=same; step3; step6; }
     step1 -> step2 [label="add B", penwidth=1.5];
     step2 -> step3 [label="add C", penwidth=1.5];
-    step3 -> step4 [label="add D\n(full!)", penwidth=2, color="#c62828"];
+    step3 -> step4 [style=invis, constraint=false];
     step4 -> step5 [label="get B\n(hit)", penwidth=1.5, color="#1976d2"];
     step5 -> step6 [label="add E\n(full!)", penwidth=2, color="#c62828"];
+    step6 -> legend [style=invis];
 
     // Legend
     legend [label=<
-        <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+        <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4" BGCOLOR="#f5f5f5">
             <TR><TD BGCOLOR="#e3f2fd" ALIGN="LEFT"><FONT COLOR="#333" POINT-SIZE="9"><B>Legend:</B></FONT></TD></TR>
-            <TR><TD BGCOLOR="white"><FONT COLOR="#2e7d32">■</FONT> <FONT COLOR="#333" POINT-SIZE="9">Cached item</FONT></TD></TR>
-            <TR><TD BGCOLOR="white"><FONT COLOR="#c62828">■</FONT> <FONT COLOR="#333" POINT-SIZE="9">Evicted item</FONT></TD></TR>
-            <TR><TD BGCOLOR="white"><FONT COLOR="#1976d2">■</FONT> <FONT COLOR="#333" POINT-SIZE="9">Recently accessed</FONT></TD></TR>
-            <TR><TD BGCOLOR="white"><FONT COLOR="#1b5e20">■</FONT> <FONT COLOR="#333" POINT-SIZE="9">Newly added</FONT></TD></TR>
-            <TR><TD BGCOLOR="white" COLSPAN="2"><FONT COLOR="#333" POINT-SIZE="9"><I>ts = timestamp (lower = older)</I></FONT></TD></TR>
+            <TR><TD BGCOLOR="#f5f5f5"><FONT COLOR="#2e7d32">■</FONT> <FONT COLOR="#333" POINT-SIZE="9">Cached item</FONT></TD></TR>
+            <TR><TD BGCOLOR="#f5f5f5"><FONT COLOR="#c62828">■</FONT> <FONT COLOR="#333" POINT-SIZE="9">Evicted item</FONT></TD></TR>
+            <TR><TD BGCOLOR="#f5f5f5"><FONT COLOR="#1976d2">■</FONT> <FONT COLOR="#333" POINT-SIZE="9">Recently accessed</FONT></TD></TR>
+            <TR><TD BGCOLOR="#f5f5f5"><FONT COLOR="#1b5e20">■</FONT> <FONT COLOR="#333" POINT-SIZE="9">Newly added</FONT></TD></TR>
+            <TR><TD BGCOLOR="#f5f5f5"><FONT COLOR="#333" POINT-SIZE="9"><I>ts = timestamp (lower = older)</I></FONT></TD></TR>
         </TABLE>
     >, fontsize=9];
 }

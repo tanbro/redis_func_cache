@@ -6,6 +6,12 @@ updated_at: 2026-09-23
 
 # Proposal: Handler System for `redis_func_cache`
 
+> **Usage documentation:** how to write and register a handler — the four
+> boundaries, return conventions, write/read path sequence diagrams, and the
+> object-storage offload example — lives in the user guide,
+> `docs/usage/handlers.md`. This document is the design record: motivation,
+> goals, and the alternatives that were rejected.
+
 ## Summary
 
 Introduce a single, optional **handler** that wraps the four serialization boundaries of the cache: before serialize, after serialize, before deserialize, after deserialize.
@@ -36,7 +42,7 @@ On the write path the handler replaces the large value with a small reference. O
 
 1. Backward compatible. With no handler configured, behavior is identical to today.
 2. Single handler. Exactly one handler per execution — the cache instance's handler, optionally overridden per decorated function. No chains, no ordering rules, no composition inside the library.
-3. Symmetric. Handlers exist on both the write path and the read path, with one uniform short-circuit rule (see Return Conventions).
+3. Symmetric. Handlers exist on both the write path and the read path, with one uniform short-circuit rule (see Return Conventions in the usage documentation).
 4. Async aware. Handlers work for both synchronous and asynchronous decorated functions, via paired sync and `*_async` methods. There is **no** async-to-sync fallback: the asynchronous path calls only `*_async` methods.
 5. Non-invasive. The core cache logic — key calculation, Lua scripts, eviction — is unchanged; the serializer hot path is untouched.
 6. Static contract. The type annotations on `HandlerProtocol` are the contract, checked statically. An implementation provides at least one method group — sync or `*_async` — matching its execution path (both when it serves both paths), and the group it does not use may be kept as `raise NotImplementedError` placeholders. Within a provided group every method is defined, and a boundary it does not need returns its identity value (`before_*` → `(False, value)`, `after_*` → `return value`).
@@ -48,236 +54,8 @@ On the write path the handler replaces the large value with a small reference. O
 3. A general middleware framework. Handlers are scoped to the four serialization boundaries only.
 4. Changes to the eviction algorithm or Redis data structures.
 5. Per-value write suppression. A handler can change _what_ is written but cannot prevent the write. Skipping the write for a particular result is the caller's job (cache mode, or not calling the cached function path).
-6. Failure policy. The library does not retry, degrade, count, or fall back on handler errors — see Error Handling below. Reliability policy belongs entirely to the application.
+6. Failure policy. The library does not retry, degrade, count, or fall back on handler errors — see Error Handling in the usage documentation. Reliability policy belongs entirely to the application.
 7. Entry format versioning. Version or generation tags for handler-written bytes are the application's concern; the library offers no metadata channel for them.
-
-## When to Use a Handler vs a Serializer
-
-|                                                            | `serializer=(ser, des)` | `handler=`                        |
-| ---------------------------------------------------------- | ----------------------- | --------------------------------- |
-| Encoding format only (JSON, msgpack, …)                    | ✅ preferred            | overkill                          |
-| Sync custom encoding                                       | ✅ preferred            | overkill                          |
-| Async I/O (object storage, remote fetch)                   | ❌ sync only            | ✅                                |
-| Needs keys / args / func context                           | ❌ value only           | ✅                                |
-| Take over one direction, keep library default on the other | ❌ both required        | ✅ per-boundary                   |
-| Post-process deserialized value (enrichment, validation)   | possible inside `des`   | ✅ clearer at `after_deserialize` |
-| Compress/encrypt library-produced bytes                    | ❌                      | ✅ at `after_serialize`           |
-
-Rule of thumb: if you are only choosing an encoding, use `serializer`. If you need async I/O, call context, or taking over part of the library's own steps, use `handler`. The two may be combined: `serializer` defines the default encoding; `handler` may replace bytes at any boundary.
-
-## The Handler Methods
-
-The handler interface defines eight methods: four boundaries, each with a sync and an async variant.
-
-`HandlerProtocol` is a **pure structural protocol** — signatures only, no implementation bodies, and implementations need not inherit from it (any class whose methods match the signatures is a valid handler). The type annotations are the contract, checked statically. The eight methods form two groups: the four plain names for the synchronous path, the four `*_async` coroutine functions for the asynchronous path. An implementation provides at least the group its execution path uses — both when it serves both paths — and the group it does not use may be kept as `raise NotImplementedError` placeholders (the standard file-like-object pattern). Within a provided group every method is defined; a boundary the implementation does not need returns its input unchanged and unhandled (`before_*` → `(False, value)`, `after_*` → `return value`), so the library's default step runs as usual.
-
-| Boundary                          | Sync method          | Async method               |
-| --------------------------------- | -------------------- | -------------------------- |
-| Write, before library serializes  | `before_serialize`   | `before_serialize_async`   |
-| Write, after library serializes   | `after_serialize`    | `after_serialize_async`    |
-| Read, before library deserializes | `before_deserialize` | `before_deserialize_async` |
-| Read, after library deserializes  | `after_deserialize`  | `after_deserialize_async`  |
-
-Each method receives the value being processed as its first positional argument, plus the immutable call context as a keyword-only parameter:
-
-```python
-def before_serialize(self, value, *, ctx: HandlerContext) -> tuple[bool, Any]: ...
-```
-
-### HandlerContext
-
-```python
-@dataclass(frozen=True)
-class HandlerContext:
-    keys: tuple[KeyT, KeyT]   # (zset_key, hash_key) for this cache entry
-    hash_value: KeyT          # hash field for this invocation
-    func: Callable | None     # the decorated function
-    args: tuple               # effective positional arguments
-    kwds: dict                # effective keyword arguments
-```
-
-`args` and `kwds` are the **effective** arguments — the same excludes-filtered arguments the library uses to compute `keys` and `hash_value`. A handler building a storage reference from them stays consistent with the cache key. The arguments the user function is called with remain the original, unfiltered ones.
-
-A single frozen dataclass was chosen over flat keyword parameters so that future fields can be added without breaking existing handler implementations.
-
-## Return Conventions
-
-There are two conventions, one per category of boundary, plus one uniform short-circuit rule.
-
-### Short-circuit rule
-
-**`handled=True` means the handler owns everything after that boundary.** The library performs no further processing on that side — no serializer/deserializer, and no `after_*` method. The behavior table:
-
-|            | `handled=True` at before                                | after method runs?              |
-| ---------- | ------------------------------------------------------- | ------------------------------- |
-| Write path | value written as-is, serialization skipped              | `after_serialize` **skipped**   |
-| Read path  | value returned as final result, deserialization skipped | `after_deserialize` **skipped** |
-
-The rationale: `after_*` methods post-process _library-produced_ values. When a before-boundary is handled, no library-produced value exists; anything the handler wants layered on top, it composes itself inside the before method.
-
-### Before boundaries return `(handled, value)`
-
-`before_serialize` and `before_deserialize` (and `*_async`) return `(handled, value)`.
-
-- `value` **always** replaces the working value for this path, regardless of `handled`. When the method is implemented, the library never falls back to the original input.
-- `handled` controls whether the library still performs its own default operation:
-
-#### `before_serialize`
-
-- `handled=True`: the handler owns the rest of the write path. `value` must already be encoded bytes (or a str acceptable to Redis) and is written to Redis as-is; the library skips its serializer **and** `after_serialize`.
-- `handled=False`: the library serializes `value` with its configured serializer (or the `serialize_func` override from `decorate`), then calls `after_serialize`.
-
-#### `before_deserialize`
-
-- `handled=True`: the handler owns the rest of the read path. `value` is the **final** result returned to the caller; the library skips its deserializer **and** `after_deserialize`.
-- `handled=False`: `value` replaces the bytes read from Redis; the library deserializes `value`, then calls `after_deserialize`.
-
-### After boundaries return the replacement value directly
-
-`after_serialize` and `after_deserialize` (and `*_async`) return the replacement value — **not** a tuple. After these boundaries there is no default library step left for the handler to skip, so a `handled` flag would carry no information; the return value unconditionally wins.
-
-- `after_serialize`: replaces the bytes about to be written to Redis (compression, encryption, prefixes).
-- `after_deserialize`: replaces the deserialized result (enrichment, validation, type conversion).
-
-A handler that does not care about an after-boundary returns its input unchanged — the identity function — through which the library's own value passes unchanged.
-
-## Read Path and Write Path
-
-### Write path
-
-Runs only when the mode allows writing:
-
-1. The user function executes and returns a value.
-2. The library calls `before_serialize` with the return value.
-3. The returned `value` replaces the value to store. If `handled` is True, the library skips everything else on this path and uses `value` as the stored bytes. Otherwise it serializes `value`, calls `after_serialize` with the bytes, replaces them with the return value, and writes the result to Redis.
-
-The value returned to the caller is always the original return value of the user function. The handler affects what is stored, not what is returned.
-
-A handler that does not care about a boundary states so explicitly by returning its identity value — `before_serialize` → `(False, exec_retval)` and `after_serialize` → its input — through which the path degenerates to "serialize the original return value".
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant U as user function
-    participant C as cache
-    participant H as handler
-    participant S as serializer
-    participant R as Redis
-
-    U->>C: return value
-    Note over C: mode allows writing
-    C->>H: before_serialize(value, ctx)
-    H-->>C: (handled, value)
-    alt handled = True
-        C->>R: store value as bytes<br>(library steps skipped)
-    else handled = False
-        C->>S: serialize(value)
-        S-->>C: data
-        C->>H: after_serialize(data, ctx)
-        H-->>C: replacement bytes
-        C->>R: store replacement
-    end
-    Note over C,U: the caller still receives the<br>original return value
-```
-
-### Read path
-
-Runs only when the mode allows reading:
-
-1. The library reads bytes from Redis.
-2. No bytes → cache miss.
-3. The library calls `before_deserialize` with the bytes.
-4. The returned `value` replaces the working bytes. If `handled` is True, `value` is the final result: return it directly. If `handled` is False, deserialize `value`, call `after_deserialize` with the deserialized value, and return the replacement.
-
-As on the write path, a handler that does not care about a boundary states so explicitly by returning its identity value — `before_deserialize` → `(False, cached)` and `after_deserialize` → its input — through which the path degenerates to "deserialize the bytes read from Redis".
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant U as user function
-    participant C as cache
-    participant H as handler
-    participant S as serializer
-    participant R as Redis
-
-    U->>C: call
-    C->>R: run get script
-    R-->>C: cached bytes (or miss)
-    alt miss
-        Note over U: execute the user function,<br>then continue with the write path
-    else hit
-        C->>H: before_deserialize(bytes, ctx)
-        H-->>C: (handled, value)
-        alt handled = True
-            C-->>U: value is the final result
-        else handled = False
-            C->>S: deserialize(value)
-            S-->>C: deserialized result
-            C->>H: after_deserialize(result, ctx)
-            H-->>C: replacement result
-            C-->>U: return replacement
-        end
-    end
-```
-
-## Interaction with Cache Mode
-
-1. When reading is disabled, `before_deserialize` and `after_deserialize` are never called.
-2. When writing is disabled, `before_serialize` and `after_serialize` are never called.
-3. When both are disabled, no handler method is called.
-
-This preserves the existing write-only, read-only, and disabled mode semantics.
-
-## Error Handling
-
-Handlers are orthogonal to `ignore_redis_errors`, and handler errors are **entirely the application's responsibility**:
-
-1. Redis errors from the library's own get/put are handled by the existing logic and are not routed through the handler.
-2. Exceptions raised by a handler propagate to the caller. The library provides **no** retry, fallback, degradation, or error counting for handler failures. A handler that wants to degrade should catch its own exceptions and return `handled=False` (before-boundaries) or the original value (after-boundaries) to fall back to the library default.
-
-## Sync and Async Methods
-
-The interface uses **paired method names**, with **no async-to-sync fallback**:
-
-1. The synchronous path calls the non-`_async` methods. These **must not** be coroutine functions; the library calls them without awaiting. The distinction is part of the signatures, checked statically.
-2. The asynchronous path calls **only** the `*_async` methods, which **must** be coroutine functions; the library awaits them. A handler used with an async cache provides the `*_async` group; a sync-only handler keeps that group as `raise NotImplementedError` placeholders.
-3. A sync-only handler therefore works **only** with synchronous caches; on an asynchronous cache it fails fast at its `NotImplementedError` placeholders. This is deliberate: the alternative — awaiting or running sync methods on the event loop — invites blocking I/O inside async code.
-4. A handler may mix sync and async methods freely across boundaries.
-
-## No Runtime Validation
-
-The library performs **no** runtime validation of handler behavior — no shape checks at registration, no return-value checks at invocation. The type annotations on `HandlerProtocol` are the contract; mypy (or any type checker) is the enforcement. If a handler misbehaves — wrong return shape, wrong types — the resulting error surfaces naturally and is the application's responsibility, consistent with the error-handling policy above. The library does not stand in the way of handlers that bend the rules deliberately.
-
-## Registration
-
-The instance-level handler is provided at construction time via the optional `handler` argument. A per-function override is available on `decorate`:
-
-```python
-cache = RedisFuncCache("name", lru_policy, factory=factory, handler=my_handler)  # instance-level
-
-@cache.decorate(handler=offload_handler)  # per-function override
-def big_payload_function(...): ...
-```
-
-Precedence: the `decorate(handler=...)` value wins when given; otherwise the instance-level handler applies.
-
-With no handler at any level, behavior is identical to before the handler system existed.
-
-`HandlerProtocol` and `HandlerContext` are exported from the package root:
-
-```python
-from redis_func_cache import HandlerContext, HandlerProtocol, RedisFuncCache
-```
-
-## Example: Object Storage Offload
-
-Implement the two `before_*` methods with the offload logic, and the two `after_*` methods as identity functions.
-
-**Write** — in `before_serialize`: if the value is small, return `(False, value)` and the library stores it in Redis as usual. If it is large, upload the payload to object storage (using `ctx.args` / `ctx.kwds` to build a stable reference), build a small encoded reference (bytes), and return `(True, reference_bytes)`. The library skips its serializer and `after_serialize`, and stores only the reference.
-
-**Read** — in `before_deserialize`: if the bytes are a normal small value, return `(False, bytes)` and the library deserializes as usual. If they are a reference, fetch the payload from object storage, parse it, and return `(True, final_value)`. The library skips its deserializer and `after_deserialize`, and returns the value directly.
-
-The two `before_*` methods carry all the offload logic; `after_serialize` / `after_deserialize` are implemented as identity functions, through which the library's own values pass unchanged. The library remains unaware of object storage — it sees a small value on write and a final value on read.
 
 ## Backward Compatibility
 
@@ -346,13 +124,13 @@ Rejected as a library concern. Versioning of handler-written bytes is an applica
 7. Handler context uses the same excludes-filtered effective arguments as key calculation. _(Done.)_
 8. Respect cache mode. _(Done: handlers only run inside `mode.read` / `mode.write`.)_
 9. Tests: no handler, full handler, identity-only boundaries, sync/async, `handled` True/False per boundary, short-circuit, per-function override, mode interaction, frozen context. _(Done: `tests/test_handler.py`.)_
-10. Document the handler system and offload use case in the README. _(Done.)_
+10. Document the handler system and offload use case in the user guide. _(Done: `docs/usage/handlers.md`.)_
 11. Export `HandlerProtocol` and `HandlerContext` from the package root. _(Done.)_
 
 ## References
 
-1. Existing serializer API: the `serializer` argument of the cache constructor.
-2. Existing sync/async split documented in the README.
+1. Usage documentation: `docs/usage/handlers.md`.
+2. Existing serializer API: the `serializer` argument of the cache constructor.
 3. Related design note: caching large values in Redis is an anti-pattern.
 4. Implementation: `src/redis_func_cache/handler.py` (pure `HandlerProtocol`, `HandlerContext`), `src/redis_func_cache/cache.py` (static call sites in `exec` / `aexec` / `decorate`).
 5. Tests: `tests/test_handler.py`.
