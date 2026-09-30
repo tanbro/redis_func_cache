@@ -155,6 +155,31 @@ The value returned to the caller is always the original return value of the user
 
 A handler that does not care about a boundary states so explicitly by returning its identity value — `before_serialize` → `(False, exec_retval)` and `after_serialize` → its input — through which the path degenerates to "serialize the original return value".
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as user function
+    participant C as cache
+    participant H as handler
+    participant S as serializer
+    participant R as Redis
+
+    U->>C: return value
+    Note over C: mode allows writing
+    C->>H: before_serialize(value, ctx)
+    H-->>C: (handled, value)
+    alt handled = True
+        C->>R: store value as bytes<br>(library steps skipped)
+    else handled = False
+        C->>S: serialize(value)
+        S-->>C: data
+        C->>H: after_serialize(data, ctx)
+        H-->>C: replacement bytes
+        C->>R: store replacement
+    end
+    Note over C,U: the caller still receives the<br>original return value
+```
+
 ### Read path
 
 Runs only when the mode allows reading:
@@ -165,6 +190,35 @@ Runs only when the mode allows reading:
 4. The returned `value` replaces the working bytes. If `handled` is True, `value` is the final result: return it directly. If `handled` is False, deserialize `value`, call `after_deserialize` with the deserialized value, and return the replacement.
 
 As on the write path, a handler that does not care about a boundary states so explicitly by returning its identity value — `before_deserialize` → `(False, cached)` and `after_deserialize` → its input — through which the path degenerates to "deserialize the bytes read from Redis".
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as user function
+    participant C as cache
+    participant H as handler
+    participant S as serializer
+    participant R as Redis
+
+    U->>C: call
+    C->>R: run get script
+    R-->>C: cached bytes (or miss)
+    alt miss
+        Note over U: execute the user function,<br>then continue with the write path
+    else hit
+        C->>H: before_deserialize(bytes, ctx)
+        H-->>C: (handled, value)
+        alt handled = True
+            C-->>U: value is the final result
+        else handled = False
+            C->>S: deserialize(value)
+            S-->>C: deserialized result
+            C->>H: after_deserialize(result, ctx)
+            H-->>C: replacement result
+            C-->>U: return replacement
+        end
+    end
+```
 
 ## Interaction with Cache Mode
 

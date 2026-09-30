@@ -143,20 +143,7 @@ The [`RedisFuncCache`][] executes a decorated function with specified arguments 
 1. **Serialize Result and Cache**: Serialize the result of the user function and store it in Redis.
 1. **Return Result**: Return the result of the decorated function.
 
-```mermaid
-flowchart TD
-    A[Start] --> B[Initialize Scripts]
-    B --> C{Scripts Valid?}
-    C -->|Invalid| D[Raise RuntimeError]
-    C -->|Valid| E[Calculate Keys and Hash]
-    E --> F[Attempt Cache Retrieval]
-    F --> G{Cache Hit?}
-    G -->|Yes| H[Deserialize and Return Cached Result]
-    G -->|No| I[Execute User Function]
-    I --> J[Serialize Result]
-    J --> K[Store in Cache]
-    K --> L[Return User Function Result]
-```
+![execution_flow](images/execution_flow.svg)
 
 ## Concurrency and atomicity
 
@@ -263,7 +250,7 @@ Start a Redis server, then run the test suite (a Docker Compose file in the `doc
 
 ## Develop
 
-To set up a development environment, clone the repository and see [CONTRIBUTING.md](CONTRIBUTING.md#development-setup) for the full setup (virtual environment, dependencies, [pre-commit][] hooks — some of which invoke host tools such as Node.js and `lua-language-server` — plus coding conventions and the architecture overview).
+To set up a development environment, clone the repository and see [CONTRIBUTING.md](CONTRIBUTING.md#development-setup) for the full setup (virtual environment, dependencies, [pre-commit][] hooks — some of which invoke host tools such as [uv][], Node.js and `lua-language-server` — plus coding conventions and the architecture overview).
 
 ## Architecture
 
@@ -273,4 +260,5 @@ The library composes three orthogonal components into an eviction policy: **Keyi
 [redis-py]: https://redis.io/docs/develop/clients/redis-py/ "Connect your Python application to a Redis database"
 [decorator]: https://docs.python.org/glossary.html#term-decorator "A function returning another function, usually applied as a function transformation using the @wrapper syntax"
 [pre-commit]: https://pre-commit.com/ "A framework for managing and maintaining multi-language pre-commit hooks."
+[uv]: https://docs.astral.sh/uv/ "An extremely fast Python package and project manager, written in Rust."
 [`RedisFuncCache`]: redis_func_cache.cache.RedisFuncCache

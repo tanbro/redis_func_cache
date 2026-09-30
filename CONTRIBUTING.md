@@ -112,10 +112,11 @@ We use several tools to maintain code quality:
 
 Some hooks are `language: system` and invoke external tools, so besides the Python toolchain above you also need:
 
+- **[uv][]**: runs the `mypy` hook inside the project environment, so the type checker sees exactly the locked dependencies (no shadow `additional_dependencies` to keep in sync).
 - **Node.js / npx**: the `prettier` hook runs via `npx` (any recent Node LTS works; it downloads prettier on first use).
 - **lua-language-server**: the `luals` hook statically checks the Lua scripts against `src/redis_func_cache/lua/.luarc.json` and the Redis type stubs in `src/redis_func_cache/lua/meta/` (both are development-only files and are excluded from the built wheel/sdist).
 
-You should install them before making changes.
+You should install them before making changes. The same suite runs in CI as the the `pre-commit` job of the [Python package workflow](.github/workflows/python-package.yml), so a commit that bypasses the local hooks will be caught there.
 
 To run checks manually:
 
@@ -218,17 +219,36 @@ graph LR
     Keying --> MultipleKeying
     SingleKeying --> ClusterSingleKeying
     MultipleKeying --> ClusterMultipleKeying
-    Scripts --> LruScripts
-    Scripts --> LruTScripts
     Scripts --> FifoScripts
     Scripts --> FifoTScripts
     Scripts --> LfuScripts
+    Scripts --> HyperbolicScripts
+    Scripts --> GdsfScripts
+    Scripts --> LruScripts
+    Scripts --> LruTScripts
+    Scripts --> LruTrScripts
     Scripts --> MruScripts
     Scripts --> RrScripts
     LruScripts --> lru_get.lua
     LruScripts --> lru_put.lua
     LruTScripts --> lru_t_get.lua
     LruTScripts --> lru_t_put.lua
+    LruTrScripts --> lru_t_get.lua
+    LruTrScripts --> lru_tr_put.lua
+    MruScripts --> lru_get.lua
+    MruScripts --> lru_put.lua
+    FifoScripts --> fifo_get.lua
+    FifoScripts --> fifo_put.lua
+    FifoTScripts --> fifo_get.lua
+    FifoTScripts --> fifo_t_put.lua
+    LfuScripts --> lfu_get.lua
+    LfuScripts --> lfu_put.lua
+    HyperbolicScripts --> hyperbolic_get.lua
+    HyperbolicScripts --> hyperbolic_put.lua
+    GdsfScripts --> gdsf_get.lua
+    GdsfScripts --> gdsf_put.lua
+    RrScripts --> rr_get.lua
+    RrScripts --> rr_put.lua
     Serializer --> json
     Serializer --> pickle
     Serializer --> dill
@@ -264,20 +284,21 @@ classDiagram
         +keying: Keying
         +hasher: Hasher
         +scripts: Scripts
-        +calc_key_pair(prefix, name, f) -> Tuple[str, str]
+        +locate(prefix, name, f, args, kwds) -> Tuple~keys, hash~
+        +calc_key_pair(prefix, name, f, args, kwds) -> Tuple~str, str~
         +calc_hash(f, args, kwds) -> KeyT
+        +get(client, prefix, name, f, args, kwds) -> EncodedT | None
+        +put(client, prefix, name, f, value, args, kwds) -> None
         +purge_all_pairs(client, prefix, name) -> int
         +purge_one_pair(client, index_key, value_key) -> int
-        +get_size(client, prefix, name) -> int
+        +vacuum_one_pair(client, index_key, value_key) -> int
         +vacuum_all_pairs(client, prefix, name) -> int
-        +get(client, prefix, name, f) -> bytes
-        +put(client, prefix, name, f, value) -> None
+        +get_size(client, prefix, name) -> int
     }
 
     class Keying {
-        <<interface>>
-        key: str
-        +calc_key_pair(prefix, name, f) -> Tuple[str, str]
+        <<abstract>>
+        +calc_key_pair(prefix, name, f, args, kwds) -> Tuple~str, str~
     }
 
     class Hasher {
@@ -307,7 +328,8 @@ classDiagram
         Policy preset
     }
 
-    class SingleKeying {
+    class sk_lru {
+        <<SingleKeying>>
         key = "lru"
     }
 
@@ -320,7 +342,7 @@ classDiagram
         __hash_config__ = ...
     }
 
-    lru_policy --> SingleKeying
+    lru_policy --> sk_lru
     lru_policy --> LruScripts
     lru_policy --> PickleMd5Hasher
 
@@ -328,12 +350,17 @@ classDiagram
         Policy preset
     }
 
+    class sk_fifo {
+        <<SingleKeying>>
+        key = "fifo"
+    }
+
     class FifoScripts {
         get_script = "fifo_get.lua"
         put_script = "fifo_put.lua"
     }
 
-    fifo_policy --> SingleKeying
+    fifo_policy --> sk_fifo
     fifo_policy --> FifoScripts
     fifo_policy --> PickleMd5Hasher
 ```
@@ -368,6 +395,7 @@ classDiagram
     }
 
     class Wrapper {
+        <<nested closure of decorate>>
         +wrapper(*user_args, **user_kwargs)
         +awrapper(*user_args, **user_kwargs)
     }
