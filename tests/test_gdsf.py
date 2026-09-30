@@ -139,8 +139,12 @@ def test_cost_orders_functions_in_single_pair(cache):
     def dear(x):
         return x
 
-    # distinct qualnames → distinct fingerprints → two entries in the shared pair
+    # distinct qualnames → distinct fingerprints → two entries in the shared pair.
+    # dear(1) gets an extra hit so its frequency (2) makes it the strictly
+    # highest-scoring entry: dear's other entries all tie (same freq/cost/size)
+    # and ties are broken by member bytes, which vary across Python versions.
     cheap(1)
+    dear(1)
     dear(1)
 
     client = redis_factory()

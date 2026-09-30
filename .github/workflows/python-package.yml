@@ -59,6 +59,9 @@ jobs:
       - name: Put lua-language-server on PATH
         run: echo /opt/luals/bin >> "${GITHUB_PATH}"
 
+      - name: Install pre-commit (uv tool)
+        run: uv tool install pre-commit
+
       - name: Cache pre-commit environments
         uses: actions/cache@v6
         with:
@@ -69,7 +72,7 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Run pre-commit on all files
-        run: uv run pre-commit run --all-files
+        run: pre-commit run --all-files
 
   get-version:
     runs-on: ubuntu-latest
