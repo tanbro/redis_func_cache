@@ -61,9 +61,6 @@ jobs:
       - name: Put lua-language-server on PATH
         run: echo /opt/luals/bin >> "${GITHUB_PATH}"
 
-      - name: Install pre-commit (uv tool)
-        run: uv tool install pre-commit
-
       - name: Cache pre-commit environments
         uses: actions/cache@v6
         with:
@@ -74,36 +71,35 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Run pre-commit on all files
-        run: pre-commit run --all-files
+        run: uvx pre-commit run --all-files
 
-  get-version:
+  # Decides whether this ref is a release: the tag must be valid PEP-440 (a
+  # PyPI-publishable version); otherwise the output stays empty and build/publish skip.
+  check-release-tag:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.get-version.outputs.version }}
+      version: ${{ steps.check-release-tag.outputs.version }}
     steps:
+      # Shallow checkout suffices: the script only reads GITHUB_REF, it runs no git.
+      # Full history is only needed where hatch-vcs derives the version (build).
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
-      - name: Cache pip downloads
-        uses: actions/cache@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
         with:
-          path: ~/.cache/pip
-          key: pip
-
-      - name: Install packaging (no deps)
-        run: python3 -m pip install --disable-pip-version-check packaging
+          enable-cache: true
 
       - name: Validate PEP-440 tag (extract & check) and set output
-        id: get-version
+        id: check-release-tag
         run: |
           set -euo pipefail
           # The script derives the candidate from GITHUB_REF and writes version=... to GITHUB_OUTPUT
-          python3 .github/scripts/validate_version.py
+          uv run --no-project .github/scripts/check-release-tag.py
 
   unittest-linux:
     runs-on: ubuntu-latest
+    needs: [pre-commit]
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
@@ -131,6 +127,7 @@ jobs:
 
   unittest-macos:
     runs-on: macos-latest
+    needs: [pre-commit]
 
     steps:
       - uses: actions/checkout@v7
@@ -151,8 +148,8 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [get-version, unittest-linux, unittest-macos]
-    if: needs.get-version.outputs.version != ''
+    needs: [check-release-tag, pre-commit, unittest-linux, unittest-macos]
+    if: needs.check-release-tag.outputs.version != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -167,21 +164,21 @@ jobs:
       - name: Upload package distributions to artifact
         uses: actions/upload-artifact@v7
         with:
-          name: redis_func_cache-dist-${{ needs.get-version.outputs.version }}
+          name: redis_func_cache-dist-${{ needs.check-release-tag.outputs.version }}
           path: dist
           if-no-files-found: error
           retention-days: 1
 
   publish:
     runs-on: ubuntu-latest
-    needs: [get-version, build]
-    if: needs.get-version.outputs.version != ''
+    needs: [check-release-tag, build]
+    if: needs.check-release-tag.outputs.version != ''
 
     steps:
       - name: Download package distributions from artifact
         uses: actions/download-artifact@v8
         with:
-          name: redis_func_cache-dist-${{needs.get-version.outputs.version}}
+          name: redis_func_cache-dist-${{needs.check-release-tag.outputs.version}}
           path: dist
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
