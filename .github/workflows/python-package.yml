@@ -11,6 +11,7 @@ on:
       - .github/**
       - src/**
       - tests/**
+      - docs/**
       - pyproject.toml
   pull_request:
     branches: [main]
@@ -18,6 +19,7 @@ on:
       - .github/**
       - src/**
       - tests/**
+      - docs/**
       - pyproject.toml
 
 # Minimal GITHUB_TOKEN permissions by default; jobs may widen as needed.
@@ -25,6 +27,50 @@ permissions:
   contents: read
 
 jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    env:
+      LUALS_VERSION: 3.19.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Cache lua-language-server
+        id: luals
+        uses: actions/cache@v6
+        with:
+          path: /opt/luals
+          key: luals-${{ runner.os }}-${{ env.LUALS_VERSION }}
+
+      - name: Download lua-language-server
+        if: steps.luals.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          curl -sSfL -o /tmp/luals.tar.gz \
+            "https://github.com/LuaLS/lua-language-server/releases/download/${LUALS_VERSION}/lua-language-server-${LUALS_VERSION}-linux-x64.tar.gz"
+          mkdir -p /opt/luals
+          tar -xzf /tmp/luals.tar.gz -C /opt/luals
+
+      - name: Put lua-language-server on PATH
+        run: echo /opt/luals/bin >> "${GITHUB_PATH}"
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Sync project environment (for mypy)
+        run: uv sync --all-extras --dev
+
+      - name: Run pre-commit on all files
+        run: uv run pre-commit run --all-files
+
   get-version:
     runs-on: ubuntu-latest
     outputs:

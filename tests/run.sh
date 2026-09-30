@@ -27,15 +27,8 @@ if [ ! -f uv.lock ]; then
     uv lock
 fi
 
-# lint 与被测 Python 版本无关，只跑一次；
-# --ignore EXE002：Windows bind mount 会给所有文件加可执行位，导致该规则在容器里全量误报
-log "Lint check:"
-uvx ruff check --ignore EXE002
-
-# mypy 需要 项目源码 + 依赖的类型信息，必须在 sync 过 typing 组的环境里跑；
-# 同样持久化到 /venvs，跨次运行增量复用
-log "Static check:"
-UV_PROJECT_ENVIRONMENT="/venvs/typing" uv run --frozen --no-dev --group typing mypy
+# lint 与静态类型检查已收口到 pre-commit（见 .pre-commit-config.yaml），
+# 由 CI 的 lint job 全量执行；本脚本只负责多版本 pytest。
 
 read -r -a PYTHON_LIST <<< "${PYTHON_LIST:-3.10 3.11 3.12 3.13 3.14}"
 for PYTHON in "${PYTHON_LIST[@]}"; do
