@@ -89,7 +89,7 @@ test = [
   "pytest-asyncio",
   "python-dotenv",
 ]
-typing = ["mypy"]
+typing = ["mypy", "pip"]
 
 [tool.hatch.version]
 source = "vcs"

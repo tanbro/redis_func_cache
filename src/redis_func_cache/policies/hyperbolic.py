@@ -4,6 +4,8 @@ Score = ``log(freq + 1) / (age + 1) ^ 0.25`` (Hyperbolic Caching, USENIX ATC
 2020): one ZSET score captures recency *and* frequency, and stale hot entries
 age out without a decay task — the classical LFU weakness this fixes. See
 ``lua/hyperbolic_put.lua`` for the score contract and its caveats.
+
+.. versionadded:: 1.0
 """
 
 from ..hashing import PICKLE_MD5_HASHER

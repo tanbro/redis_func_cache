@@ -26,6 +26,10 @@ cross-version cache compatibility::
     Replaces the ``mixins.hash`` mixin classes. Hashers are plain components
     composed into a :class:`~redis_func_cache.policies.Policy` instead
     of being woven in via multiple inheritance.
+
+.. versionchanged:: 1.0
+    The 0.x ``mixins.hash`` classes became this module: ``*HashMixin`` was renamed
+    ``*Hasher``; compose policies with :func:`make_hasher`.
 """
 
 from __future__ import annotations
@@ -78,7 +82,11 @@ __all__ = (
 
 @dataclass(frozen=True)
 class HashConfig:
-    """Configuration for a :class:`Hasher`."""
+    """Configuration for a :class:`Hasher`.
+
+    .. versionchanged:: 1.0
+        Moved here from the 0.x ``mixins.hash`` module.
+    """
 
     algorithm: str
     """name for hashing algorithm
@@ -107,6 +115,9 @@ class Hasher(ABC):
 
     Subclass and override :attr:`__hash_config__` to define the algorithm,
     serializer and decoder.
+
+    .. versionadded:: 1.0
+        Replaces the 0.x ``AbstractHashMixin``.
     """
 
     __hash_config__: HashConfig
@@ -164,6 +175,9 @@ def make_hasher(name: str, hash_config: HashConfig) -> type[Hasher]:
     Note:
         Hash values are stable only within a single library version. Changing the
         serializer or decoder output changes cache keys and invalidates existing entries.
+
+    .. versionadded:: 1.0
+        Replaces ``make_hash_mixin``.
     """
     return type(name, (Hasher,), {"__hash_config__": hash_config})
 

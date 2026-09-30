@@ -52,7 +52,7 @@ repos:
       - id: mypy
         name: mypy
         language: system
-        entry: uv run mypy
+        entry: uv run mypy --non-interactive --install-types
         types_or: [python, pyi]
         pass_filenames: false
 
@@ -66,4 +66,3 @@ repos:
     rev: v0.23.3
     hooks:
       - id: markdownlint-cli2
-        args: ["--fix"]

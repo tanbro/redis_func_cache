@@ -100,6 +100,11 @@ class Policy:
         client-independent ones (script *text*, key names). Registered script
         objects are cached inside :attr:`scripts`, keyed weakly by client, so
         they never outlive the client they were registered against.
+
+    .. versionadded:: 1.0
+        Composed of a :class:`~redis_func_cache.keying.Keying`, a :class:`~redis_func_cache.hashing.Hasher`
+        and a :class:`~redis_func_cache.scripts.Scripts`; stateless and shareable.
+        Replaces the 0.x ``AbstractPolicy`` mixin hierarchy.
     """
 
     keying: Keying
@@ -150,6 +155,9 @@ class Policy:
 
         Returns:
             The calculated hash value.
+
+        .. versionchanged:: 1.0
+            Signature rebuilt: the policy is stateless; see :meth:`locate`.
         """
         return self.hasher.calc_hash(fn, args, kwds)
 
@@ -174,6 +182,9 @@ class Policy:
 
         Returns:
             Tuple of two Redis key names (index key, value key).
+
+        .. versionchanged:: 1.0
+            Signature rebuilt: the policy is stateless; see :meth:`locate`.
         """
         return self.keying.calc_key_pair(prefix, name, fn, args, kwds)
 
@@ -195,6 +206,9 @@ class Policy:
 
         Returns:
             Iterator of (index key, value key) pairs.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         return self.keying.iterate_key_pairs(redis_client, prefix, name)
 
@@ -213,6 +227,9 @@ class Policy:
 
         Returns:
             Async iterator of (index key, value key) pairs.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         return self.keying.aiterate_key_pairs(redis_client, prefix, name)
 
@@ -227,6 +244,9 @@ class Policy:
 
         Returns:
             Number of keys deleted.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         return self.keying.purge_all_pairs(redis_client, prefix, name, batch_size)
 
@@ -243,6 +263,9 @@ class Policy:
 
         Returns:
             Number of keys deleted.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         return await self.keying.apurge_all_pairs(redis_client, prefix, name, batch_size)
 
@@ -315,6 +338,9 @@ class Policy:
 
         Returns:
             Number of items in the cache.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         return sum(
             self._fetch_index_size(redis_client, index_key)
@@ -331,6 +357,9 @@ class Policy:
 
         Returns:
             Number of items in the cache.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         total = 0
         async for index_key, _ in self.keying.aiterate_key_pairs(redis_client, prefix, name):
@@ -406,6 +435,9 @@ class Policy:
 
         Returns:
             The serialized hit value, or :data:`None` on a miss.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         if located is None:
             located = self.locate(prefix, name, fn, args, kwds)
@@ -427,7 +459,11 @@ class Policy:
         options: Mapping[str, Any] | None = None,
         located: tuple[tuple[KeyT, KeyT], HashValueT] | None = None,
     ) -> EncodedT | None:
-        """Async version of :meth:`get`; see it for the semantics of ``located``."""
+        """Async version of :meth:`get`; see it for the semantics of ``located``.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
+        """
         if located is None:
             located = self.locate(prefix, name, fn, args, kwds)
         keys, hash_value = located
@@ -480,6 +516,9 @@ class Policy:
                 pass it in so the identity is computed once per call. Note
                 ``fn`` / ``args`` / ``kwds`` are still used for
                 :meth:`Scripts.calc_ext_args`.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         if located is None:
             located = self.locate(prefix, name, fn, args, kwds)
@@ -508,7 +547,11 @@ class Policy:
         options: Mapping[str, Any] | None = None,
         located: tuple[tuple[KeyT, KeyT], HashValueT] | None = None,
     ) -> None:
-        """Async version of :meth:`put`; see it for the semantics of ``located``."""
+        """Async version of :meth:`put`; see it for the semantics of ``located``.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
+        """
         if located is None:
             located = self.locate(prefix, name, fn, args, kwds)
         keys, hash_value = located
@@ -524,7 +567,11 @@ class Policy:
     def vacuum_one_pair(
         self, redis_client: RedisSyncClientT, index_key: KeyNameT, value_key: KeyNameT, batch_size: int
     ) -> int:
-        """Vacuum one (index, value) key pair; see :meth:`vacuum_all_pairs` for the semantics."""
+        """Vacuum one (index, value) key pair; see :meth:`vacuum_all_pairs` for the semantics.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
+        """
         script = cast(Script, self.scripts.register_vacuum_script(redis_client))
         removed = 0
         cursor: int | str | bytes = 0
@@ -551,6 +598,9 @@ class Policy:
 
         Returns:
             The number of ghost entries removed.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         return sum(
             self.vacuum_one_pair(redis_client, index_key, value_key, batch_size)
@@ -560,7 +610,11 @@ class Policy:
     async def avacuum_one_pair(
         self, redis_client: RedisAsyncClientT, index_key: KeyNameT, value_key: KeyNameT, batch_size: int
     ) -> int:
-        """Async version of :meth:`vacuum_one_pair`."""
+        """Async version of :meth:`vacuum_one_pair`.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
+        """
         script = cast(AsyncScript, self.scripts.register_vacuum_script(redis_client))
         removed = 0
         cursor: int | str | bytes = 0
@@ -583,6 +637,9 @@ class Policy:
 
         Returns:
             The number of ghost entries removed.
+
+        .. versionchanged:: 1.0
+            Takes ``redis_client``, ``prefix`` and ``name`` explicitly; the policy is stateless.
         """
         removed = 0
         async for index_key, value_key in self.aiterate_key_pairs(redis_client, prefix, name):

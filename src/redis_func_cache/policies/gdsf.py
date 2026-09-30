@@ -7,6 +7,8 @@ kwarg (default 1.0). Note ``cost`` only influences eviction under the
 single-key-pair keying variants (``gdsf_policy`` / ``gdsf_cluster_policy``);
 under the per-function variants every key pair holds one function's entries,
 so its cost is an in-pair constant and scoring reduces to frequency/size.
+
+.. versionadded:: 1.0
 """
 
 from ..hashing import PICKLE_MD5_HASHER

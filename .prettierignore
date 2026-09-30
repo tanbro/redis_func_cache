@@ -1,14 +1,1 @@
-.coveragerc
-.dockerignore
-.editorconfig
-.gitattributes
-.gitignore
-.mypy.ini
-.prettierignore
-.ruff.toml
-MANIFEST.in
-pyproject.toml
 docs/*.include.md
-docs/_build/**/*
-
-**/*.py

@@ -10,14 +10,14 @@ composed into a :class:`~redis_func_cache.policies.Policy`:
 
 Four built-in variants cover the two orthogonal naming choices:
 
-==================  ===========================  ===================  ====================
-Class               Key pattern                  Per-function keys    Cluster support
-==================  ===========================  ===================  ====================
-SingleKeying        ``prefix:name:key:0|1``      no                   no
-MultipleKeying      ``prefix:name:key:fn#h:0|1`` yes                  no
-ClusterSingleKeying ``prefix{name:key}:0|1``     no                   yes
-ClusterMultipleKeying ``...:fn{#h}:0|1``         yes                  yes
-==================  ===========================  ===================  ====================
+======================  ==============================  ==================  ================
+Class                   Key pattern                     Per-function keys   Cluster support
+======================  ==============================  ==================  ================
+SingleKeying            ``prefix:name:key:0|1``         no                  no
+MultipleKeying          ``prefix:name:key:fn#h:0|1``    yes                 no
+ClusterSingleKeying     ``prefix{name:key}:0|1``        no                  yes
+ClusterMultipleKeying   ``...:fn{#h}:0|1``              yes                 yes
+======================  ==============================  ==================  ================
 
 ``key`` is the policy's key-name component (e.g. ``"lru"``, ``"lru-cm"``).
 
@@ -73,6 +73,9 @@ class Keying(ABC):
     (kept final here) and :meth:`base_key` is the single override point. The
     ``:0``/``:1`` suffixes applied by :meth:`calc_key_pair` are an invariant every
     variant shares.
+
+    .. versionadded:: 1.0
+        The key-naming dimension, factored out of the 0.x hash mixins.
     """
 
     key: str
@@ -166,7 +169,10 @@ class Keying(ABC):
 
 
 class SingleKeying(Keying):
-    """One static key pair shared by every decorated function; no cluster hash tags."""
+    """One static key pair shared by every decorated function; no cluster hash tags.
+
+    .. versionadded:: 1.0
+    """
 
     __slots__ = ("key",)
 
@@ -179,7 +185,10 @@ class SingleKeying(Keying):
 
 
 class ClusterSingleKeying(SingleKeying):
-    """One static key pair shared by every decorated function, with a cluster hash tag."""
+    """One static key pair shared by every decorated function, with a cluster hash tag.
+
+    .. versionadded:: 1.0
+    """
 
     __slots__ = ()
 
@@ -189,7 +198,10 @@ class ClusterSingleKeying(SingleKeying):
 
 
 class MultipleKeying(Keying):
-    """One key pair per decorated function; no cluster hash tags."""
+    """One key pair per decorated function; no cluster hash tags.
+
+    .. versionadded:: 1.0
+    """
 
     __slots__ = ("key",)
 
@@ -254,7 +266,10 @@ class MultipleKeying(Keying):
 
 
 class ClusterMultipleKeying(MultipleKeying):
-    """One key pair per decorated function, with a cluster hash tag around the checksum."""
+    """One key pair per decorated function, with a cluster hash tag around the checksum.
+
+    .. versionadded:: 1.0
+    """
 
     __slots__ = ()
 

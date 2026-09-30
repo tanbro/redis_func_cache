@@ -1,4 +1,8 @@
-"""Least Recently Used eviction cache policies."""
+"""Least Recently Used eviction cache policies.
+
+.. versionadded:: 1.0
+    The ``lru_tr_*`` presets (LRU-T with random admission).
+"""
 
 from ..hashing import PICKLE_MD5_HASHER
 from ..keying import ClusterMultipleKeying, ClusterSingleKeying, MultipleKeying, SingleKeying

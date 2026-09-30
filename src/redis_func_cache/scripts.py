@@ -254,6 +254,8 @@ class HyperbolicScripts(Scripts):
     (``<hash>:m`` in the value hash) that stores the access frequency and the
     last-access time (every access resets the clock, per the Hyperbolic
     Caching paper). See ``lua/hyperbolic_put.lua`` for the full contract.
+
+    .. versionadded:: 1.0
     """
 
     get_script = "hyperbolic_get.lua"
@@ -269,6 +271,8 @@ class GdsfScripts(Scripts):
     miss cost the user declares as the ``cost`` decorator kwarg. ``cost`` travels
     as an extra argument (ARGV[7]); a per-entry metadata field (``<hash>:m``)
     stores ``"<freq> <cost>"`` so hits can re-score. See ``lua/gdsf_put.lua``.
+
+    .. versionadded:: 1.0
     """
 
     get_script = "gdsf_get.lua"
@@ -363,6 +367,8 @@ class LruTrScripts(Scripts):
     extra argument (ARGV[7]); the ``reject_p`` decorator kwarg overrides it per
     function (resolved by :meth:`calc_ext_args`, validated like the GDSF
     ``cost`` — no fallback).
+
+    .. versionadded:: 1.0
     """
 
     get_script = "lru_t_get.lua"
@@ -375,6 +381,7 @@ class LruTrScripts(Scripts):
         """Declare the rejection probability baked into the scripts.
 
         Args:
+
             reject_p: Probability of rejecting a new insertion, within ``[0, 1]``.
                 Non-numeric values propagate whatever ``float()`` raises; a
                 value outside the range (or NaN) raises ``ValueError``.

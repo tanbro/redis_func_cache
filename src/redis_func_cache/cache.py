@@ -993,6 +993,16 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 .. versionadded:: 0.5
 
+            cost: Per-function miss cost for the GDSF policies (positive, non-NaN; float-coerced).
+                Defaults to 1.0 when absent; ignored by other policies.
+
+                .. versionadded:: 1.0
+
+            reject_p: Probability of rejecting a new insertion for the ``lru_tr_*`` policies, within ``[0, 1]``.
+                Overrides the value baked into the scripts instance.
+
+                .. versionadded:: 1.0
+
         This method is equivalent to :attr:`__call__`.
 
         Example:
