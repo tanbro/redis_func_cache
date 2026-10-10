@@ -14,7 +14,10 @@ Its contract has three GDSF-specific aspects:
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
+from redis.typing import ZSetScoredMembers
 
 from redis_func_cache import RedisFuncCache, gdsf_policy
 from redis_func_cache.policies.gdsf import gdsf_multiple_policy
@@ -91,7 +94,7 @@ def test_cost_kwarg_reaches_score(cache):
     echo = _make_echo(cache, cost=2.5)
     echo(1)
     client = redis_factory()
-    index_key, value_key, member = _locate(cache, echo.__wrapped__)
+    index_key, value_key, member = _locate(cache, getattr(echo, "__wrapped__"))  # noqa: B009
     [(member_z, score)] = client.zrange(index_key, 0, -1, withscores=True)
     assert member_z == member
     member_bytes = member.encode() if isinstance(member, str) else member
@@ -148,8 +151,8 @@ def test_cost_orders_functions_in_single_pair(cache):
     dear(1)
 
     client = redis_factory()
-    index_key, value_key, cheap_member = _locate(cache, cheap.__wrapped__)
-    _index_key, _value_key, dear_member = _locate(cache, dear.__wrapped__)
+    index_key, value_key, cheap_member = _locate(cache, getattr(cheap, "__wrapped__"))  # noqa: B009
+    _index_key, _value_key, dear_member = _locate(cache, getattr(dear, "__wrapped__"))  # noqa: B009
     cheap_value = client.hget(value_key, _b(cheap_member))
     dear_value = client.hget(value_key, _b(dear_member))
     assert cheap_value is not None and dear_value is not None
@@ -175,15 +178,17 @@ def test_size_prefers_small_values(cache):
     for x in (1, 5):
         assert echo(x) == "x" * (10 * x)
     client = redis_factory()
-    index_key, value_key, m1 = _locate(cache, echo.__wrapped__, args=(1,))
-    _index_key, _value_key, m5 = _locate(cache, echo.__wrapped__, args=(5,))
+    index_key, value_key, m1 = _locate(cache, getattr(echo, "__wrapped__"), args=(1,))  # noqa: B009
+    _index_key, _value_key, m5 = _locate(cache, getattr(echo, "__wrapped__"), args=(5,))  # noqa: B009
     v1 = client.hget(value_key, _b(m1))
     v5 = client.hget(value_key, _b(m5))
     assert v1 is not None and v5 is not None
     assert len(v5) > len(v1)  # distinct sizes for the same function
 
-    scores = dict(client.zrange(index_key, 0, -1, withscores=True))
-    assert scores[m1] > scores[m5]  # same freq and cost: the larger value scores lower
+    scored_members = cast(ZSetScoredMembers, client.zrange(index_key, 0, -1, withscores=True))
+    scores = dict(scored_members)
+    # same freq and cost: the larger value scores lower
+    assert scores[m1] > scores[m5]  # pyright: ignore[reportArgumentType]
 
 
 def test_multiple_keying_cost_is_in_pair_constant():
@@ -208,7 +213,11 @@ def test_multiple_keying_cost_is_in_pair_constant():
             echo(9)  # evicts the larger x=5 value (same freq, bigger size)
             client = redis_factory()
             (index_key, _value_key), _hash_value = cache.policy.locate(
-                cache.prefix, cache.name, echo.__wrapped__, (1,), {}
+                cache.prefix,
+                cache.name,
+                getattr(echo, "__wrapped__"),  # noqa: B009
+                (1,),
+                {},
             )
             return set(client.zrange(index_key, 0, -1))
         finally:

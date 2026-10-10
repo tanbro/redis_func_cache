@@ -440,7 +440,7 @@ def test_lfu_put_update_counts_request():
         def echo(x):
             return x
 
-        fn = echo.__wrapped__
+        fn = getattr(echo, "__wrapped__")  # noqa: B009
         client = redis_factory()
         (index_key, _value_key), _hash_value = cache.policy.locate(cache.prefix, cache.name, fn, (1,), {})
         member = cache.policy.calc_hash(fn, (1,), {})
@@ -458,7 +458,9 @@ def test_lfu_put_update_counts_request():
             update_ttl=True,
             ttl=60,
         )
-        assert float(client.zscore(index_key, member)) == 1.0
+        score = client.zscore(index_key, member)
+        assert score is not None
+        assert float(score) == 1.0
 
         cache.policy.put(
             client,
@@ -472,6 +474,8 @@ def test_lfu_put_update_counts_request():
             update_ttl=True,
             ttl=60,
         )
-        assert float(client.zscore(index_key, member)) == 2.0  # update counted the request
+        score = client.zscore(index_key, member)
+        assert score is not None
+        assert float(score) == 2.0  # update counted the request
     finally:
         cache.purge()

@@ -11,7 +11,10 @@ are asserted exactly.
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
+from redis.typing import FieldT
 
 from redis_func_cache import RedisFuncCache, lru_t_policy, lru_tr_policy
 from redis_func_cache.hashing import PICKLE_MD5_HASHER
@@ -51,7 +54,13 @@ def test_rejection_ratio_is_statistical(cache):
     for x in range(N_PUTS):
         echo(x)
     client = redis_factory()
-    (index_key, _value_key), _hash_value = cache.policy.locate(cache.prefix, cache.name, echo.__wrapped__, (19,), {})
+    (index_key, _value_key), _hash_value = cache.policy.locate(
+        cache.prefix,
+        cache.name,
+        getattr(echo, "__wrapped__"),  # noqa: B009
+        (19,),
+        {},
+    )
     admitted = client.zcard(index_key)
     # ~50 expected; a wide interval keeps the test deterministic-ish without
     # being vacuous (a broken p=0 or p=1 script lands far outside).
@@ -72,7 +81,7 @@ def test_update_always_admitted():
         def echo(x):
             return x
 
-        fn = echo.__wrapped__
+        fn = getattr(echo, "__wrapped__")  # noqa: B009
         client = redis_factory()
         index_key, value_key = cache.policy.locate(cache.prefix, cache.name, fn, (1,), {})[0]
         member = cache.policy.calc_hash(fn, (1,), {})
@@ -112,7 +121,11 @@ def test_p_zero_admits_all():
             assert echo(x) == x
         client = redis_factory()
         (index_key, _value_key), _hash_value = cache.policy.locate(
-            cache.prefix, cache.name, echo.__wrapped__, (19,), {}
+            cache.prefix,
+            cache.name,
+            getattr(echo, "__wrapped__"),  # noqa: B009
+            (19,),
+            {},
         )
         assert client.zcard(index_key) == 20
     finally:
@@ -135,7 +148,13 @@ def test_p_one_rejects_all_new():
         assert echo(1) == 1  # rejected put => still a miss on the second call
         assert calls == [1, 1]
         client = redis_factory()
-        (index_key, value_key), _hash_value = cache.policy.locate(cache.prefix, cache.name, echo.__wrapped__, (1,), {})
+        (index_key, value_key), _hash_value = cache.policy.locate(
+            cache.prefix,
+            cache.name,
+            getattr(echo, "__wrapped__"),  # noqa: B009
+            (1,),
+            {},
+        )
         assert client.zcard(index_key) == 0
         assert not client.exists(value_key)
     finally:
@@ -163,13 +182,13 @@ def test_reject_p_kwarg_overrides_baked():
             assert exempt(x) == x
 
         client = redis_factory()
-        (plain_key, _vk), _hv = cache.policy.locate(cache.prefix, cache.name, plain.__wrapped__, (4,), {})
+        (plain_key, _vk), _hv = cache.policy.locate(cache.prefix, cache.name, getattr(plain, "__wrapped__"), (4,), {})  # noqa: B009
         # Single keying: one shared pair — the exempt function's entries are
         # in, the plain function's are not.
         members = set(client.zrange(plain_key, 0, -1))
         assert members
-        exempt_hash = cache.policy.calc_hash(exempt.__wrapped__, (4,), {})
-        plain_hash = cache.policy.calc_hash(plain.__wrapped__, (4,), {})
+        exempt_hash = cache.policy.calc_hash(getattr(exempt, "__wrapped__"), (4,), {})  # noqa: B009
+        plain_hash = cache.policy.calc_hash(getattr(plain, "__wrapped__"), (4,), {})  # noqa: B009
         _to_b = lambda v: v.encode() if isinstance(v, str) else v
         assert _to_b(exempt_hash) in members
         assert _to_b(plain_hash) not in members
@@ -205,9 +224,9 @@ def test_reject_p_invalid_rejected():
 def test_p_validation():
     """Non-numeric p propagates float()'s error; out-of-range or NaN raises ValueError."""
     with pytest.raises(TypeError):  # float(object()) is a TypeError
-        LruTrScripts(reject_p=object())
+        LruTrScripts(reject_p=object())  # type: ignore
     with pytest.raises(ValueError):  # float("abc") is a ValueError
-        LruTrScripts(reject_p="abc")
+        LruTrScripts(reject_p="abc")  # type: ignore
     with pytest.raises(ValueError):
         LruTrScripts(reject_p=-0.1)
     with pytest.raises(ValueError):
@@ -215,7 +234,8 @@ def test_p_validation():
     with pytest.raises(ValueError):
         LruTrScripts(reject_p=float("nan"))
     assert LruTrScripts(reject_p=0).reject_p == 0.0
-    assert LruTrScripts(reject_p="0.25").reject_p == pytest.approx(0.25)
+    # test for force-convert
+    assert LruTrScripts(reject_p="0.25").reject_p == pytest.approx(0.25)  # type: ignore
     assert LruTrScripts().reject_p == pytest.approx(LruTrScripts.DEFAULT_P)
 
 
@@ -254,9 +274,15 @@ def test_semantics_match_lru_t_when_admitting():
             echo(2)  # update of an existing entry
 
             client = redis_factory()
-            (index_key, value_key), _hv = cache.policy.locate(cache.prefix, cache.name, echo.__wrapped__, (1,), {})
+            (index_key, value_key), _hv = cache.policy.locate(
+                cache.prefix,
+                cache.name,
+                getattr(echo, "__wrapped__"),  # noqa: B009
+                (1,),
+                {},
+            )
             members = client.zrange(index_key, 0, -1)
-            outcomes[label] = (members, {m: client.hget(value_key, m) for m in members})
+            outcomes[label] = (members, {m: client.hget(value_key, cast(FieldT, m)) for m in members})
         finally:
             cache.purge()
 
