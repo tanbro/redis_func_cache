@@ -29,13 +29,15 @@ from redis_func_cache import RedisFuncCache as Cache
 pool = ConnectionPool.from_url("redis://")
 cache = Cache(__name__, factory=lambda: Redis.from_pool(pool))
 
+
 @cache
-async def get_data():          # your slow function — any function
+async def get_data():  # your slow function — any function
     await asyncio.sleep(10)
     return "expensive result"
 
-await get_data()   # 10 s  — computed and stored in Redis
-await get_data()   # 0.00x s — served from Redis, shared by every process
+
+await get_data()  # 10 s  — computed and stored in Redis
+await get_data()  # 0.00x s — served from Redis, shared by every process
 ```
 
 Every process and machine behind your application now shares this one cache. To run this yourself step by step — including starting a Redis server — see [Quick Start](docs/usage/quickstart.md).

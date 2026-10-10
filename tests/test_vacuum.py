@@ -340,6 +340,6 @@ def test_vacuum_reclaims_orphan_metadata_field():
     assert cache.vacuum() == 1
     assert client.zcard(zset_key) == 1
     assert not client.hexists(hmap_key, hash_a)
-    assert not client.hexists(hmap_key, hash_a + b":m")
+    assert not client.hexists(hmap_key, hash_a + ":m" if isinstance(hash_a, str) else b":m")
     assert client.hexists(hmap_key, hash_b)
-    assert client.hexists(hmap_key, hash_b + b":m")
+    assert client.hexists(hmap_key, hash_b + ":m" if isinstance(hash_b, str) else b":m")
