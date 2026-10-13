@@ -30,7 +30,7 @@ fi
 # lint 与静态类型检查已收口到 pre-commit（见 .pre-commit-config.yaml），
 # 由 CI 的 lint job 全量执行；本脚本只负责多版本 pytest。
 
-read -r -a PYTHON_LIST <<< "${PYTHON_LIST:-3.10 3.11 3.12 3.13 3.14}"
+read -r -a PYTHON_LIST <<< "${PYTHON_LIST:-3.11 3.12 3.13 3.14 3.15}"
 for PYTHON in "${PYTHON_LIST[@]}"; do
     log "================================================================"
     log "Begin of Python ${PYTHON} pytest"
