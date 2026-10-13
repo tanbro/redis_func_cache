@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import atexit
 import weakref
 from collections.abc import Callable, Coroutine
 from os import getenv
@@ -274,12 +273,3 @@ async def close_all_async_resources():
     except Exception:  # noqa: BLE001, S110
         # 忽略所有异常，确保不会因为清理过程中的错误导致测试失败
         pass
-
-
-# 确保在模块被清理时也尝试关闭所有异步资源
-try:
-    asyncio.get_event_loop()
-except RuntimeError as err:
-    warn(f"{err}")
-else:
-    atexit.register(lambda: asyncio.run(close_all_async_resources()))

@@ -334,12 +334,25 @@ def test_vacuum_reclaims_orphan_metadata_field():
 
     zset_key, hmap_key = cache.policy.calc_key_pair(cache.prefix, cache.name, echo)
     hash_a = cache.policy.calc_hash(echo, ("a",), {})
+    assert hash_a
     hash_b = cache.policy.calc_hash(echo, ("b",), {})
+    assert hash_b
     client.hdel(hmap_key, hash_a)  # 只删值字段，'a:m' 残留
 
     assert cache.vacuum() == 1
     assert client.zcard(zset_key) == 1
-    assert not client.hexists(hmap_key, hash_a)
-    assert not client.hexists(hmap_key, hash_a + ":m" if isinstance(hash_a, str) else b":m")
-    assert client.hexists(hmap_key, hash_b)
-    assert client.hexists(hmap_key, hash_b + ":m" if isinstance(hash_b, str) else b":m")
+    assert not client.hexists(hmap_key, hash_a), f"{hash_a=}"
+
+    if isinstance(hash_a, bytes):
+        assert not client.hexists(hmap_key, hash_a + b":m")
+    elif isinstance(hash_a, str):
+        assert not client.hexists(hmap_key, hash_a + ":m")
+    else:
+        raise TypeError()
+
+    if isinstance(hash_b, bytes):
+        assert client.hexists(hmap_key, hash_b + b":m")
+    elif isinstance(hash_b, str):
+        assert client.hexists(hmap_key, hash_b + ":m")
+    else:
+        raise TypeError()

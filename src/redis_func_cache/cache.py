@@ -9,7 +9,6 @@ from functools import wraps
 from inspect import BoundArguments, Parameter, iscoroutinefunction, signature
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Generic, cast
-from warnings import warn
 
 from redis import RedisError
 from redis.typing import EncodableT, EncodedT
@@ -931,13 +930,13 @@ class RedisFuncCache(Generic[RedisClientTV]):
                 Note:
                     If assigned, it overwrite the :attr:`serializer` property of the cache instance on, and only affect the currently decorated function.
 
-            ttl: (**Experimental**) The time-to-live (in seconds) for a single invocation's result cache.
+            ttl: The time-to-live (in seconds) for a single invocation's result cache.
 
                 Note:
                     This parameter specifies the expiration time for a single invocation result inside the cached structures, not for the entire cache.
 
                 Caution:
-                    This experimental expiration mechanism relies on `Redis Hashes Field expiration <https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration)>`_.
+                    This expiration mechanism relies on `Redis Hashes Field expiration <https://redis.io/docs/latest/develop/data-types/hashes/#field-expiration)>`_, which requires Redis 7.4 or above.
                     Expiration only applies to the `HASH` field (the cached return value), and does **not** reduce the total number of items in the cache when a field expires.
 
                     Typically, the cached return value in the `HASH` portion is automatically released after expiration.
@@ -945,9 +944,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
                     Instead, it is only "lazily" cleaned up when accessed, or removed by the eviction policy when a new value is added.
                     During this period, the `ZSET` portion continues to occupy memory, and the reported number of cache items does not decrease.
                     Use :meth:`vacuum` to remove such stale members explicitly.
-
-                Warning:
-                    This feature is **experimental** and requires Redis 7.4 or above.
 
                 .. versionadded:: 0.5
 
@@ -1060,8 +1056,6 @@ class RedisFuncCache(Generic[RedisClientTV]):
         field_ttl = 0 if ttl is None else int(ttl)
         if field_ttl < 0:
             raise ValueError("ttl must be a non-negative integer")
-        if field_ttl:
-            warn("The ‘ttl’ parameter is experimental and only available in Redis versions above 7.4")
 
         def decorator(user_func: CallableTV) -> CallableTV:
             if is_staticmethod := isinstance(user_func, staticmethod):
