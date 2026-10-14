@@ -33,7 +33,7 @@ Keying instances are stateless and shareable: every method takes the bound
 from __future__ import annotations
 
 import sys
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Any
 
@@ -83,6 +83,7 @@ class Keying(ABC):
 
     __slots__ = ()
 
+    @abstractmethod
     def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
         """Build the key base — everything before the ``:0``/``:1`` suffix.
 
@@ -99,7 +100,7 @@ class Keying(ABC):
         Returns:
             The key base without suffix.
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def calc_key_pair(
         self,
