@@ -7,9 +7,13 @@ Its contract has three GDSF-specific aspects:
   the serialized byte length of the stored value,
 - a companion metadata field (``<hash>:m``) holds ``"<freq> <cost>"``,
 - the ``cost`` decorator kwarg (default 1.0) differentiates functions only
-  under the single-key-pair keying: entries of one function share a key pair,
-  so a per-function cost is an in-pair constant that cannot change the
-  relative order — but a different serializer does, through the value size.
+  under single keying: all functions share one key pair, so eviction (a
+  single ZPOPMIN over that pair) is decided by ``freq * cost / size`` across
+  them. Under per-function keying each function owns its own pair and
+  maxsize, so a per-function cost is an in-pair constant that cannot change
+  any relative order — see
+  :func:`test_multiple_keying_cost_is_in_pair_constant`. A different
+  serializer still does, through the value size.
 """
 
 from __future__ import annotations
