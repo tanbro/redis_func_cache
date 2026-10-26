@@ -66,6 +66,18 @@ def _hash_key_of(index_key: str | bytes) -> str | bytes:
     return index_key[:-2] + ":1"
 
 
+def _fn_identity(fn: Callable | None) -> tuple[str, str]:
+    """Return the ``(fullname, checksum)`` pair both multiple-keying variants derive from ``fn``.
+
+    The single home of the ``fn`` guard for those variants; only the assembly of the
+    two parts into a key differs between them (the cluster variant brackets the
+    checksum as a hash tag).
+    """
+    if fn is None:
+        raise TypeError("The multiple keying variants require the decorated function to derive the key pair")
+    return calculate_callable_fullname(fn), b64digest(hash_fingerprint("md5", True, fn)).decode()
+
+
 class Keying(ABC):
     """Decide the Redis key pair a cached value lives under, and manage those keys.
 
@@ -211,10 +223,7 @@ class MultipleKeying(Keying):
 
     @override
     def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
-        if fn is None:
-            raise TypeError("The multiple keying variants require the decorated function to derive the key pair")
-        fullname = calculate_callable_fullname(fn)
-        checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
+        fullname, checksum = _fn_identity(fn)
         return f"{prefix}{name}:{self.key}:{fullname}#{checksum}"
 
     @override
@@ -276,8 +285,5 @@ class ClusterMultipleKeying(MultipleKeying):
 
     @override
     def base_key(self, prefix: str, name: str, fn: Callable | None = None) -> str:
-        if fn is None:
-            raise TypeError("The multiple keying variants require the decorated function to derive the key pair")
-        fullname = calculate_callable_fullname(fn)
-        checksum = b64digest(hash_fingerprint("md5", True, fn)).decode()
+        fullname, checksum = _fn_identity(fn)
         return f"{prefix}{name}:{self.key}:{fullname}#{{{checksum}}}"

@@ -88,8 +88,12 @@ class TestKeying:
         assert "#{" in cm[0] and cm[0].endswith(":0")
 
     def test_multiple_requires_fn(self):
-        with pytest.raises(TypeError):
-            MultipleKeying("lru-m").calc_key_pair("p:", "n", None)
+        message = "The multiple keying variants require the decorated function to derive the key pair"
+        for variant in (MultipleKeying("lru-m"), ClusterMultipleKeying("lru-cm")):
+            with pytest.raises(TypeError) as excinfo:
+                variant.calc_key_pair("p:", "n", None)
+            # The two variants share one guard, so their message cannot drift apart.
+            assert str(excinfo.value) == message
 
 
 class TestPolicy:
