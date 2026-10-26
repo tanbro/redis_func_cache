@@ -415,7 +415,7 @@ async def test_async_unsupported_boundary_raises_not_implemented(async_cache: Re
 
     class PartialAsyncHandler:
         async def before_serialize_async(self, value, *, ctx):
-            raise NotImplementedError
+            raise NotImplementedError()
 
     c = _make_async_cache(PartialAsyncHandler())
 

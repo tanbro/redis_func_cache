@@ -119,8 +119,10 @@ class TestPolicy:
         class Incomplete(Keying):
             pass
 
-        with pytest.raises(NotImplementedError):
-            Incomplete().calc_key_pair("p:", "n")
+        # base_key is abstract: a Keying without it cannot be instantiated, so
+        # the omission surfaces before any Redis key can be derived from it.
+        with pytest.raises(TypeError, match="abstract"):
+            Incomplete()
 
     def test_get_size_dispatches_byindex_structure(self, mocker):
         """get_size picks SCARD vs ZCARD from scripts.index_structure."""
