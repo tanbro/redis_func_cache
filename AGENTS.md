@@ -36,7 +36,13 @@ located identity through the `located` kwarg.
 ## Hard API invariants (break = bug)
 
 - The decorator returned by `cache(...)` accepts only `serializer`, `excludes`, `ttl`, `update_ttl`,
-  `write_only` — never `policy`; unknown kwargs are forwarded to the Lua script and fail at runtime.
+  `write_only` — never `policy`. Anything else is the extension point: extra kwargs are JSON-encoded
+  into the reserved options ARGV and read only by the policy that names them (`cost` for GDSF,
+  `reject_p` for `lru_tr`) — every other policy ignores them silently, and no built-in Lua script
+  reads the options JSON at all. Don't add eager validation of that set (Issue 20: declared by-design
+  permissive). The one failure mode is a value that is not JSON-encodable: `json.dumps` raises at the
+  first call from the read path, before the wrapped function runs, and as a non-`RedisError` it is
+  not covered by `ignore_redis_errors`.
 - Policies are argument-less instances passed positionally; `maxsize`/`ttl`/`serializer` are cache
   options (`cache.maxsize` is settable at runtime).
 - Sync cache requires a sync client, async requires an async client (mixing → `TypeError`).

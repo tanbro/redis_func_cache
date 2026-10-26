@@ -66,7 +66,7 @@ LRU-T plus a probabilistic admission filter: a **new** insertion is rejected wit
 
 ## Per-function policy kwargs
 
-Two policies take extra per-function arguments through the decorator (alongside the common `serializer` / `excludes` / `ttl` / `update_ttl` / `write_only` options). Both are safe to pass under any policy — a policy whose scripts do not read them simply ignores them — but they only have an effect on the policies below. (A kwarg outside the known option set is a different story: it is forwarded to the Lua script and fails at runtime.)
+Two policies take extra per-function arguments through the decorator (alongside the common `serializer` / `excludes` / `ttl` / `update_ttl` / `write_only` options). Both are safe to pass under any policy — a policy whose scripts do not read them simply ignores them — but they only have an effect on the policies below. (Anything outside the known option set is ignored the same way: kwargs are forwarded verbatim into the options JSON, nothing validates them at decoration time, and no built-in script reads that JSON. The single exception is a value that cannot be JSON-encoded — that raises `TypeError` on the first call, from the read path before your function runs, and `ignore_redis_errors` does not cover it because it is not a Redis error.)
 
 ### `cost` — the GDSF policies
 
