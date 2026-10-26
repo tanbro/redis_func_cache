@@ -292,14 +292,18 @@ class GdsfScripts(Scripts):
 
         Reads the ``cost`` decorator kwarg (default 1.0). The value is coerced
         with ``float()`` — whatever that raises for a non-numeric value is
-        propagated as-is; a non-positive or NaN result raises ``ValueError``.
-        No fallback, per the GDSF design decision (a zero cost would make every
-        score zero and eviction degenerate).
+        propagated as-is; a non-positive or non-finite result raises
+        ``ValueError``. No fallback, per the GDSF design decision (a zero cost
+        would make every score zero and eviction degenerate).
+
+        Infinity is rejected for the mirror-image reason: Redis accepts an
+        infinite ZSET score, and eviction is ``ZPOPMIN`` (lowest first), so an
+        ``inf``-cost entry could never be evicted at all.
         """
         raw = None if options is None else options.get("cost")
         cost = self.DEFAULT_COST if raw is None else float(raw)
-        if math.isnan(cost) or cost <= 0:
-            raise ValueError(f"cost must be a positive number (not NaN), got {cost!r}")
+        if not math.isfinite(cost) or cost <= 0:
+            raise ValueError(f"cost must be a positive finite number, got {cost!r}")
         return (cost,)
 
 

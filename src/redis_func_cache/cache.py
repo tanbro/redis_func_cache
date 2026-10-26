@@ -988,7 +988,7 @@ class RedisFuncCache(Generic[RedisClientTV]):
 
                 .. versionadded:: 0.5
 
-            cost: Per-function miss cost for the GDSF policies (positive, non-NaN; float-coerced).
+            cost: Per-function miss cost for the GDSF policies (positive, finite; float-coerced).
                 Defaults to 1.0 when absent; ignored by other policies.
 
                 .. versionadded:: 1.0

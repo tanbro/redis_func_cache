@@ -122,70 +122,42 @@ class TestUnencodableOption:
 
 
 class TestCostValueRange:
-    """What the GDSF value guard covers, and the one thing it does not."""
+    """The GDSF value guard, and the non-finite case it had to be widened for."""
 
-    def test_infinite_cost_is_accepted_by_the_python_guard(self):
-        """The guard rejects NaN and non-positive; ``inf`` passes both checks.
+    def test_infinite_cost_is_rejected(self):
+        """``inf`` is rejected like NaN: both are non-finite, and Redis would take it.
 
-        Pinned as current behavior: ``isnan`` is the only non-finite test in
-        :meth:`GdsfScripts.calc_ext_args`, so ``inf`` is coerced and shipped.
+        The guard used to test only ``isnan``. That mattered because Redis
+        accepts an infinite ZSET score (verified by experiment) and GDSF eviction
+        is ZPOPMIN — lowest score first — so an ``inf``-cost entry can never be
+        popped: it holds its slot in the pair while every finite entry is evicted
+        in its place. ``math.isfinite`` closes that and NaN in one test.
         """
-        assert GdsfScripts().calc_ext_args(options={"cost": math.inf}) == (math.inf,)
+        scripts = GdsfScripts()
+        for bad in (math.inf, -math.inf, math.nan, float("1e400")):
+            with pytest.raises(ValueError, match="positive finite"):
+                scripts.calc_ext_args(options={"cost": bad})
 
-    def test_infinite_cost_end_to_end(self):
-        """Redis accepts an infinite ZSET score, so an ``inf`` cost is stored as-is.
-
-        This is the consequence, not a hypothetical: the score goes in as
-        ``inf`` and the metadata round-trips as ``"1 inf"``.
-        """
-        cache = RedisFuncCache("inf_cost", gdsf_policy, factory=redis_factory, maxsize=2)
+    def test_infinite_cost_is_rejected_through_the_decorator(self):
+        """The same rejection on the path a user actually takes: ``@cache(cost=inf)``."""
+        cache = RedisFuncCache("inf_reject", gdsf_policy, factory=redis_factory)
         cache.purge()
 
         @cache.decorate(cost=math.inf)
         def f(x):
             return f"v{x}"
 
-        assert f(1) == "v1"
-        client = redis_factory()
-        (index_key, value_key), hash_value = cache.policy.locate(cache.prefix, cache.name, f.__wrapped__, (1,), {})
-        member = hash_value.encode() if isinstance(hash_value, str) else hash_value
-        assert client.zscore(index_key, member) == math.inf
-        assert client.hget(value_key, member + b":m") == b"1 inf"
+        with pytest.raises(ValueError, match="positive finite"):
+            f(1)
+        assert cache.get_size() == 0  # nothing was written
         cache.purge()
 
-    def test_infinite_cost_makes_the_entry_unevictable(self):
-        """The eviction consequence the NaN guard exists to prevent.
-
-        ``GdsfScripts.calc_ext_args`` rejects NaN because "a zero cost would
-        make every score zero and eviction degenerate". ``inf`` is the mirror
-        image of that and passes the guard: eviction is ZPOPMIN (lowest score
-        first), so an infinite score is never popped — the entry survives any
-        number of later insertions and holds its slot in the pair forever.
-        """
-        cache = RedisFuncCache("inf_evict", gdsf_policy, factory=redis_factory, maxsize=2)
-        cache.purge()
-
-        @cache.decorate(cost=math.inf)
-        def sticky(x):
-            return f"s{x}"
-
-        @cache.decorate(cost=1.0)
-        def normal(x):
-            return f"n{x}"
-
-        sticky(1)  # one entry with an infinite score, in a pair of maxsize 2
-        for i in range(2, 8):
-            normal(i)  # plenty of pressure to evict it, if scores were finite
-
-        client = redis_factory()
-        (index_key, sticky_value_key), sticky_member = cache.policy.locate(
-            cache.prefix, cache.name, sticky.__wrapped__, (1,), {}
-        )
-        member = sticky_member.encode() if isinstance(sticky_member, str) else sticky_member
-        assert client.zscore(index_key, member) == math.inf
-        assert client.hexists(sticky_value_key, member)  # never evicted
-        assert client.zcard(index_key) == 2  # the pair is capped, so others paid for it
-        cache.purge()
+    def test_finite_costs_still_pass(self):
+        """The guard did not narrow the accepted domain beyond non-finite."""
+        scripts = GdsfScripts()
+        assert scripts.calc_ext_args(options={"cost": 1e12}) == (1e12,)
+        assert scripts.calc_ext_args(options={"cost": 5e-324}) == (5e-324,)  # smallest subnormal
+        assert scripts.calc_ext_args(options={"cost": 0.5}) == (0.5,)
 
 
 class TestNothingElseConsumesOptions:

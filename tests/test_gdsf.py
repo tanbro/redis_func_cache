@@ -125,6 +125,8 @@ def test_cost_validated():
         scripts.calc_ext_args(options={"cost": -1.0})
     with pytest.raises(ValueError):
         scripts.calc_ext_args(options={"cost": float("nan")})
+    with pytest.raises(ValueError):  # an infinite score would be unevictable
+        scripts.calc_ext_args(options={"cost": float("inf")})
     assert scripts.calc_ext_args(options={}) == (1.0,)
     assert scripts.calc_ext_args(options=None) == (1.0,)
     assert scripts.calc_ext_args(options={"cost": "2"}) == (2.0,)
